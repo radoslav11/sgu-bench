@@ -1,0 +1,52 @@
+#include <iostream>
+#include <cmath>
+#include <iomanip>
+
+/**
+ * Problem Analysis:
+ * The mass of the disc is given by the integral of the density function over the disc area:
+ * M = \iint_D ln(x^2 + y^2) dA, where D is the disc centered at (x0, y0) with radius r.
+ *
+ * The function u(x, y) = ln(x^2 + y^2) is harmonic on any domain not containing the origin.
+ * Since the origin is strictly outside the disc, u(x, y) is harmonic within and on the boundary of D.
+ *
+ * The mean value property for harmonic functions states that the average value of a harmonic 
+ * function over a disc is equal to the value of the function at the center of the disc.
+ * Average value: u_avg = (1 / Area(D)) * \iint_D u(x, y) dA.
+ * Therefore:
+ * \iint_D u(x, y) dA = Area(D) * u(x0, y0)
+ * M = (pi * r^2) * ln(x0^2 + y0^2).
+ *
+ * Example check:
+ * x0 = 3, y0 = 4, r = 2
+ * M = (pi * 2^2) * ln(3^2 + 4^2) = 4 * pi * ln(25)
+ * M \approx 4 * 3.141592653589793 * 3.2188758248682006 \approx 40.449586576894895
+ * This matches the sample output.
+ */
+
+int main() {
+    // Fast I/O
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+
+    long long x0, y0, r;
+    if (!(std::cin >> x0 >> y0 >> r)) return 0;
+
+    // Use long double for high precision calculations
+    long double x0_ld = (long double)x0;
+    long double y0_ld = (long double)y0;
+    long double r_ld = (long double)r;
+    
+    // Constant pi using acos(-1.0)
+    long double pi = std::acos(-1.0L);
+
+    // Calculate mass: M = pi * r^2 * ln(x0^2 + y0^2)
+    long double mass = pi * r_ld * r_ld * std::log(x0_ld * x0_ld + y0_ld * y0_ld);
+
+    // Output with sufficient precision. The problem asks for a relative error of 10^-12.
+    // 18 digits of precision is sufficient.
+    std::cout << std::fixed << std::setprecision(18) << mass << std::endl;
+
+    return 0;
+}
+

@@ -1,0 +1,60 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<vector<int>> l(n + 1, vector<int>(n + 1));
+    for (int i = 1; i <= n; ++i) {
+        for (int j = 1; j <= n; ++j) {
+            cin >> l[i][j];
+        }
+    }
+
+    int k;
+    cin >> k;
+    vector<int> r(k + 1);
+    for (int i = 1; i <= k; ++i) {
+        cin >> r[i];
+    }
+
+    vector<bool> curr(n + 1, false);
+    curr[1] = true;
+
+    for (int step = 1; step <= k; ++step) {
+        vector<bool> next_dp(n + 1, false);
+        int req_len = r[step];
+        for (int v = 1; v <= n; ++v) {
+            if (!curr[v]) continue;
+            for (int u = 1; u <= n; ++u) {
+                if (l[v][u] == req_len) {
+                    next_dp[u] = true;
+                }
+            }
+        }
+        curr = next_dp;
+    }
+
+    vector<int> ans;
+    for (int v = 1; v <= n; ++v) {
+        if (curr[v]) {
+            ans.push_back(v);
+        }
+    }
+
+    cout << ans.size() << "\n";
+    if (!ans.empty()) {
+        for (size_t i = 0; i < ans.size(); ++i) {
+            cout << ans[i] << (i + 1 == ans.size() ? "" : " ");
+        }
+        cout << "\n";
+    }
+
+    return 0;
+}

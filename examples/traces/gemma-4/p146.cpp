@@ -1,0 +1,85 @@
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <algorithm>
+
+/**
+ * Problem Analysis:
+ * The runner moves along a ring road of length L for N intervals.
+ * Each interval i has a duration Ti and speed Vi.
+ * Total distance D = sum(Ti * Vi).
+ * The position on the ring road is P = D mod L.
+ * The distance between the start (0) and finish (P) on the ring road is the minimum of:
+ * 1. The distance clockwise: P
+ * 2. The distance counter-clockwise: L - P
+ * So, result = min(P, L - P).
+ *
+ * Constraints and Precision:
+ * L <= 1000, N <= 20000, Ti <= 10^7, Vi <= 10^6.
+ * Max total distance D = 20000 * 10^7 * 10^6 = 2 * 10^17.
+ * L has up to 4 decimal places.
+ * D can be as large as 2 * 10^17, which fits in a 64-bit integer (long long).
+ * To avoid precision issues with floating-point modulo, we can scale everything by 10,000.
+ * Scaling D by 10,000 gives D' = D * 10,000 <= 2 * 10^21.
+ * This exceeds 64-bit integer range but fits comfortably in a 128-bit integer (__int128_t).
+ */
+
+using namespace std;
+
+// Using __int128_t to handle large scaled values.
+typedef __int128_t int128;
+
+int main() {
+    // Speed up standard I/O operations.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string L_str;
+    int N;
+    if (!(cin >> L_str >> N)) return 0;
+
+    // Parse the ring road length L into an integer L_int = L * 10000.
+    long long L_int_ll = 0;
+    size_t dot_pos = L_str.find('.');
+    if (dot_pos == string::npos) {
+        // No decimal point found; multiply by 10000.
+        L_int_ll = stoll(L_str) * 10000;
+    } else {
+        // Split into integer and fractional parts to handle precision manually.
+        string integer_part = L_str.substr(0, dot_pos);
+        string fractional_part = L_str.substr(dot_pos + 1);
+        // Normalize fractional part to exactly 4 digits.
+        while (fractional_part.length() < 4) fractional_part += '0';
+        if (fractional_part.length() > 4) fractional_part = fractional_part.substr(0, 4);
+        // Concatenate and convert to long long.
+        L_int_ll = stoll(integer_part + fractional_part);
+    }
+
+    int128 L_int = (int128)L_int_ll;
+    int128 total_D_int = 0;
+    for (int i = 0; i < N; ++i) {
+        long long T, V;
+        if (!(cin >> T >> V)) break;
+        // Calculate distance for current interval and add to total distance.
+        total_D_int += (int128)T * V;
+    }
+
+    // Scale the total distance D by 10,000 to match the scale of L_int.
+    int128 total_D_scaled = total_D_int * 10000;
+    
+    // The position P on the ring road is (D * 10000) % (L * 10000).
+    int128 pos_scaled = total_D_scaled % L_int;
+
+    // The shortest distance between 0 and pos_scaled on a circumference of L_int is:
+    // min(pos_scaled, L_int - pos_scaled).
+    int128 dist_scaled = (pos_scaled < L_int - pos_scaled) ? pos_scaled : (L_int - pos_scaled);
+
+    // Convert the integer scaled distance back to a double for output.
+    double final_dist = (double)dist_scaled / 10000.0;
+
+    // Output the distance with exactly 4 digits after the decimal point.
+    cout << fixed << setprecision(4) << final_dist << endl;
+
+    return 0;
+}
+

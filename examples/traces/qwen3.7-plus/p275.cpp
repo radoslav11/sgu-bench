@@ -1,0 +1,36 @@
+#include <iostream>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    if (!(cin >> n)) return 0;
+    
+    long long basis[64] = {0};
+    for (int i = 0; i < n; ++i) {
+        long long x;
+        cin >> x;
+        for (int j = 62; j >= 0; --j) {
+            if ((x >> j) & 1) {
+                if (!basis[j]) {
+                    basis[j] = x;
+                    break;
+                }
+                x ^= basis[j];
+            }
+        }
+    }
+    
+    long long ans = 0;
+    for (int j = 62; j >= 0; --j) {
+        if ((ans ^ basis[j]) > ans) {
+            ans ^= basis[j];
+        }
+    }
+    
+    cout << ans << "\n";
+    return 0;
+}

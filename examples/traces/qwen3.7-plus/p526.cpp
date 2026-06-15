@@ -1,0 +1,183 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+struct Stone {
+    long long x1, x2, t;
+};
+
+struct Interval {
+    long long L, R;
+};
+
+vector<Interval> expand_and_merge(const vector<Interval>& intervals, long long v, long long delta_t) {
+    if (intervals.empty()) return {};
+    vector<Interval> res;
+    long long expand_by = v * delta_t;
+    res.push_back({intervals[0].L - expand_by, intervals[0].R + expand_by});
+    for (size_t i = 1; i < intervals.size(); ++i) {
+        long long L = intervals[i].L - expand_by;
+        long long R = intervals[i].R + expand_by;
+        if (L <= res.back().R) {
+            res.back().R = max(res.back().R, R);
+        } else {
+            res.push_back({L, R});
+        }
+    }
+    return res;
+}
+
+vector<Interval> remove_interval(const vector<Interval>& intervals, long long x1, long long x2) {
+    vector<Interval> res;
+    for (const auto& p : intervals) {
+        long long L = p.L;
+        long long R = p.R;
+        if (R <= x1 || L >= x2) {
+            res.push_back({L, R});
+        } else {
+            if (L < x1) {
+                res.push_back({L, x1});
+            }
+            if (R > x2) {
+                res.push_back({x2, R});
+            }
+        }
+    }
+    return res;
+}
+
+struct Event {
+    long double t;
+    vector<pair<long double, long double>> S;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    long long v, G;
+    int n;
+    if (!(cin >> v >> G >> n)) return 0;
+
+    vector<Stone> stones(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> stones[i].x1 >> stones[i].x2 >> stones[i].t;
+    }
+
+    sort(stones.begin(), stones.end(), [](const Stone& a, const Stone& b) {
+        return a.t < b.t;
+    });
+
+    long long t_curr = 0;
+    vector<Interval> S_curr = {{0, 0}};
+
+    vector<Event> events;
+    events.push_back({0.0, {{0.0, 0.0}}});
+
+    int i = 0;
+    bool reached = false;
+    long long T_star_num = 0;
+    long long T_star_den = 1;
+
+    while (i < n) {
+        long long t_i = stones[i].t;
+        long long delta_t = t_i - t_curr;
+
+        long long min_dist = -1;
+        for (const auto& inter : S_curr) {
+            long long dist = max(0LL, max(inter.L - G, G - inter.R));
+            if (min_dist == -1 || dist < min_dist) {
+                min_dist = dist;
+            }
+        }
+
+        if (min_dist <= v * delta_t) {
+            T_star_num = t_curr * v + min_dist;
+            T_star_den = v;
+            reached = true;
+            break;
+        }
+
+        S_curr = expand_and_merge(S_curr, v, delta_t);
+
+        int j = i;
+        while (j < n && stones[j].t == t_i) {
+            S_curr = remove_interval(S_curr, stones[j].x1, stones[j].x2);
+            j++;
+        }
+
+        if (S_curr.empty()) {
+            cout << -1 << "\n";
+            return 0;
+        }
+
+        vector<pair<long double, long double>> S_double;
+        for (const auto& inter : S_curr) {
+            S_double.push_back({(long double)inter.L, (long double)inter.R});
+        }
+        events.push_back({(long double)t_i, S_double});
+
+        t_curr = t_i;
+        i = j;
+    }
+
+    if (!reached) {
+        long long min_dist = -1;
+        for (const auto& inter : S_curr) {
+            long long dist = max(0LL, max(inter.L - G, G - inter.R));
+            if (min_dist == -1 || dist < min_dist) {
+                min_dist = dist;
+            }
+        }
+        T_star_num = t_curr * v + min_dist;
+        T_star_den = v;
+        reached = true;
+    }
+
+    long double T_star = (long double)T_star_num / T_star_den;
+    events.push_back({T_star, {{(long double)G, (long double)G}}});
+
+    vector<long double> x(events.size());
+    x.back() = (long double)G;
+
+    for (int k = (int)events.size() - 2; k >= 0; --k) {
+        long double t_next = events[k+1].t;
+        long double t_curr_evt = events[k].t;
+        long double dt = t_next - t_curr_evt;
+
+        long double next_x = x[k+1];
+        long double target_L = next_x - (long double)v * dt;
+        long double target_R = next_x + (long double)v * dt;
+
+        long double chosen_x = -1e18;
+        for (const auto& inter : events[k].S) {
+            long double L = inter.first;
+            long double R = inter.second;
+            if (max(L, target_L) <= min(R, target_R) + 1e-9) {
+                chosen_x = max(L, target_L);
+                break;
+            }
+        }
+        x[k] = chosen_x;
+    }
+
+    vector<pair<long double, long double>> instructions;
+    for (size_t k = 0; k + 1 < events.size(); ++k) {
+        long double dt = events[k+1].t - events[k].t;
+        if (dt > 1e-9) {
+            long double speed = (x[k+1] - x[k]) / dt;
+            instructions.push_back({speed, dt});
+        }
+    }
+
+    cout << instructions.size() << "\n";
+    cout << fixed << setprecision(12);
+    for (const auto& inst : instructions) {
+        cout << inst.first << " " << inst.second << "\n";
+    }
+
+    return 0;
+}

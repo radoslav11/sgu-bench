@@ -1,0 +1,203 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include <unordered_map>
+#include <algorithm>
+#include <iomanip>
+#include <cstdio>
+#include <iterator>
+
+using namespace std;
+
+int pref[10081];
+void build_pref() {
+    pref[0] = 0;
+    for (int i = 0; i < 10080; ++i) {
+        int day = i / 1440;
+        int min_of_day = i % 1440;
+        bool is_non_working = (day >= 5) || (min_of_day < 540) || (min_of_day >= 1080);
+        pref[i + 1] = pref[i] + (is_non_working ? 1 : 0);
+    }
+}
+
+long long parse_date(const string& s) {
+    int y, m, d, h, min;
+    sscanf(s.c_str(), "%d-%d-%d %d:%d", &y, &m, &d, &h, &min);
+    int cum[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+    int day_of_year = cum[m - 1] + d - 1;
+    long long days_since_ref = day_of_year + 4;
+    return days_since_ref * 1440LL + h * 60LL + min;
+}
+
+unordered_map<string, int> name_to_id;
+int get_id(const string& name) {
+    if (name_to_id.find(name) == name_to_id.end()) {
+        name_to_id[name] = name_to_id.size();
+    }
+    return name_to_id[name];
+}
+
+long long T1_min, T2_min;
+int T_limit;
+int invalid_count = 0;
+vector<int> W;
+
+void add_interval(long long u, long long v, int G, int sign) {
+    if (u >= v) return;
+    long long current = u;
+    while (current < v) {
+        long long week_start = (current / 10080) * 10080;
+        long long week_end = week_start + 10080;
+        long long next = min(v, week_end);
+        
+        int w = current / 10080;
+        int non_working = pref[next - week_start] - pref[current - week_start];
+        
+        int &val = W[G * 55 + w];
+        int new_val = val + sign * non_working;
+        
+        if (val > T_limit) {
+            if (new_val <= T_limit) invalid_count--;
+        } else {
+            if (new_val > T_limit) invalid_count++;
+        }
+        val = new_val;
+        
+        current = next;
+    }
+}
+
+map<long long, int> schedule;
+
+int main() {
+    ios::sync_with_stdio(0);
+    cin.tie(0);
+    
+    build_pref();
+    
+    int N, M, T;
+    if (!(cin >> N >> M >> T)) return 0;
+    T_limit = T * 60;
+    W.assign(300005 * 55, 0);
+    
+    string t1_str, t2_str;
+    cin >> t1_str >> t2_str;
+    T1_min = parse_date(t1_str);
+    T2_min = parse_date(t2_str);
+    
+    map<long long, int> initial_sched;
+    for (int i = 0; i < N; ++i) {
+        string date_str, name;
+        cin >> date_str >> name;
+        long long t = parse_date(date_str);
+        int gid = get_id(name);
+        initial_sched[t] = gid;
+    }
+    
+    auto it = initial_sched.begin();
+    long long current_start = it->first;
+    int current_G = it->second;
+    ++it;
+    while (it != initial_sched.end()) {
+        long long next_start = it->first;
+        long long L = max(current_start, T1_min);
+        long long R = min(next_start, T2_min);
+        if (L < R) {
+            schedule[L] = current_G;
+            add_interval(L, R, current_G, 1);
+        }
+        current_start = next_start;
+        current_G = it->second;
+        ++it;
+    }
+    long long L = max(current_start, T1_min);
+    long long R = T2_min;
+    if (L < R) {
+        schedule[L] = current_G;
+        add_interval(L, R, current_G, 1);
+    }
+    
+    auto split = [&](long long pos) {
+        if (pos > T2_min) return schedule.end();
+        auto it = schedule.lower_bound(pos);
+        if (it != schedule.end() && it->first == pos) {
+            return it;
+        }
+        --it;
+        long long start = it->first;
+        int G = it->second;
+        schedule[pos] = G;
+        return schedule.find(pos);
+    };
+    
+    auto assign = [&](long long L, long long R, int G_new) {
+        if (L >= R) return;
+        L = max(L, T1_min);
+        R = min(R, T2_min);
+        if (L >= R) return;
+        
+        auto it_r = split(R);
+        auto it_l = split(L);
+        
+        auto it_cur = it_l;
+        while (it_cur != it_r) {
+            long long start = it_cur->first;
+            auto next_it = next(it_cur);
+            long long end = next_it->first;
+            int G_old = it_cur->second;
+            
+            add_interval(start, end, G_old, -1);
+            it_cur++;
+        }
+        
+        schedule.erase(it_l, it_r);
+        schedule[L] = G_new;
+        add_interval(L, R, G_new, 1);
+    };
+    
+    struct Update {
+        long long A, B, E;
+        int G;
+    };
+    vector<Update> updates(M);
+    for (int i = 0; i < M; ++i) {
+        string a_str, b_str, e_str, name;
+        cin >> a_str >> b_str >> e_str >> name;
+        updates[i] = {parse_date(a_str), parse_date(b_str), parse_date(e_str), get_id(name)};
+    }
+    
+    long long current_time = T1_min;
+    long long total_valid_time = 0;
+    
+    for (int i = 0; i < M; ) {
+        long long A = updates[i].A;
+        if (A >= T2_min) {
+            break;
+        }
+        
+        if (current_time < A) {
+            if (invalid_count == 0) {
+                total_valid_time += (A - current_time);
+            }
+        }
+        
+        while (i < M && updates[i].A == A) {
+            assign(updates[i].B, updates[i].E, updates[i].G);
+            i++;
+        }
+        
+        current_time = A;
+    }
+    
+    if (current_time < T2_min) {
+        if (invalid_count == 0) {
+            total_valid_time += (T2_min - current_time);
+        }
+    }
+    
+    double ans = (double)total_valid_time / (double)(T2_min - T1_min);
+    cout << fixed << setprecision(15) << ans << "\n";
+    
+    return 0;
+}

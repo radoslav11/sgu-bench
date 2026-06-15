@@ -1,0 +1,198 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const double EPS = 1e-12;
+
+struct Pt {
+    double x, y;
+    Pt() {}
+    Pt(double _x, double _y) : x(_x), y(_y) {}
+    Pt operator + (const Pt& o) const { return Pt(x + o.x, y + o.y); }
+    Pt operator - (const Pt& o) const { return Pt(x - o.x, y - o.y); }
+    Pt operator * (double k) const { return Pt(x * k, y * k); }
+};
+
+double crossp(Pt a, Pt b) {
+    return a.x * b.y - a.y * b.x;
+}
+
+double dotp(Pt a, Pt b) {
+    return a.x * b.x + a.y * b.y;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<Pt> p(N);
+    for (int i = 0; i < N; i++) cin >> p[i].x >> p[i].y;
+
+    vector<double> pref(2 * N + 1, 0.0);
+    for (int i = 0; i < 2 * N; i++) {
+        pref[i + 1] = pref[i] + crossp(p[i % N], p[(i + 1) % N]);
+    }
+
+    double totalSigned = pref[N];
+    double totalArea = fabs(totalSigned) / 2.0;
+
+    int L = 0, R = 0;
+    for (int i = 1; i < N; i++) {
+        if (p[i].x < p[L].x || (p[i].x == p[L].x && p[i].y < p[L].y)) L = i;
+        if (p[i].x > p[R].x || (p[i].x == p[R].x && p[i].y > p[R].y)) R = i;
+    }
+
+    auto idxForward = [&](int start, int k) {
+        return (start + k) % N;
+    };
+
+    auto chainLen = [&](int a, int b) {
+        return (b - a + N) % N + 1;
+    };
+
+    auto ternaryMaxChain = [&](int start, int len, Pt dir) {
+        int l = 0, r = len - 1;
+        auto val = [&](int k) {
+            return dotp(p[(start + k) % N], dir);
+        };
+
+        while (r - l > 5) {
+            int m1 = l + (r - l) / 3;
+            int m2 = r - (r - l) / 3;
+            if (val(m1) < val(m2)) l = m1;
+            else r = m2;
+        }
+
+        int best = l;
+        for (int i = l + 1; i <= r; i++) {
+            if (val(i) > val(best)) best = i;
+        }
+        return (start + best) % N;
+    };
+
+    auto extremeMax = [&](Pt dir) {
+        int len1 = chainLen(L, R);
+        int len2 = chainLen(R, L);
+
+        int a = ternaryMaxChain(L, len1, dir);
+        int b = ternaryMaxChain(R, len2, dir);
+
+        if (dotp(p[a], dir) >= dotp(p[b], dir)) return a;
+        return b;
+    };
+
+    auto value = [&](Pt normal, double c, int id) {
+        return dotp(normal, p[id]) - c;
+    };
+
+    auto intersect = [&](Pt normal, double c, int a, int b) {
+        double va = value(normal, c, a);
+        double vb = value(normal, c, b);
+        double t = va / (va - vb);
+        return p[a] + (p[b] - p[a]) * t;
+    };
+
+    auto crossingForward = [&](Pt normal, double c, int mn, int mx) {
+        int len = chainLen(mn, mx);
+
+        int l = 0, r = len - 1;
+        while (l < r) {
+            int mid = (l + r) / 2;
+            int id = (mn + mid) % N;
+            if (value(normal, c, id) >= 0) r = mid;
+            else l = mid + 1;
+        }
+
+        int k = l;
+        int a = (mn + k - 1 + N) % N;
+        int b = (mn + k) % N;
+        Pt q = intersect(normal, c, a, b);
+
+        return tuple<Pt, int>(q, a);
+    };
+
+    auto crossingBackward = [&](Pt normal, double c, int mn, int mx) {
+        int len = chainLen(mx, mn);
+
+        int l = 0, r = len - 1;
+        while (l < r) {
+            int mid = (l + r) / 2;
+            int id = (mn - mid + N * 2) % N;
+            if (value(normal, c, id) >= 0) r = mid;
+            else l = mid + 1;
+        }
+
+        int k = l;
+        int a = (mn - k + 1 + N * 2) % N;
+        int b = (mn - k + N * 2) % N;
+
+        Pt q = intersect(normal, c, a, b);
+
+        return tuple<Pt, int>(q, b);
+    };
+
+    auto edgeSum = [&](int from, int to) {
+        if (from > to) to += N;
+        return pref[to + 1] - pref[from];
+    };
+
+    auto regionArea = [&](Pt A, int edgeA, Pt B, int edgeB) {
+        int nextA = (edgeA + 1) % N;
+
+        double s = 0.0;
+        s += crossp(A, p[nextA]);
+
+        int from = nextA;
+        int to = edgeB;
+        if (from <= to) {
+            s += pref[to + 1] - pref[from];
+        } else {
+            s += pref[N] - pref[from];
+            s += pref[to + 1];
+        }
+
+        s += crossp(p[edgeB], B);
+        s += crossp(B, A);
+
+        return fabs(s) / 2.0;
+    };
+
+    int P;
+    cin >> P;
+
+    cout.setf(ios::fixed);
+    cout << setprecision(6);
+
+    while (P--) {
+        Pt a, b;
+        cin >> a.x >> a.y >> b.x >> b.y;
+
+        Pt d = b - a;
+        Pt normal(-d.y, d.x);
+        double c = dotp(normal, a);
+
+        int mx = extremeMax(normal);
+        int mn = extremeMax(Pt(-normal.x, -normal.y));
+
+        double vmax = value(normal, c, mx);
+        double vmin = value(normal, c, mn);
+
+        if (vmax <= EPS || vmin >= -EPS) {
+            cout << "0.000000\n";
+            continue;
+        }
+
+        auto [A, edgeA] = crossingForward(normal, c, mn, mx);
+        auto [B, edgeB] = crossingBackward(normal, c, mn, mx);
+
+        double part = regionArea(A, edgeA, B, edgeB);
+        part = min(part, totalArea - part);
+        if (part < 0 && part > -1e-7) part = 0;
+
+        cout << part << '\n';
+    }
+
+    return 0;
+}

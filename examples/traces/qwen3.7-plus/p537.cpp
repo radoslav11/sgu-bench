@@ -1,0 +1,113 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <numeric>
+#include <algorithm>
+
+using namespace std;
+
+long long mults[10];
+bool used_digits[10];
+int k;
+int first_char_idx;
+long long current_gcd;
+bool found_gcd_1;
+
+void dfs(int idx, long long current_val) {
+    if (found_gcd_1) return;
+    if (idx == k) {
+        if (current_gcd == 0) {
+            current_gcd = current_val;
+        } else {
+            current_gcd = std::gcd(current_gcd, current_val);
+        }
+        if (current_gcd == 1) {
+            found_gcd_1 = true;
+        }
+        return;
+    }
+    
+    int start = (idx == first_char_idx) ? 1 : 0;
+    for (int d = start; d <= 9; ++d) {
+        if (!used_digits[d]) {
+            used_digits[d] = true;
+            dfs(idx + 1, current_val + d * mults[idx]);
+            used_digits[d] = false;
+            if (found_gcd_1) return;
+        }
+    }
+}
+
+void solve(int tc) {
+    string s;
+    cin >> s;
+    
+    long long M[26] = {0};
+    long long power = 1;
+    for (int i = (int)s.length() - 1; i >= 0; --i) {
+        M[s[i] - 'a'] += power;
+        power *= 10;
+    }
+    
+    vector<int> distinct;
+    for (int i = 0; i < 26; ++i) {
+        if (M[i] > 0) {
+            distinct.push_back(i);
+        }
+    }
+    
+    k = distinct.size();
+    for (int i = 0; i < k; ++i) {
+        mults[i] = M[distinct[i]];
+    }
+    
+    first_char_idx = -1;
+    for (int i = 0; i < k; ++i) {
+        if (distinct[i] == s[0] - 'a') {
+            first_char_idx = i;
+            break;
+        }
+    }
+    
+    for (int i = 0; i < 10; ++i) {
+        used_digits[i] = false;
+    }
+    
+    current_gcd = 0;
+    found_gcd_1 = false;
+    
+    if (k == 1) {
+        current_gcd = mults[0];
+    } else {
+        dfs(0, 0);
+    }
+    
+    vector<long long> divisors;
+    for (long long i = 1; i * i <= current_gcd; ++i) {
+        if (current_gcd % i == 0) {
+            divisors.push_back(i);
+            if (i * i != current_gcd) {
+                divisors.push_back(current_gcd / i);
+            }
+        }
+    }
+    sort(divisors.begin(), divisors.end());
+    
+    cout << "Case " << tc << ":";
+    for (long long d : divisors) {
+        cout << " " << d;
+    }
+    cout << "\n";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int t;
+    if (cin >> t) {
+        for (int tc = 1; tc <= t; ++tc) {
+            solve(tc);
+        }
+    }
+    return 0;
+}

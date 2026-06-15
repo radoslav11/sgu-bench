@@ -1,0 +1,22 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    long long n;
+    cin>>n;
+    // partition numbers up to ~40 (since 2^40 > 1e12)
+    vector<long long> p(50,0);
+    p[0]=1;
+    for(int i=1;i<50;i++){
+        for(int j=i;j<50;j++) p[j]+=p[j-i];
+    }
+    long long ans=1;
+    for(long long d=2;d*d<=n;d++){
+        if(n%d==0){
+            int e=0;
+            while(n%d==0){n/=d;e++;}
+            ans*=p[e];
+        }
+    }
+    if(n>1) ans*=p[1];
+    cout<<ans<<endl;
+}

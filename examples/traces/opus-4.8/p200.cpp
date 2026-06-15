@@ -1,0 +1,60 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int primes[100];
+
+void sieve(int t){
+    int cnt=0;
+    for(int n=2;cnt<t;n++){
+        bool p=true;
+        for(int i=2;i*i<=n;i++) if(n%i==0){p=false;break;}
+        if(p) primes[cnt++]=n;
+    }
+}
+
+int main(){
+    int t,m;
+    cin>>t>>m;
+    sieve(t);
+    vector<bitset<100>> rows(m);
+    for(int i=0;i<m;i++){
+        long long b; cin>>b;
+        for(int j=0;j<t;j++){
+            int e=0;
+            while(b%primes[j]==0){b/=primes[j];e++;}
+            if(e&1) rows[i].set(j);
+        }
+    }
+    // gaussian elimination to find rank
+    int rank=0;
+    for(int col=0;col<t && rank<m;col++){
+        int piv=-1;
+        for(int r=rank;r<m;r++) if(rows[r].test(col)){piv=r;break;}
+        if(piv<0) continue;
+        swap(rows[rank],rows[piv]);
+        for(int r=0;r<m;r++) if(r!=rank && rows[r].test(col)) rows[r]^=rows[rank];
+        rank++;
+    }
+    int free=m-rank;
+    // compute 2^free - 1 as big integer
+    vector<int> num(1,1); // base 10 digits little endian
+    for(int i=0;i<free;i++){
+        int carry=0;
+        for(size_t j=0;j<num.size();j++){
+            int v=num[j]*2+carry;
+            num[j]=v%10;
+            carry=v/10;
+        }
+        while(carry){num.push_back(carry%10);carry/=10;}
+    }
+    // subtract 1
+    int i=0;
+    while(num[i]==0){num[i]=9;i++;}
+    num[i]--;
+    // remove leading zeros
+    while(num.size()>1 && num.back()==0) num.pop_back();
+    string s;
+    for(int j=num.size()-1;j>=0;j--) s+=('0'+num[j]);
+    cout<<s<<"\n";
+    return 0;
+}

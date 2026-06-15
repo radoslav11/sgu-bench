@@ -1,0 +1,62 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<string> grid(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> grid[i];
+    }
+
+    vector<char> count(N * M, 0);
+    vector<pair<int, int>> q;
+    q.reserve(N * M);
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < M; ++j) {
+            if (grid[i][j] == 'X') {
+                q.push_back({i, j});
+            }
+        }
+    }
+
+    int ans = 0;
+    int dr[] = {-1, 1, 0, 0};
+    int dc[] = {0, 0, -1, 1};
+
+    int head = 0;
+    while (head < (int)q.size()) {
+        int r = q[head].first;
+        int c = q[head].second;
+        head++;
+        ans++;
+
+        for (int i = 0; i < 4; ++i) {
+            int nr = r + dr[i];
+            int nc = c + dc[i];
+
+            if (nr >= 0 && nr < N && nc >= 0 && nc < M) {
+                if (grid[nr][nc] == '.') {
+                    int idx = nr * M + nc;
+                    count[idx]++;
+                    if (count[idx] == 2) {
+                        grid[nr][nc] = 'X';
+                        q.push_back({nr, nc});
+                    }
+                }
+            }
+        }
+    }
+
+    cout << ans << "\n";
+
+    return 0;
+}

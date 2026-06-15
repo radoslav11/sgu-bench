@@ -1,0 +1,116 @@
+#include <iostream>
+#include <vector>
+#include <numeric>
+
+using namespace std;
+
+/**
+ * Problem: Find the number of non-isomorphic complete graphs with N vertices and M colors.
+ * Solution: Use Burnside's Lemma. The number of non-isomorphic colored graphs is:
+ * (1/N!) * Sum over g in S_N: M^(number of edge orbits under g)
+ * For a permutation with cycle structure (a_1, a_2, ..., a_N) where a_i is the number of cycles of length i:
+ * Number of permutations with this cycle structure: N! / (Product_i (i^a_i * a_i!))
+ * Total edge orbits E = Sum_i (a_i * floor(i/2) + a_i*(a_i-1)/2 * i) + Sum_{i < j} (a_i * a_j * gcd(i, j))
+ * The sum simplifies to:
+ * Total = Sum_{partitions of N} [ (1 / Product_i (i^a_i * a_i!)) * M^E ]
+ */
+
+long long N, M, P;
+long long ans = 0;
+int counts[55];
+long long inv[1001];
+
+// Modular exponentiation
+long long power(long long base, long long exp) {
+    long long res = 1;
+    base %= P;
+    while (exp > 0) {
+        if (exp % 2 == 1) res = (res * base) % P;
+        base = (base * base) % P;
+        exp /= 2;
+    }
+    return res;
+}
+
+// Modular inverse using Fermat's Little Theorem
+long long modInverse(long long n) {
+    return power(n, P - 2);
+}
+
+// Greatest Common Divisor
+int gcd(int a, int b) {
+    while (b) {
+        a %= b;
+        swap(a, b);
+    }
+    return a;
+}
+
+/**
+ * backtrack: Recursively generates all partitions of N.
+ * rem: number of vertices remaining to be partitioned.
+ * i: current cycle length being considered.
+ * current_E: current number of edge orbits for the selected cycle structure.
+ * current_W: current product of (1 / (i^a_i * a_i!)) mod P.
+ */
+void backtrack(int rem, int i, int current_E, long long current_W) {
+    if (rem == 0) {
+        ans = (ans + current_W * power(M, current_E)) % P;
+        return;
+    }
+    if (i > N) return;
+
+    // Option 1: The number of cycles of length i is zero.
+    backtrack(rem, i + 1, current_E, current_W);
+
+    // Option 2: The number of cycles of length i is k (k >= 1).
+    for (int k = 1; k * i <= rem; ++k) {
+        int next_E = current_E + k * (i / 2) + (k * (k - 1) / 2) * i;
+        for (int j = 1; j < i; ++j) {
+            if (counts[j] > 0) {
+                next_E += k * counts[j] * gcd(i, j);
+            }
+        }
+        
+        counts[i] = k;
+        long long next_W = current_W;
+        // Update next_W: current_W / (i^k * k!) mod P
+        for (int m = 0; m < k; ++m) next_W = (next_W * inv[i]) % P;
+        for (int m = 1; m <= k; ++m) next_W = (next_W * inv[m]) % P;
+        
+        backtrack(rem - k * i, i + 1, next_E, next_W);
+        counts[i] = 0;
+    }
+}
+
+int main() {
+    // Optimize I/O operations
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> N >> M >> P)) return 0;
+
+    // Handle the simplest edge case
+    if (N == 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    // Precompute modular inverses
+    for (int i = 1; i <= 1000; ++i) {
+        inv[i] = modInverse(i);
+    }
+
+    // Initialize variables for recursion
+    for (int i = 0; i < 55; ++i) counts[i] = 0;
+    ans = 0;
+
+    // Start backtracking to find all partitions
+    backtrack(N, 1, 0, 1);
+
+    // Output the final result modulo P
+    cout << ans << endl;
+
+    return 0;
+}
+

@@ -1,0 +1,118 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * - N moles, N <= 800.
+ * - Three special moles: Shureg (not blind) and two Ruslans (indistinguishable).
+ * - For a triplet of holes (H_i, H_j, H_k), Shureg is at H_i, and Ruslans are at H_j and H_k.
+ * - Shureg can see the others if the angle A at H_i satisfies:
+ *   1. 0 < A < 90 degrees (A is acute).
+ *   2. floor(90 / A) == (third decimal digit of cos A).
+ *   The third decimal digit of cos A is floor(1000 * cos A) mod 10.
+ * - The condition floor(90 / A) = V where V is a single digit (1..9) implies:
+ *   V <= 90 / A < V + 1
+ *   90 / (V + 1) < A <= 90 / V
+ *   Since cos(x) is monotonically decreasing on (0, 90), this is equivalent to:
+ *   cos(90 / V) <= cos A < cos(90 / (V + 1)).
+ * 
+ * Complexity:
+ * - The triple loop approach over all (i, j, k) gives O(N^3).
+ * - N = 800, N^3 / 2 = 2.56 * 10^8. With careful optimization, this should pass within 2.25s.
+ */
+
+struct Point {
+    int x, y;
+};
+
+int main() {
+    // Speed up I/O
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+    vector<Point> p(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> p[i].x >> p[i].y;
+    }
+
+    // Precompute the cos(90/V) values for V = 1..10
+    // These will help determine V without calling acos() in the innermost loop.
+    // T[V] = cos(90/V). 
+    // If T[V] <= cos A < T[V+1], then floor(90/A) = V.
+    double T[11];
+    for (int v = 1; v <= 10; ++v) {
+        T[v] = cos(90.0 / v * M_PI / 180.0);
+    }
+
+    long long total_count = 0;
+    for (int i = 0; i < n; ++i) {
+        // For each i, precalculate relative coordinates and inverse distances.
+        vector<double> dx, dy, invDist;
+        dx.reserve(n - 1);
+        dy.reserve(n - 1);
+        invDist.reserve(n - 1);
+
+        for (int j = 0; j < n; ++j) {
+            if (i == j) continue;
+            double d_x = (double)p[j].x - p[i].x;
+            double d_y = (double)p[j].y - p[i].y;
+            double d2 = d_x * d_x + d_y * d_y;
+            dx.push_back(d_x);
+            dy.push_back(d_y);
+            invDist.push_back(1.0 / sqrt(d2));
+        }
+
+        int m = n - 1;
+        for (int j = 0; j < m; ++j) {
+            double dxj = dx[j];
+            double dyj = dy[j];
+            double invDistj = invDist[j];
+            for (int k = j + 1; k < m; ++k) {
+                // Dot product of vectors (P_i, P_j) and (P_i, P_k)
+                double dot = dxj * dx[k] + dyj * dy[k];
+                
+                // Angle A is acute if the dot product is positive.
+                // If dot <= 0, angle A >= 90 degrees.
+                if (dot <= 0) continue;
+
+                // cos A = (vec1 . vec2) / (|vec1| * |vec2|)
+                double cosA = dot * invDistj * invDist[k];
+                if (cosA > 1.0) cosA = 1.0;
+
+                // Determine V = floor(90/A) using precomputed T[V] thresholds.
+                // V must be a digit, so we only care about V in [1, 9].
+                int V = 0;
+                if (cosA < T[2]) V = 1;
+                else if (cosA < T[3]) V = 2;
+                else if (cosA < T[4]) V = 3;
+                else if (cosA < T[5]) V = 4;
+                else if (cosA < T[6]) V = 5;
+                else if (cosA < T[7]) V = 6;
+                else if (cosA < T[8]) V = 7;
+                else if (cosA < T[9]) V = 8;
+                else if (cosA < T[10]) V = 9;
+
+                // If V is a valid single digit, check if it matches the third decimal digit of cos A.
+                if (V >= 1 && V <= 9) {
+                    // The third digit after the decimal point of cosA is floor(1000 * cosA) mod 10.
+                    // Using 1e-9 as an epsilon for robust floating point handling.
+                    int D = (int)(1000.0 * cosA + 1e-9) % 10;
+                    if (V == D) {
+                        total_count++;
+                    }
+                }
+            }
+        }
+    }
+
+    cout << total_count << endl;
+
+    return 0;
+}
+

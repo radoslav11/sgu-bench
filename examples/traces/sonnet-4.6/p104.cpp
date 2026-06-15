@@ -1,0 +1,72 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int F, V;
+    cin >> F >> V;
+    
+    vector<vector<int>> A(F+1, vector<int>(V+1));
+    for (int i = 1; i <= F; i++)
+        for (int j = 1; j <= V; j++)
+            cin >> A[i][j];
+    
+    // dp[i][j] = max aesthetic value placing first i flowers, with flower i in vase j
+    const int NEG_INF = -1e9;
+    vector<vector<int>> dp(F+1, vector<int>(V+1, NEG_INF));
+    vector<vector<int>> prev_vase(F+1, vector<int>(V+1, -1));
+    
+    // Base case: flower 1 can go in vases 1 to V-F+1
+    for (int j = 1; j <= V - F + 1; j++) {
+        dp[1][j] = A[1][j];
+    }
+    
+    // Fill DP
+    for (int i = 2; i <= F; i++) {
+        // flower i can go in vases i to V-F+i
+        // We need flower i-1 in some vase k < j
+        // Precompute running max of dp[i-1][k] for k from i-1 up to j-1
+        int running_max = NEG_INF;
+        int best_k = -1;
+        
+        for (int j = i; j <= V - F + i; j++) {
+            // Update running_max with dp[i-1][j-1]
+            if (dp[i-1][j-1] > running_max) {
+                running_max = dp[i-1][j-1];
+                best_k = j-1;
+            }
+            if (running_max != NEG_INF) {
+                dp[i][j] = running_max + A[i][j];
+                prev_vase[i][j] = best_k;
+            }
+        }
+    }
+    
+    // Find best vase for flower F
+    int best_val = NEG_INF;
+    int last_vase = -1;
+    for (int j = F; j <= V; j++) {
+        if (dp[F][j] > best_val) {
+            best_val = dp[F][j];
+            last_vase = j;
+        }
+    }
+    
+    // Reconstruct
+    vector<int> arrangement(F+1);
+    arrangement[F] = last_vase;
+    for (int i = F; i >= 2; i--) {
+        arrangement[i-1] = prev_vase[i][arrangement[i]];
+    }
+    
+    cout << best_val << "\n";
+    for (int i = 1; i <= F; i++) {
+        cout << arrangement[i];
+        if (i < F) cout << " ";
+    }
+    cout << "\n";
+    
+    return 0;
+}

@@ -1,0 +1,39 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, k;
+    if (!(cin >> n >> k)) return 0;
+
+    int n2 = n * n;
+    vector<string> grid(n2, string(n2, '.'));
+
+    for (int i = 0; i < n; ++i) {
+        for (int r = 0; r < n; ++r) {
+            int R = i * n + r;
+            for (int j = 0; j < n; ++j) {
+                int v1 = (r + j) % n;
+                int v1_n = v1 * n;
+                int C_base = j * n;
+                for (int c = 0; c < n; ++c) {
+                    int v = v1_n + (c + i) % n;
+                    if (v < k) {
+                        grid[R][C_base + c] = '*';
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < n2; ++i) {
+        cout << grid[i] << "\n";
+    }
+
+    return 0;
+}

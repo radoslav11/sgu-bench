@@ -1,0 +1,100 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The problem asks for the minimum number of "goings through" (swapping adjacent + and -)
+ * to transform the first chain into the second.
+ * 
+ * Key properties:
+ * 1. A swap only occurs between '+' and '-' particles.
+ * 2. Swapping two same-type particles does not change the chain and is not allowed.
+ * 3. This means the relative order of all '+' particles is fixed, and the relative order
+ *    of all '-' particles is also fixed.
+ * 4. Because all '+' particles are identical, the relative order constraint is
+ *    equivalent to saying that the i-th '+' in the first chain must end up being the
+ *    i-th '+' in the second chain.
+ * 5. The transformation is possible if and only if the number of '+' particles and '-'
+ *    particles is the same in both chains.
+ * 
+ * Calculation:
+ * Let N+ be the number of '+' particles.
+ * Let a[i] be the number of '-' particles before the i-th '+' in the first chain.
+ * Let b[i] be the number of '-' particles before the i-th '+' in the second chain.
+ * Each swap between a '+' and a '-' changes exactly one a[i] by 1.
+ * The minimum number of swaps needed to transform a[i] into b[i] for all i is the sum of |a[i] - b[i]|.
+ */
+
+int main() {
+    // Optimize standard input and output for competitive programming.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string s, t;
+    // Read the two strings describing the chains.
+    if (!(cin >> s >> t)) return 0;
+
+    int s_plus = 0, s_minus = 0;
+    for (char c : s) {
+        if (c == '+') s_plus++;
+        else if (c == '-') s_minus++;
+    }
+
+    int t_plus = 0, t_minus = 0;
+    for (char c : t) {
+        if (c == '+') t_plus++;
+        else if (c == '-') t_minus++;
+    }
+
+    // If the counts of '+' or '-' particles don't match, it's impossible.
+    if (s_plus != t_plus || s_minus != t_minus) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    // Handle the case where there are no '+' particles (all particles are '-').
+    // Since counts of '-' are equal, they must be the same chain.
+    if (s_plus == 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    // Collect the number of '-' before each '+' in both chains.
+    vector<int> a, b;
+    a.reserve(s_plus);
+    b.reserve(t_plus);
+
+    int current_minus = 0;
+    for (char c : s) {
+        if (c == '+') {
+            a.push_back(current_minus);
+        } else {
+            current_minus++;
+        }
+    }
+
+    current_minus = 0;
+    for (char c : t) {
+        if (c == '+') {
+            b.push_back(current_minus);
+        } else {
+            current_minus++;
+        }
+    }
+
+    // Calculate the total minimum number of swaps needed.
+    long long min_swaps = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        int diff = a[i] - b[i];
+        if (diff < 0) min_swaps -= diff;
+        else min_swaps += diff;
+    }
+
+    cout << min_swaps << endl;
+
+    return 0;
+}
+

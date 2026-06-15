@@ -1,0 +1,143 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <climits>
+#include <iomanip>
+#include <queue>
+#include <stack>
+#include <set>
+#include <map>
+#include <cassert>
+using namespace std;
+
+typedef long long ll;
+
+struct Point {
+    ll x, y;
+    Point() : x(0), y(0) {}
+    Point(ll x, ll y) : x(x), y(y) {}
+    
+    Point operator - (const Point& other) const {
+        return Point(x - other.x, y - other.y);
+    }
+    
+    ll cross(const Point& other) const {
+        return x * other.y - y * other.x;
+    }
+};
+
+// Cross product of (p1-p0) and (p2-p0)
+ll cross(const Point& p0, const Point& p1, const Point& p2) {
+    return (p1 - p0).cross(p2 - p0);
+}
+
+// Check if point is strictly inside convex polygon
+// Polygon vertices must be in counter-clockwise order
+bool pointInConvexPolygon(const vector<Point>& poly, const Point& p) {
+    int n = poly.size();
+    
+    // Check if point is on the left side of all edges (for counter-clockwise)
+    for (int i = 0; i < n; i++) {
+        int j = (i + 1) % n;
+        if (cross(poly[i], poly[j], p) < 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Check if point is strictly inside convex polygon using binary search
+// This is more efficient for large polygons
+bool pointInConvexPolygonBS(const vector<Point>& poly, const Point& p) {
+    int n = poly.size();
+    if (n < 3) return false;
+    
+    // If point is outside the triangle formed by first vertex and two others,
+    // it's outside the polygon
+    if (cross(poly[0], poly[1], p) < 0 || cross(poly[0], poly[n-1], p) > 0) {
+        return false;
+    }
+    
+    // Binary search to find the sector
+    int l = 1, r = n - 1;
+    while (r - l > 1) {
+        int mid = (l + r) / 2;
+        if (cross(poly[0], poly[mid], p) >= 0) {
+            l = mid;
+        } else {
+            r = mid;
+        }
+    }
+    
+    // Now p should be in triangle (0, l, r)
+    // Check if p is inside triangle poly[0], poly[l], poly[r]
+    // For counter-clockwise convex polygon, all cross products should be >= 0
+    return cross(poly[l], poly[r], p) >= 0;
+}
+
+// For points on the boundary, we need to handle carefully
+// Since problem says "hit the detected region", and region is the convex polygon,
+// we should consider boundary as part of the region
+bool pointInConvexPolygonWithBoundary(const vector<Point>& poly, const Point& p) {
+    int n = poly.size();
+    if (n < 3) return false;
+    
+    // Check if point is on the same side or on the edge for all edges
+    bool hasPositive = false, hasNegative = false;
+    for (int i = 0; i < n; i++) {
+        int j = (i + 1) % n;
+        ll cr = cross(poly[i], poly[j], p);
+        if (cr > 0) hasPositive = true;
+        if (cr < 0) hasNegative = true;
+    }
+    
+    // If all cross products are >= 0 (or <= 0), point is inside or on boundary
+    return !(hasPositive && hasNegative);
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(0);
+    
+    int N, M, K;
+    cin >> N >> M >> K;
+    
+    vector<Point> polygon(N);
+    for (int i = 0; i < N; i++) {
+        cin >> polygon[i].x >> polygon[i].y;
+    }
+    
+    // Ensure polygon is in counter-clockwise order
+    // The problem states it's in counter-clockwise order, but let's verify
+    // For convex polygon, we can check sign of area
+    ll signedArea = 0;
+    for (int i = 0; i < N; i++) {
+        int j = (i + 1) % N;
+        signedArea += polygon[i].x * polygon[j].y - polygon[j].x * polygon[i].y;
+    }
+    // If signedArea < 0, polygon is clockwise, so reverse it
+    if (signedArea < 0) {
+        reverse(polygon.begin(), polygon.end());
+    }
+    
+    int hits = 0;
+    for (int i = 0; i < M; i++) {
+        Point p;
+        cin >> p.x >> p.y;
+        
+        // Check if point is inside or on boundary of polygon
+        if (pointInConvexPolygonWithBoundary(polygon, p)) {
+            hits++;
+        }
+    }
+    
+    if (hits >= K) {
+        cout << "YES" << endl;
+    } else {
+        cout << "NO" << endl;
+    }
+    
+    return 0;
+}

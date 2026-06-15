@@ -1,0 +1,205 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+#include <map>
+#include <algorithm>
+#include <iomanip>
+#include <cstdio>
+#include <ctime>
+
+using namespace std;
+
+typedef long long ll;
+
+// A structure to represent an interval of a duty.
+struct Interval {
+    ll s, e;
+    string name;
+    bool operator<(const Interval& other) const {
+        return s < other.s;
+    }
+};
+
+// Calculate the number of working minutes from 0 to t.
+// Working hours are Mon-Fri, 9:00 to 18:00.
+ll working_hours_upto(ll t) {
+    ll total_working = 0;
+    ll full_weeks = t / (7 * 24 * 60);
+    total_working += full_weeks * 45 * 60;
+    ll rem_t = t % (7 * 24 * 60);
+    ll days_in_rem = rem_t / (24 * 60);
+    for (int d = 0; d < days_in_rem; ++d) {
+        if (d < 5) total_working += 9 * 60;
+    }
+    ll t_in_day = rem_t % (24 * 60);
+    if (days_in_rem < 5) {
+        ll work_start = 9 * 60;
+        ll work_end = 18 * 60;
+        total_working += max(0LL, min(work_end, t_in_day) - work_start);
+    }
+    return total_working;
+}
+
+// Parse time string to minutes from epoch using mktime.
+ll parse_time(char* buf) {
+    int y, m, d, hh, mm;
+    if (sscanf(buf, "%d-%d-%d %d:%d", &y, &m, &d, &hh, &mm) != 5) return 0;
+    struct tm t = {0};
+    t.tm_year = y - 1900;
+    t.tm_mon = m - 1;
+    t.tm_mday = d;
+    t.tm_hour = hh;
+    t.tm_min = mm;
+    t.tm_sec = 0;
+    t.tm_isdst = -1;
+    time_t tt = mktime(&t);
+    return (ll)(tt / 60);
+}
+
+set<Interval> schedule;
+map<string, map<int, ll>> guardian_weekly_non_working_hours;
+map<int, int> violating_guardians_per_week;
+int total_violating_guardians_count = 0;
+ll T_limit;
+
+// Update the non-working hours for a guardian in a specific week.
+void update_guardian_week(const string& name, int week_idx, ll delta) {
+    if (name == "") return;
+    ll old_val = guardian_weekly_non_working_hours[name][week_idx];
+    ll new_val = old_val + delta;
+    guardian_weekly_non_working_hours[name][week_idx] = new_val;
+
+    if (old_val > T_limit && new_val <= T_limit) {
+        violating_guardians_per_week[week_idx]--;
+        if (violating_guardians_per_week[week_idx] == 0) {
+            total_violating_guardians_count--;
+        }
+    } else if (old_val <= T_limit && new_val > T_limit) {
+        if (violating_guardians_per_week[week_idx] == 0) {
+            total_violating_guardians_count++;
+        }
+        violating_guardians_per_week[week_idx]++;
+    }
+}
+
+// Remove an interval from the guardian's non-working hours accounting for weeks.
+void remove_interval(const Interval& interval) {
+    ll s = interval.s, e = interval.e;
+    string name = interval.name;
+    int start_week = s / (7 * 24 * 60);
+    int end_week = (e - 1) / (7 * 24 * 60);
+    for (int w = start_week; w <= end_week; ++w) {
+        ll w_start = (ll)w * 7 * 24 * 60;
+        ll w_end = (ll)(w + 1) * 7 * 24 * 60;
+        ll S = max(s, w_start);
+        ll E = min(e, w_end);
+        if (S < E) {
+            ll nw = (E - S) - (working_hours_upto(E) - working_hours_upto(S));
+            update_guardian_week(name, w, -nw);
+        }
+    }
+}
+
+// Add an interval to the guardian's non-working hours accounting for weeks.
+void add_interval(const Interval& interval) {
+    ll s = interval.s, e = interval.e;
+    string name = interval.name;
+    int start_week = s / (7 * 24 * 60);
+    int end_week = (e - 1) / (7 * 24 * 60);
+    for (int w = start_week; w <= end_week; ++w) {
+        ll w_start = (ll)w * 7 * 24 * 60;
+        ll w_end = (ll)(w + 1) * 7 * 24 * 60;
+        ll S = max(s, w_start);
+        ll E = min(e, w_end);
+        if (S < E) {
+            ll nw = (E - S) - (working_hours_upto(E) - working_hours_upto(S));
+            update_guardian_week(name, w, nw);
+        }
+    }
+}
+
+int main() {
+    int N, M;
+    ll T_hours;
+    if (scanf("%d %d %lld", &N, &M, &T_hours) != 3) return 0;
+    T_limit = T_hours * 60;
+
+    char buf1[32], buf2[32];
+    scanf("%s %s", buf1, buf2);
+    ll T1 = parse_time(buf1);
+    ll T2 = parse_time(buf2);
+
+    vector<pair<ll, string>> initial_duties(N);
+    for (int i = 0; i < N; ++i) {
+        char buf[32], name[100];
+        scanf("%s %s", buf, name);
+        initial_duties[i] = {parse_time(buf), string(name)};
+    }
+
+    // Initialize the schedule with the given duties.
+    for (int i = 0; i < N - 1; ++i) {
+        add_interval({initial_duties[i].first, initial_duties[i + 1].first, initial_duties[i].second});
+        schedule.insert({initial_duties[i].first, initial_duties[i + 1].first, initial_duties[i].second});
+    }
+    // The last duty in the initial schedule ends at T2 based on the logic in the problem.
+    add_interval({initial_duties[N - 1].first, T2, initial_duties[N - 1].second});
+    schedule.insert({initial_duties[N - 1].first, T2, initial_duties[N - 1].second});
+
+    ll valid_duration = 0;
+    ll current_time = initial_duties[0].first;
+
+    for (int i = 0; i < M; ++i) {
+        ll Ai, Bi, Ei;
+        char bufA[32], bufB[32], bufE[32], name[100];
+        scanf("%s %s %s %s", bufA, bufB, bufE, name);
+        Ai = parse_time(bufA);
+        Bi = parse_time(bufB);
+        Ei = parse_time(bufE);
+        string new_name = string(name);
+
+        // The schedule is constant from current_time to Ai.
+        if (Ai > current_time) {
+            if (total_violating_guardians_count == 0) {
+                valid_duration += max(0LL, min(T2, Ai) - max(T1, current_time));
+            }
+            current_time = Ai;
+        }
+
+        // Perform the update: replace current schedule within [Bi, Ei] with new_name.
+        auto it = schedule.lower_bound({Bi, 0, ""});
+        if (it != schedule.begin()) {
+            auto prev_it = prev(it);
+            if (prev_it->e > Bi) it = prev_it;
+        }
+
+        vector<Interval> to_re_add;
+        while (it != schedule.end() && it->s < Ei) {
+            if (it->e > Bi) {
+                Interval inter = *it;
+                remove_interval(inter);
+                schedule.erase(it++);
+                if (inter.s < Bi) to_re_add.push_back({inter.s, Bi, inter.name});
+                if (inter.e > Ei) to_re_add.push_back({Ei, inter.e, inter.name});
+            } else {
+                ++it;
+            }
+        }
+        for (const auto& inter : to_re_add) {
+            add_interval(inter);
+            schedule.insert(inter);
+        }
+        add_interval({Bi, Ei, new_name});
+        schedule.insert({Bi, Ei, new_name});
+    }
+
+    // After all updates, the schedule is constant from current_time to T2.
+    if (total_violating_guardians_count == 0) {
+        valid_duration += max(0LL, T2 - max(T1, current_time));
+    }
+
+    printf("%.16f\n", (double)valid_duration / (T2 - T1));
+
+    return 0;
+}
+

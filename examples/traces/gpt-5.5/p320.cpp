@@ -1,0 +1,178 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Frame {
+    int v, parent, parentEdge, idx;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M, K;
+    cin >> N >> M >> K;
+
+    vector<string> grid(N);
+    for (int i = 0; i < N; i++) cin >> grid[i];
+
+    int totalCells = N * M;
+    vector<int> comp(totalCells, 0);
+    vector<int> sz(1, 0);
+    vector<char> border(1, 0);
+
+    int comps = 0;
+    queue<int> q;
+
+    auto id = [&](int r, int c) {
+        return r * M + c;
+    };
+
+    int dr[4] = {-1, 1, 0, 0};
+    int dc[4] = {0, 0, -1, 1};
+
+    for (int r = 0; r < N; r++) {
+        for (int c = 0; c < M; c++) {
+            int start = id(r, c);
+            if (comp[start]) continue;
+
+            comps++;
+            sz.push_back(0);
+            border.push_back(0);
+
+            char digit = grid[r][c];
+            comp[start] = comps;
+            q.push(start);
+
+            while (!q.empty()) {
+                int cur = q.front();
+                q.pop();
+
+                int x = cur / M;
+                int y = cur % M;
+
+                sz[comps]++;
+                if (x == 0 || x == N - 1 || y == 0 || y == M - 1)
+                    border[comps] = 1;
+
+                for (int d = 0; d < 4; d++) {
+                    int nx = x + dr[d];
+                    int ny = y + dc[d];
+
+                    if (nx < 0 || nx >= N || ny < 0 || ny >= M) continue;
+
+                    int ni = id(nx, ny);
+                    if (!comp[ni] && grid[nx][ny] == digit) {
+                        comp[ni] = comps;
+                        q.push(ni);
+                    }
+                }
+            }
+        }
+    }
+
+    vector<vector<pair<int, int>>> adj(comps + 1);
+    int edgeId = 0;
+
+    auto addEdge = [&](int a, int b) {
+        edgeId++;
+        adj[a].push_back({b, edgeId});
+        adj[b].push_back({a, edgeId});
+    };
+
+    for (int r = 0; r < N; r++) {
+        for (int c = 0; c < M; c++) {
+            int a = comp[id(r, c)];
+
+            if (r + 1 < N) {
+                int b = comp[id(r + 1, c)];
+                if (a != b) addEdge(a, b);
+            }
+
+            if (c + 1 < M) {
+                int b = comp[id(r, c + 1)];
+                if (a != b) addEdge(a, b);
+            }
+        }
+    }
+
+    for (int i = 1; i <= comps; i++) {
+        if (border[i]) addEdge(0, i);
+    }
+
+    vector<char> big(comps + 1, 0);
+    long long answer = 0;
+
+    for (int i = 1; i <= comps; i++) {
+        if (sz[i] >= K) {
+            big[i] = 1;
+            answer += sz[i];
+        }
+    }
+
+    vector<int> tin(comps + 1, 0), low(comps + 1, 0), tout(comps + 1, 0);
+    vector<pair<int, int>> intervals;
+
+    int timer = 0;
+    vector<Frame> st;
+
+    tin[0] = low[0] = ++timer;
+    st.push_back({0, -1, -1, 0});
+
+    while (!st.empty()) {
+        Frame &f = st.back();
+        int v = f.v;
+
+        if (f.idx < (int)adj[v].size()) {
+            auto [to, eid] = adj[v][f.idx++];
+
+            if (eid == f.parentEdge) continue;
+
+            if (!tin[to]) {
+                tin[to] = low[to] = ++timer;
+                st.push_back({to, v, eid, 0});
+            } else {
+                low[v] = min(low[v], tin[to]);
+            }
+        } else {
+            tout[v] = timer;
+
+            if (f.parent != -1) {
+                int p = f.parent;
+
+                low[p] = min(low[p], low[v]);
+
+                if (p >= 1 && big[p] && low[v] >= tin[p]) {
+                    intervals.push_back({tin[v], tout[v]});
+                }
+            }
+
+            st.pop_back();
+        }
+    }
+
+    vector<int> diff(comps + 3, 0);
+
+    for (auto [l, r] : intervals) {
+        diff[l]++;
+        diff[r + 1]--;
+    }
+
+    vector<int> nodeAtTin(comps + 2, -1);
+    for (int i = 1; i <= comps; i++) {
+        nodeAtTin[tin[i]] = i;
+    }
+
+    int cur = 0;
+    for (int t = 1; t <= comps + 1; t++) {
+        cur += diff[t];
+
+        int v = nodeAtTin[t];
+        if (v >= 1 && cur > 0 && !big[v]) {
+            answer += sz[v];
+        }
+    }
+
+    cout << answer << '\n';
+
+    return 0;
+}

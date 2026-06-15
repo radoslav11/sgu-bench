@@ -1,0 +1,114 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cstring>
+
+using namespace std;
+
+/**
+ * Problem: A coloring game on a chain graph.
+ * The game is impartial and can be solved using the Sprague-Grundy theorem.
+ * The components of the game are continuous segments of uncolored vertices.
+ * Each component is characterized by its boundary conditions:
+ * 1. g_none(k): A segment of k uncolored vertices with no colored neighbors (entire chain).
+ * 2. g_one(k): A segment of k uncolored vertices with one colored neighbor.
+ * 3. g_diff(k): A segment of k uncolored vertices between two different colored vertices (e.g., 1 and 2).
+ * 4. g_same(k): A segment of k uncolored vertices between two vertices of the same color (e.g., 1 and 1).
+ */
+
+// The maximum N is not explicitly given, but O(N^2) should work for N around 2000-3000.
+// Using a static array to speed up the mex calculation.
+bool seen[4005];
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+    string s;
+    cin >> s;
+
+    // Grundy value arrays
+    vector<int> g_diff(N + 1, 0);
+    vector<int> g_same(N + 1, 0);
+    vector<int> g_one(N + 1, 0);
+    vector<int> g_none(N + 1, 0);
+
+    // Precompute Grundy values up to N
+    for (int k = 1; k <= N; ++k) {
+        // g_diff(k): k uncolored vertices between color 1 and 2
+        memset(seen, 0, sizeof(seen));
+        // A move at position i (1-indexed) with color 1 is valid if i > 1
+        for (int i = 2; i <= k; ++i) seen[g_same[i - 1] ^ g_diff[k - i]] = true;
+        // A move at position i (1-indexed) with color 2 is valid if i < k
+        for (int i = 1; i <= k - 1; ++i) seen[g_diff[i - 1] ^ g_same[k - i]] = true;
+        int mex = 0;
+        while (seen[mex]) mex++;
+        g_diff[k] = mex;
+
+        // g_same(k): k uncolored vertices between color 1 and 1
+        memset(seen, 0, sizeof(seen));
+        // Color 1 is valid only if it's not adjacent to the existing 1s
+        for (int i = 2; i <= k - 1; ++i) seen[g_same[i - 1] ^ g_same[k - i]] = true;
+        // Color 2 is always valid since it's different from color 1
+        for (int i = 1; i <= k; ++i) seen[g_diff[i - 1] ^ g_diff[k - i]] = true;
+        mex = 0;
+        while (seen[mex]) mex++;
+        g_same[k] = mex;
+
+        // g_one(k): k uncolored vertices between color 1 and a boundary
+        memset(seen, 0, sizeof(seen));
+        // Color 1 is valid if i > 1
+        for (int i = 2; i <= k; ++i) seen[g_same[i - 1] ^ g_one[k - i]] = true;
+        // Color 2 is always valid
+        for (int i = 1; i <= k; ++i) seen[g_diff[i - 1] ^ g_one[k - i]] = true;
+        mex = 0;
+        while (seen[mex]) mex++;
+        g_one[k] = mex;
+
+        // g_none(k): k uncolored vertices between two boundaries
+        memset(seen, 0, sizeof(seen));
+        // Colors 1 and 2 behave identically due to symmetry
+        for (int i = 1; i <= k; ++i) seen[g_one[i - 1] ^ g_one[k - i]] = true;
+        mex = 0;
+        while (seen[mex]) mex++;
+        g_none[k] = mex;
+    }
+
+    // Determine the Grundy value of the current position
+    int total_grundy = 0;
+    for (int i = 0; i < N; ) {
+        if (s[i] == '0') {
+            int j = i;
+            while (j < N && s[j] == '0') j++;
+            int k = j - i;
+            
+            // Identify the boundary colors of the uncolored component
+            int left_color = (i == 0) ? 0 : (s[i - 1] - '0');
+            int right_color = (j == N) ? 0 : (s[j] - '0');
+
+            if (left_color == 0 && right_color == 0) {
+                total_grundy ^= g_none[k];
+            } else if (left_color == 0 || right_color == 0) {
+                total_grundy ^= g_one[k];
+            } else if (left_color == right_color) {
+                total_grundy ^= g_same[k];
+            } else {
+                total_grundy ^= g_diff[k];
+            }
+            i = j;
+        } else {
+            i++;
+        }
+    }
+
+    // Output "FIRST" if the current state is a winning state, otherwise "SECOND"
+    if (total_grundy > 0) cout << "FIRST" << endl;
+    else cout << "SECOND" << endl;
+
+    return 0;
+}
+

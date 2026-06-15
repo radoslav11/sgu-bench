@@ -1,0 +1,36 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int keyNumber(int n) {
+    int sum = 0, mx = 0;
+
+    for (int p = 2; p * p <= n; ++p) {
+        if (n % p == 0) {
+            sum += p;
+            mx = max(mx, p);
+            while (n % p == 0) n /= p;
+        }
+    }
+
+    if (n > 1) {
+        sum += n;
+        mx = max(mx, n);
+    }
+
+    return mx - (sum - mx);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int a, b;
+    cin >> a >> b;
+
+    if (keyNumber(a) > keyNumber(b))
+        cout << "a\n";
+    else
+        cout << "b\n";
+
+    return 0;
+}

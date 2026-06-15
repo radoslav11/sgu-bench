@@ -1,0 +1,66 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+int64 isqrt_floor(int64 x) {
+    if (x < 0) return -1;
+    int64 r = sqrt((long double)x);
+    while ((r + 1) * (r + 1) <= x) ++r;
+    while (r * r > x) --r;
+    return r;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int64 N, H;
+    cin >> N >> H;
+
+    vector<int64> ans;
+
+    // Left side: x = -a, a >= 1
+    // r = a + H, label = r^2 + H + 1
+    int64 leftLimit = N - H - 1;
+    int64 maxRLeft = isqrt_floor(leftLimit);
+    int64 maxALeft = maxRLeft - H;
+
+    for (int64 a = maxALeft; a >= 1; --a) {
+        int64 r = a + H;
+        ans.push_back(r * r + H + 1);
+    }
+
+    // Center: x = 0
+    // label = (H + 1)^2
+    int64 center = (H + 1) * (H + 1);
+    if (center <= N) {
+        ans.push_back(center);
+    }
+
+    // Right side: x = a, a >= 1
+    // r = a + H, label = r^2 + r + H + 1
+    int64 lo = H + 1, hi = 1000000000LL, maxRRight = H;
+    while (lo <= hi) {
+        int64 mid = (lo + hi) / 2;
+        __int128 label = (__int128)mid * mid + mid + H + 1;
+        if (label <= N) {
+            maxRRight = mid;
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    for (int64 r = H + 1; r <= maxRRight; ++r) {
+        ans.push_back(r * r + r + H + 1);
+    }
+
+    for (size_t i = 0; i < ans.size(); ++i) {
+        if (i) cout << ' ';
+        cout << ans[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

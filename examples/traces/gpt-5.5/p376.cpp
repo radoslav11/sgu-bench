@@ -1,0 +1,60 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Participant {
+    long long W, R, P;
+    long long t;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, K;
+    cin >> N >> K;
+
+    vector<Participant> p(N);
+    const long long BASE = 20000000LL;
+
+    for (int i = 0; i < N; ++i) {
+        cin >> p[i].W >> p[i].R >> p[i].P;
+        p[i].t = BASE - p[i].W;
+    }
+
+    vector<long long> A(K), B(N);
+    for (int i = 0; i < K; ++i) cin >> A[i];
+    for (int i = 0; i < N; ++i) cin >> B[i];
+
+    sort(B.begin(), B.end(), greater<long long>());
+
+    vector<int> order(N);
+    iota(order.begin(), order.end(), 0);
+
+    auto cmp = [&](int x, int y) {
+        if (p[x].t != p[y].t) return p[x].t < p[y].t;
+        return p[x].P > p[y].P;
+    };
+
+    for (int stage = 0; stage < K; ++stage) {
+        sort(order.begin(), order.end(), cmp);
+
+        long long a = A[stage];
+
+        for (int pos = 0; pos < N; ++pos) {
+            int id = order[pos];
+            long long b = B[pos];
+            long long s = 3 * a * a + 5 * a * b + 2 * b * b;
+            p[id].t += BASE - p[id].R - s;
+        }
+    }
+
+    sort(order.begin(), order.end(), cmp);
+
+    for (int i = 0; i < N; ++i) {
+        if (i) cout << ' ';
+        cout << order[i] + 1;
+    }
+    cout << '\n';
+
+    return 0;
+}

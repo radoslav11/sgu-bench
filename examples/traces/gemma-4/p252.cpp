@@ -1,0 +1,169 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+// The problem asks us to find a set of vertex-disjoint paths that cover all vertices in a DAG.
+// The goal is to:
+// 1) Minimize the number of paths.
+// 2) Among solutions with minimum paths, minimize the total cost of the edges used.
+//
+// In a DAG, the minimum number of paths to cover all N vertices is N - (maximum number of edges used).
+// Using a bipartite matching approach, we can represent this by creating a bipartite graph:
+// Each town i is represented by two nodes in the bipartite graph: i_out and i_in.
+// For every directed edge (u, v) in the original DAG with cost c, we add an edge from u_out to v_in with capacity 1 and cost c.
+// We also add source S to all u_out and all v_in to sink T, both with capacity 1 and cost 0.
+// The maximum flow in this bipartite graph corresponds to the maximum number of edges that can be used 
+// to form vertex-disjoint paths. The min-cost max-flow will provide the minimum cost for that maximum flow.
+
+const int INF = 1e9;
+
+struct Edge {
+    int to, cap, flow, cost, rev;
+};
+
+// Max number of nodes is 2*100 + 2 = 202
+vector<Edge> adj[205];
+int dist[205];
+int parent_node[205];
+int parent_edge[205];
+
+// Add a directed edge with capacity and cost to the flow network
+void add_edge(int u, int v, int cap, int cost) {
+    adj[u].push_back({v, cap, 0, cost, (int)adj[v].size()});
+    adj[v].push_back({u, 0, 0, -cost, (int)adj[u].size() - 1});
+}
+
+// SPFA algorithm to find the shortest path in the residual graph
+bool spfa(int s, int t, int &flow, int &cost, int max_node) {
+    for (int i = 0; i <= max_node; ++i) {
+        dist[i] = INF;
+        parent_node[i] = -1;
+        parent_edge[i] = -1;
+    }
+    vector<bool> in_queue(max_node + 1, false);
+    queue<int> q;
+
+    dist[s] = 0;
+    q.push(s);
+    in_queue[s] = true;
+
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        in_queue[u] = false;
+
+        for (int i = 0; i < (int)adj[u].size(); ++i) {
+            Edge &e = adj[u][i];
+            if (e.cap - e.flow > 0 && dist[e.to] > dist[u] + e.cost) {
+                dist[e.to] = dist[u] + e.cost;
+                parent_node[e.to] = u;
+                parent_edge[e.to] = i;
+                if (!in_queue[e.to]) {
+                    q.push(e.to);
+                    in_queue[e.to] = true;
+                }
+            }
+        }
+    }
+
+    if (dist[t] == INF) return false;
+
+    int push = INF;
+    int curr = t;
+    while (curr != s) {
+        int prev = parent_node[curr];
+        int idx = parent_edge[curr];
+        push = min(push, adj[prev][idx].cap - adj[prev][idx].flow);
+        curr = prev;
+    }
+
+    flow += push;
+    cost += push * dist[t];
+    curr = t;
+    while (curr != s) {
+        int prev = parent_node[curr];
+        int idx = parent_edge[curr];
+        adj[prev][idx].flow += push;
+        int rev_idx = adj[prev][idx].rev;
+        adj[curr][rev_idx].flow -= push;
+        curr = prev;
+    }
+
+    return true;
+}
+
+int main() {
+    // Fast I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    // Node 0: Source (S)
+    // Nodes 1 to N: u_out
+    // Nodes N+1 to 2N: u_in
+    // Node 2N+1: Sink (T)
+    int S = 0, T = 2 * N + 1;
+
+    for (int i = 1; i <= N; ++i) {
+        add_edge(S, i, 1, 0);
+        add_edge(i + N, T, 1, 0);
+    }
+
+    for (int i = 0; i < M; ++i) {
+        int u, v, c;
+        cin >> u >> v >> c;
+        // Original edge (u, v) with cost c becomes u_out -> v_in
+        add_edge(u, v + N, 1, c);
+    }
+
+    int flow = 0, cost = 0;
+    while (spfa(S, T, flow, cost, T)) {}
+
+    // Minimum number of paths K = N - flow
+    // Minimum total cost C = cost
+    cout << N - flow << " " << cost << "\n";
+
+    // Reconstruct the paths based on flow
+    vector<int> next_node(N + 1, 0);
+    vector<int> prev_node(N + 1, 0);
+    for (int u = 1; u <= N; ++u) {
+        for (auto &e : adj[u]) {
+            // If the edge u_out -> v_in has flow 1, it's part of a path
+            if (e.to > N && e.to <= 2 * N && e.flow == 1) {
+                int v = e.to - N;
+                next_node[u] = v;
+                prev_node[v] = u;
+            }
+        }
+    }
+
+    vector<vector<int>> paths;
+    // Start a path from every node that doesn't have an incoming edge in the path set
+    for (int i = 1; i <= N; ++i) {
+        if (prev_node[i] == 0) {
+            vector<int> path;
+            int curr = i;
+            while (curr != 0) {
+                path.push_back(curr);
+                curr = next_node[curr];
+            }
+            paths.push_back(path);
+        }
+    }
+
+    for (const auto &path : paths) {
+        cout << path.size();
+        for (int node : path) {
+            cout << " " << node;
+        }
+        cout << "\n";
+    }
+
+    return 0;
+}
+

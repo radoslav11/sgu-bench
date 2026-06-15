@@ -1,0 +1,103 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+struct House {
+    int loc;
+    int id;
+};
+
+struct Office {
+    int loc;
+    int id;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    long long L;
+    if (!(cin >> n >> L)) return 0;
+
+    vector<House> H_sorted(n);
+    for (int i = 0; i < n; i++) {
+        cin >> H_sorted[i].loc;
+        H_sorted[i].id = i;
+    }
+
+    vector<Office> O_sorted(n);
+    for (int i = 0; i < n; i++) {
+        cin >> O_sorted[i].loc;
+        O_sorted[i].id = i;
+    }
+
+    sort(H_sorted.begin(), H_sorted.end(), [](const House& a, const House& b) {
+        if (a.loc != b.loc) return a.loc < b.loc;
+        return a.id < b.id;
+    });
+
+    sort(O_sorted.begin(), O_sorted.end(), [](const Office& a, const Office& b) {
+        if (a.loc != b.loc) return a.loc < b.loc;
+        return a.id < b.id;
+    });
+
+    vector<int> candidates;
+    vector<int> check_houses = {0, n / 4, n / 2, 3 * n / 4, n - 1};
+    
+    for (int h_idx : check_houses) {
+        int h_loc = H_sorted[h_idx].loc;
+        auto it = lower_bound(O_sorted.begin(), O_sorted.end(), h_loc, 
+            [](const Office& a, int val) { return a.loc < val; });
+        
+        int dist = distance(O_sorted.begin(), it);
+        for (int offset = -2; offset <= 2; ++offset) {
+            int o_idx = (dist + offset) % n;
+            if (o_idx < 0) o_idx += n;
+            int k = (o_idx - h_idx) % n;
+            if (k < 0) k += n;
+            candidates.push_back(k);
+        }
+    }
+    candidates.push_back(0);
+
+    sort(candidates.begin(), candidates.end());
+    candidates.erase(unique(candidates.begin(), candidates.end()), candidates.end());
+
+    long long min_cost = -1;
+    int best_k = 0;
+
+    for (int k : candidates) {
+        long long current_cost = 0;
+        for (int i = 0; i < n; i++) {
+            int j = i + k;
+            if (j >= n) j -= n;
+            long long diff = H_sorted[i].loc - O_sorted[j].loc;
+            if (diff < 0) diff = -diff;
+            long long dist = diff;
+            if (L - diff < dist) dist = L - diff;
+            current_cost += dist;
+        }
+        if (min_cost == -1 || current_cost < min_cost) {
+            min_cost = current_cost;
+            best_k = k;
+        }
+    }
+
+    vector<int> ans(n);
+    for (int i = 0; i < n; i++) {
+        int j = i + best_k;
+        if (j >= n) j -= n;
+        ans[H_sorted[i].id] = O_sorted[j].id + 1;
+    }
+
+    cout << min_cost << "\n";
+    for (int i = 0; i < n; i++) {
+        cout << ans[i] << (i == n - 1 ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

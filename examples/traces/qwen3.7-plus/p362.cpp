@@ -1,0 +1,66 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+    int is, js;
+    cin >> is >> js;
+
+    int r = is;
+    int c = js;
+
+    vector<vector<bool>> destroyed(n + 1, vector<bool>(m + 1, false));
+
+    string moves = "";
+
+    while (true) {
+        destroyed[r][c] = true;
+        
+        int next_r = -1, next_c = -1;
+        char move_char = ' ';
+        
+        // D: i + 1, j
+        if (r + 1 <= n && !destroyed[r + 1][c]) {
+            next_r = r + 1;
+            next_c = c;
+            move_char = 'D';
+        }
+        // L: i, j - 1
+        else if (c - 1 >= 1 && !destroyed[r][c - 1]) {
+            next_r = r;
+            next_c = c - 1;
+            move_char = 'L';
+        }
+        // U: i - 1, j
+        else if (r - 1 >= 1 && !destroyed[r - 1][c]) {
+            next_r = r - 1;
+            next_c = c;
+            move_char = 'U';
+        }
+        // R: i, j + 1
+        else if (c + 1 <= m && !destroyed[r][c + 1]) {
+            next_r = r;
+            next_c = c + 1;
+            move_char = 'R';
+        }
+        
+        if (move_char == ' ') {
+            break;
+        }
+        
+        moves += move_char;
+        r = next_r;
+        c = next_c;
+    }
+
+    cout << moves << "\n";
+
+    return 0;
+}

@@ -1,0 +1,147 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+#include <map>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: "Binary Cat" Club
+ * Goal: Find the minimal number of records to add to a log to make it plausible.
+ * A log is plausible if:
+ * 1. Every '-' record is preceded by a '+' record for the same person.
+ * 2. Every '+' record is for someone not currently in the club.
+ * 3. Every '=' k record correctly reflects the current number of people.
+ * 
+ * Strategy: Greedy approach.
+ * - Maintain a set of people currently in the club.
+ * - For '+ name': If 'name' is in the club, add '- name' before this '+ name'.
+ * - For '- name': If 'name' is not in the club, add '+ name' before this '- name'.
+ * - For '= k':
+ *   - If count < k: Add 'k - count' '+ name' records for new, unique names.
+ *   - If count > k: Remove 'count - k' people from the club.
+ *     To minimize additions, prioritize removing people who:
+ *     - Were added by us (unimportant names).
+ *     - Don't have a following '- name' record in the input.
+ *     - Or have a following '- name' record (this will require adding a '+ name' later).
+ */
+
+struct Record {
+    char type;
+    string name;
+    int k;
+};
+
+int main() {
+    // Speed up I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<Record> input(N);
+    set<string> input_names;
+    for (int i = 0; i < N; ++i) {
+        string s;
+        cin >> s;
+        if (s == "+") {
+            input[i].type = '+';
+            cin >> input[i].name;
+            input_names.insert(input[i].name);
+        } else if (s == "-") {
+            input[i].type = '-';
+            cin >> input[i].name;
+            input_names.insert(input[i].name);
+        } else {
+            input[i].type = '=';
+            cin >> input[i].k;
+        }
+    }
+
+    set<string> C; // People currently in the club
+    set<string> added_names; // Names that were not in the original input
+    vector<string> result;
+    int extra_counter = 0;
+
+    auto get_next_occurrence = [&](const string& name, int current_idx) {
+        for (int i = current_idx + 1; i < N; ++i) {
+            if (input[i].type == '-' && input[i].name == name) return i;
+            if (input[i].type == '+' && input[i].name == name) return i;
+        }
+        return -1;
+    };
+
+    for (int i = 0; i < N; ++i) {
+        if (input[i].type == '+') {
+            string name = input[i].name;
+            if (C.count(name)) {
+                result.push_back("- " + name);
+                C.erase(name);
+            }
+            C.insert(name);
+            result.push_back("+ " + name);
+        } else if (input[i].type == '-') {
+            string name = input[i].name;
+            if (C.find(name) == C.end()) {
+                result.push_back("+ " + name);
+                C.insert(name);
+            }
+            C.erase(name);
+            result.push_back("- " + name);
+        } else if (input[i].type == '=') {
+            int target = input[i].k;
+            if ((int)C.size() < target) {
+                while ((int)C.size() < target) {
+                    string extra = "extra_" + to_string(extra_counter++);
+                    C.insert(extra);
+                    added_names.insert(extra);
+                    result.push_back("+ " + extra);
+                }
+            } else if ((int)C.size() > target) {
+                while ((int)C.size() > target) {
+                    string best_name = "";
+                    int min_cost = 3;
+
+                    for (const string& name : C) {
+                        int cost = 1;
+                        if (input_names.count(name) == 0 && added_names.count(name)) {
+                            cost = 1;
+                        } else {
+                            int next_idx = get_next_occurrence(name, i);
+                            if (next_idx != -1 && input[next_idx].type == '-') {
+                                cost = 2;
+                            } else {
+                                cost = 1;
+                            }
+                        }
+
+                        if (cost < min_cost) {
+                            min_cost = cost;
+                            best_name = name;
+                        }
+                    }
+
+                    if (best_name != "") {
+                        result.push_back("- " + best_name);
+                        C.erase(best_name);
+                    } else {
+                        // Should not happen based on the logic
+                        break;
+                    }
+                }
+            }
+            result.push_back("= " + to_string(target));
+        }
+    }
+
+    cout << result.size() << "\n";
+    for (const string& res : result) {
+        cout << res << "\n";
+    }
+
+    return 0;
+}
+

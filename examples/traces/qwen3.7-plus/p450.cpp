@@ -1,0 +1,197 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <list>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct Group {
+    long long T, P, W, E;
+};
+
+struct Event {
+    long long time;
+    int type; // 0: depart, 1: arrive, 2: give_up
+    int group_id;
+    bool operator>(const Event& other) const {
+        if (time != other.time) return time > other.time;
+        return type > other.type;
+    }
+};
+
+int N, M;
+long long T_closing;
+vector<int> counters;
+vector<Group> groups;
+
+int seats[105][105];
+enum State { UNSEEN, WAITING, SEATED, GIVEN_UP };
+State state_arr[10005];
+long long seat_time[10005];
+int seated_in_c[10005];
+int seated_at_s[10005];
+
+list<int> waiting_queue;
+list<int>::iterator wait_it[10005];
+
+pair<int, int> find_best_seat(int gid) {
+    int P = groups[gid].P;
+    int best_c = -1;
+    int best_s = -1;
+    long long best_min = -1;
+    long long best_max = -1;
+
+    for (int c = 0; c < N; ++c) {
+        int C_c = counters[c];
+        if (C_c < P) continue;
+        
+        int i = 0;
+        while (i < C_c) {
+            if (seats[c][i] == 0) {
+                int A = i;
+                while (i < C_c && seats[c][i] == 0) {
+                    i++;
+                }
+                int B = i - 1;
+                int L = B - A + 1;
+                if (L >= P) {
+                    for (int s = A; s <= B - P + 1; ++s) {
+                        long long SL = (A == 0) ? INF : (s - A);
+                        long long SR = (B == C_c - 1) ? INF : (B - (s + P - 1));
+                        long long cur_min = min(SL, SR);
+                        long long cur_max = max(SL, SR);
+                        
+                        bool better = false;
+                        if (best_c == -1) {
+                            better = true;
+                        } else if (cur_min > best_min) {
+                            better = true;
+                        } else if (cur_min == best_min) {
+                            if (cur_max > best_max) {
+                                better = true;
+                            } else if (cur_max == best_max) {
+                                if (c < best_c) {
+                                    better = true;
+                                } else if (c == best_c) {
+                                    if (s < best_s) {
+                                        better = true;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (better) {
+                            best_c = c;
+                            best_s = s;
+                            best_min = cur_min;
+                            best_max = cur_max;
+                        }
+                    }
+                }
+            } else {
+                i++;
+            }
+        }
+    }
+    return {best_c, best_s};
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> N >> M >> T_closing)) return 0;
+
+    counters.resize(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> counters[i];
+    }
+
+    groups.resize(M);
+    priority_queue<Event, vector<Event>, greater<Event>> pq;
+
+    for (int i = 0; i < M; ++i) {
+        cin >> groups[i].T >> groups[i].P >> groups[i].W >> groups[i].E;
+        state_arr[i] = UNSEEN;
+        pq.push({groups[i].T, 1, i});
+        long long gup = min(groups[i].T + groups[i].W, T_closing);
+        pq.push({gup, 2, i});
+    }
+
+    while (!pq.empty()) {
+        long long t = pq.top().time;
+        
+        while (!pq.empty() && pq.top().time == t && pq.top().type == 0) {
+            Event ev = pq.top(); pq.pop();
+            int gid = ev.group_id;
+            int c = seated_in_c[gid];
+            int s = seated_at_s[gid];
+            int P = groups[gid].P;
+            for (int i = 0; i < P; ++i) {
+                seats[c][s + i] = 0;
+            }
+        }
+        
+        while (!pq.empty() && pq.top().time == t && pq.top().type == 2) {
+            Event ev = pq.top(); pq.pop();
+            int gid = ev.group_id;
+            if (state_arr[gid] == WAITING) {
+                state_arr[gid] = GIVEN_UP;
+                waiting_queue.erase(wait_it[gid]);
+            }
+        }
+        
+        while (!pq.empty() && pq.top().time == t && pq.top().type == 1) {
+            Event ev = pq.top(); pq.pop();
+            int gid = ev.group_id;
+            state_arr[gid] = WAITING;
+            waiting_queue.push_back(gid);
+            wait_it[gid] = prev(waiting_queue.end());
+        }
+        
+        bool seated_any = true;
+        while (seated_any && !waiting_queue.empty()) {
+            seated_any = false;
+            int gid = waiting_queue.front();
+            if (t <= groups[gid].T + groups[gid].W && t < T_closing) {
+                auto [c, s] = find_best_seat(gid);
+                if (c != -1) {
+                    int P = groups[gid].P;
+                    for (int i = 0; i < P; ++i) {
+                        seats[c][s + i] = gid + 1;
+                    }
+                    seated_in_c[gid] = c;
+                    seated_at_s[gid] = s;
+                    state_arr[gid] = SEATED;
+                    seat_time[gid] = t;
+                    pq.push({t + groups[gid].E, 0, gid});
+                    waiting_queue.erase(wait_it[gid]);
+                    seated_any = true;
+                }
+            }
+        }
+    }
+
+    long long total_customers = 0;
+    double total_satisfaction = 0.0;
+
+    for (int i = 0; i < M; ++i) {
+        total_customers += groups[i].P;
+        if (state_arr[i] == SEATED) {
+            long long wait_time = seat_time[i] - groups[i].T;
+            double sat = (double)(groups[i].W - wait_time) / groups[i].W;
+            total_satisfaction += groups[i].P * sat;
+        } else {
+            total_satisfaction += groups[i].P * (-1.0);
+        }
+    }
+
+    double avg = total_satisfaction / total_customers;
+    cout << fixed << setprecision(16) << avg << "\n";
+
+    return 0;
+}

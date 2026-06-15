@@ -1,0 +1,99 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Find the lexicographically next correct bracket sequence (CBS) 
+ * of the same length. '(' < ')'.
+ * 
+ * Strategy:
+ * To find the next lexicographical string, we need to find the rightmost position i 
+ * where we can change a character to something larger. Since '(' < ')', 
+ * the only possible increase is changing '(' to ')'.
+ * 
+ * For a change at index i to be valid, the prefix S[0...i] (with S[i] changed to ')')
+ * must be extendable to a valid CBS of the same length.
+ * A prefix with balance B and K characters remaining can be extended to a CBS if:
+ * 1. 0 <= B <= K
+ * 2. B has the same parity as K (B % 2 == K % 2).
+ * Since the total length N is even and the original sequence was a CBS,
+ * the parity condition is always satisfied if the balance and remaining characters 
+ * are consistent with an even-length CBS.
+ * 
+ * After finding the rightmost valid i, we change S[i] to ')' and then fill 
+ * the rest of the sequence (from i+1 to N-1) greedily with '(' whenever 
+ * possible to keep the sequence lexicographically as small as possible.
+ */
+
+int main() {
+    // Fast I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string s;
+    if (!(cin >> s)) return 0;
+
+    int n = s.length();
+    if (n == 0) return 0;
+
+    // Precompute the balances of the input sequence
+    // B[i] is the balance after character S[i]
+    vector<int> b(n);
+    int current_balance = 0;
+    for (int i = 0; i < n; ++i) {
+        if (s[i] == '(') {
+            current_balance++;
+        } else {
+            current_balance--;
+        }
+        b[i] = current_balance;
+    }
+
+    // Find the rightmost index i such that s[i] == '(' and 
+    // changing it to ')' allows for a valid CBS completion.
+    int i_best = -1;
+    for (int i = n - 1; i >= 0; --i) {
+        if (s[i] == '(') {
+            int b_prev = (i == 0) ? 0 : b[i - 1];
+            int b_new = b_prev - 1; // Balance after changing S[i] to ')'
+            int k_rem = n - 1 - i;  // Number of characters remaining after index i
+            
+            if (b_new >= 0 && b_new <= k_rem) {
+                i_best = i;
+                break;
+            }
+        }
+    }
+
+    if (i_best == -1) {
+        cout << "No solution" << endl;
+    } else {
+        // Change S[i_best] to ')'
+        s[i_best] = ')';
+        int cur_b = (i_best == 0) ? 0 : b[i_best - 1];
+        cur_b -= 1;
+
+        // Complete the sequence greedily to be lexicographically smallest.
+        // For each position j > i_best, try to put '(' if it's possible to complete.
+        for (int j = i_best + 1; j < n; ++j) {
+            int k_after = n - 1 - j; // Characters remaining after index j
+            // Try S[j] = '('
+            int b_try = cur_b + 1;
+            if (b_try >= 0 && b_try <= k_after) {
+                s[j] = '(';
+                cur_b = b_try;
+            } else {
+                // Otherwise, we must put ')'
+                s[j] = ')';
+                cur_b -= 1;
+            }
+        }
+        cout << s << endl;
+    }
+
+    return 0;
+}
+

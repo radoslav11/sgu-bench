@@ -1,0 +1,166 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ll = long long;
+const ll INF = (1LL << 60);
+
+struct Segment {
+    string req; // bottom -> top, suffix required before segment
+    string out; // bottom -> top, suffix added after segment
+    bool ok = true;
+};
+
+struct HString {
+    string s;
+    vector<unsigned long long> h;
+};
+
+static vector<HString> buildH(const vector<string>& v) {
+    vector<HString> res(v.size());
+    for (size_t i = 0; i < v.size(); ++i) {
+        res[i].s = v[i];
+        res[i].h.assign(v[i].size() + 1, 0);
+        for (size_t j = 0; j < v[i].size(); ++j) {
+            res[i].h[j + 1] = res[i].h[j] * 911382323ull + (unsigned char)v[i][j] + 1;
+        }
+    }
+    return res;
+}
+
+static int lcpHash(const HString& a, const HString& b) {
+    int lo = 0, hi = min(a.s.size(), b.s.size());
+    while (lo < hi) {
+        int mid = (lo + hi + 1) >> 1;
+        if (a.h[mid] == b.h[mid]) lo = mid;
+        else hi = mid - 1;
+    }
+    return lo;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string s;
+    cin >> s;
+
+    vector<string> parts(1);
+    int stars = 0;
+    for (char c : s) {
+        if (c == '*') {
+            stars++;
+            parts.emplace_back();
+        } else {
+            parts.back().push_back(c);
+        }
+    }
+
+    int m = (int)parts.size();
+    vector<Segment> seg(m);
+    ll fixedPushes = 0;
+
+    for (int i = 0; i < m; ++i) {
+        vector<char> st;
+        vector<char> needTopDown;
+
+        for (char c : parts[i]) {
+            if ('a' <= c && c <= 'z') {
+                st.push_back(c);
+                fixedPushes++;
+            } else {
+                char x = char(tolower(c));
+                if (!st.empty()) {
+                    if (st.back() == x) st.pop_back();
+                    else seg[i].ok = false;
+                } else {
+                    needTopDown.push_back(x);
+                }
+            }
+        }
+
+        reverse(needTopDown.begin(), needTopDown.end());
+        seg[i].req.assign(needTopDown.begin(), needTopDown.end());
+        seg[i].out.assign(st.begin(), st.end());
+
+        if (!seg[i].ok) {
+            cout << -1 << '\n';
+            return 0;
+        }
+    }
+
+    if (!seg[0].req.empty() || !seg[m - 1].out.empty()) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<string> base;
+    base.push_back("");
+    for (auto &x : seg) {
+        base.push_back(x.req);
+        base.push_back(x.out);
+    }
+
+    vector<string> allPrefixes;
+    allPrefixes.push_back("");
+    for (const string& t : base) {
+        string cur;
+        for (char c : t) {
+            cur.push_back(c);
+            allPrefixes.push_back(cur);
+        }
+    }
+
+    sort(allPrefixes.begin(), allPrefixes.end());
+    allPrefixes.erase(unique(allPrefixes.begin(), allPrefixes.end()), allPrefixes.end());
+
+    vector<vector<string>> cand(m);
+    for (int i = 0; i < m; ++i) {
+        if (i == 0 || i == m - 1) {
+            cand[i].push_back("");
+        } else {
+            cand[i] = allPrefixes;
+        }
+    }
+
+    vector<ll> dp(cand[0].size(), INF);
+    dp[0] = 0;
+
+    for (int i = 0; i < m - 1; ++i) {
+        vector<string> left, right;
+
+        for (const string& p : cand[i]) {
+            left.push_back(p + seg[i].out);
+        }
+        for (const string& q : cand[i + 1]) {
+            right.push_back(q + seg[i + 1].req);
+        }
+
+        vector<HString> LH = buildH(left);
+        vector<HString> RH = buildH(right);
+
+        vector<ll> ndp(cand[i + 1].size(), INF);
+
+        for (size_t a = 0; a < cand[i].size(); ++a) {
+            if (dp[a] >= INF) continue;
+
+            for (size_t b = 0; b < cand[i + 1].size(); ++b) {
+                int l = lcpHash(LH[a], RH[b]);
+                ll cost = (ll)right[b].size() - l;
+
+                // Each '*' means Jack missed at least one action.
+                // If stacks are equal, we need a dummy push-pop pair.
+                if (left[a] == right[b]) cost = 1;
+
+                ndp[b] = min(ndp[b], dp[a] + cost);
+            }
+        }
+
+        dp.swap(ndp);
+    }
+
+    ll ans = dp[0];
+    if (ans >= INF) cout << -1 << '\n';
+    else cout << fixedPushes + ans << '\n';
+
+    return 0;
+}

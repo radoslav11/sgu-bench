@@ -1,0 +1,84 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int M, N;
+vector<long long> dp_curr;
+vector<long long> dp_next;
+
+void generate(int row, int current_mask, int next_mask, long long ways) {
+    if (row == M) {
+        if (current_mask == (1 << M) - 1) {
+            dp_next[next_mask] += ways;
+        }
+        return;
+    }
+
+    if ((current_mask >> row) & 1) {
+        generate(row + 1, current_mask, next_mask, ways);
+        return;
+    }
+
+    // 1. Horizontal domino
+    if (((next_mask >> row) & 1) == 0) {
+        generate(row + 1, current_mask | (1 << row), next_mask | (1 << row), ways);
+    }
+
+    // 2. Vertical domino
+    if (row + 1 < M && ((current_mask >> (row + 1)) & 1) == 0) {
+        generate(row + 2, current_mask | (3 << row), next_mask, ways);
+    }
+
+    // 3. Case A1: L-tromino covering (row, c), (row+1, c), (row+1, c+1)
+    if (row + 1 < M && ((current_mask >> (row + 1)) & 1) == 0 && ((next_mask >> (row + 1)) & 1) == 0) {
+        generate(row + 2, current_mask | (3 << row), next_mask | (1 << (row + 1)), ways);
+    }
+
+    // 4. Case A2: L-tromino covering (row, c), (row+1, c), (row, c+1)
+    if (row + 1 < M && ((current_mask >> (row + 1)) & 1) == 0 && ((next_mask >> row) & 1) == 0) {
+        generate(row + 2, current_mask | (3 << row), next_mask | (1 << row), ways);
+    }
+
+    // 5. Case B1: L-tromino covering (row, c), (row, c+1), (row+1, c+1)
+    if (row + 1 < M && ((next_mask >> row) & 1) == 0 && ((next_mask >> (row + 1)) & 1) == 0) {
+        generate(row + 1, current_mask | (1 << row), next_mask | (3 << row), ways);
+    }
+
+    // 6. Case B2: L-tromino covering (row, c), (row-1, c+1), (row, c+1)
+    if (row > 0 && ((next_mask >> (row - 1)) & 1) == 0 && ((next_mask >> row) & 1) == 0) {
+        generate(row + 1, current_mask | (1 << row), next_mask | (1 << (row - 1)) | (1 << row), ways);
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> M >> N)) return 0;
+
+    if (M > N) {
+        swap(M, N);
+    }
+
+    int num_states = 1 << M;
+    dp_curr.assign(num_states, 0);
+    dp_next.assign(num_states, 0);
+
+    dp_curr[0] = 1;
+
+    for (int c = 0; c < N; ++c) {
+        fill(dp_next.begin(), dp_next.end(), 0);
+        for (int mask = 0; mask < num_states; ++mask) {
+            if (dp_curr[mask] > 0) {
+                generate(0, mask, 0, dp_curr[mask]);
+            }
+        }
+        dp_curr = dp_next;
+    }
+
+    cout << dp_curr[0] << "\n";
+
+    return 0;
+}

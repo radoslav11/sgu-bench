@@ -1,0 +1,101 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Point {
+    long long x, y;
+};
+
+Point operator-(const Point& a, const Point& b) {
+    return {a.x - b.x, a.y - b.y};
+}
+
+long long cross(const Point& a, const Point& b) {
+    return a.x * b.y - a.y * b.x;
+}
+
+long long cross(const Point& a, const Point& b, const Point& c) {
+    return cross(b - a, c - a);
+}
+
+bool onSegment(const Point& a, const Point& b, const Point& p) {
+    if (cross(a, b, p) != 0) return false;
+    return min(a.x, b.x) <= p.x && p.x <= max(a.x, b.x) &&
+           min(a.y, b.y) <= p.y && p.y <= max(a.y, b.y);
+}
+
+bool inTriangle(const Point& a, const Point& b, const Point& c, const Point& p) {
+    return cross(a, b, p) >= 0 &&
+           cross(b, c, p) >= 0 &&
+           cross(c, a, p) >= 0;
+}
+
+bool insideConvexPolygon(const vector<Point>& poly, const Point& p) {
+    int n = (int)poly.size();
+    const Point& p0 = poly[0];
+
+    long long c1 = cross(poly[1] - p0, p - p0);
+    long long c2 = cross(poly[n - 1] - p0, p - p0);
+
+    if (c1 < 0 || c2 > 0) return false;
+
+    if (c1 == 0) return onSegment(p0, poly[1], p);
+    if (c2 == 0) return onSegment(p0, poly[n - 1], p);
+
+    int l = 1, r = n - 1;
+    while (r - l > 1) {
+        int mid = (l + r) / 2;
+        if (cross(poly[mid] - p0, p - p0) >= 0)
+            l = mid;
+        else
+            r = mid;
+    }
+
+    return inTriangle(p0, poly[l], poly[l + 1], p);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M, K;
+    cin >> N >> M >> K;
+
+    vector<Point> input(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> input[i].x >> input[i].y;
+    }
+
+    if (K == 0) {
+        cout << "YES\n";
+        return 0;
+    }
+
+    vector<Point> poly;
+    for (int i = 0; i < N; ++i) {
+        Point prev = input[(i - 1 + N) % N];
+        Point cur = input[i];
+        Point nxt = input[(i + 1) % N];
+
+        if (cross(cur - prev, nxt - cur) != 0) {
+            poly.push_back(cur);
+        }
+    }
+
+    int hits = 0;
+
+    for (int i = 0; i < M; ++i) {
+        Point p;
+        cin >> p.x >> p.y;
+
+        if (insideConvexPolygon(poly, p)) {
+            ++hits;
+            if (hits >= K) {
+                cout << "YES\n";
+                return 0;
+            }
+        }
+    }
+
+    cout << "NO\n";
+    return 0;
+}

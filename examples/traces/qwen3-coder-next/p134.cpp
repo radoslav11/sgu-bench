@@ -1,0 +1,71 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstring>
+using namespace std;
+
+const int MAXN = 16005;
+
+vector<int> adj[MAXN];
+int n;
+int subtreeSize[MAXN];
+int maxComponentSize[MAXN];
+
+void dfs(int u, int parent) {
+    subtreeSize[u] = 1;
+    maxComponentSize[u] = 0;
+    
+    for (int v : adj[u]) {
+        if (v == parent) continue;
+        dfs(v, u);
+        subtreeSize[u] += subtreeSize[v];
+        maxComponentSize[u] = max(maxComponentSize[u], subtreeSize[v]);
+    }
+    
+    // Consider the component containing the parent (the rest of the tree)
+    if (parent != -1) {
+        maxComponentSize[u] = max(maxComponentSize[u], n - subtreeSize[u]);
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(0);
+    
+    cin >> n;
+    
+    for (int i = 1; i <= n-1; i++) {
+        int a, b;
+        cin >> a >> b;
+        adj[a].push_back(b);
+        adj[b].push_back(a);
+    }
+    
+    // Run DFS from node 1 (arbitrary root)
+    dfs(1, -1);
+    
+    // Find the minimum value among maxComponentSize
+    int minVal = n; // maximum possible is n-1, but set to n for safety
+    for (int i = 1; i <= n; i++) {
+        minVal = min(minVal, maxComponentSize[i]);
+    }
+    
+    // Collect all centroids
+    vector<int> centroids;
+    for (int i = 1; i <= n; i++) {
+        if (maxComponentSize[i] == minVal) {
+            centroids.push_back(i);
+        }
+    }
+    
+    // Output
+    cout << minVal << " " << centroids.size() << "\n";
+    sort(centroids.begin(), centroids.end());
+    for (int i = 0; i < centroids.size(); i++) {
+        if (i > 0) cout << " ";
+        cout << centroids[i];
+    }
+    cout << "\n";
+    
+    return 0;
+}

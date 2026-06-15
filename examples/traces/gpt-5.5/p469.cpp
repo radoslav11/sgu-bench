@@ -1,0 +1,166 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Ghost {
+    double x, y, z, r;
+};
+
+double W, H, D;
+int N;
+vector<Ghost> g;
+
+double valueAt(double x, double y, double z) {
+    double res = min({x, W - x, y, H - y, z, D - z});
+    for (const auto &q : g) {
+        double dx = x - q.x;
+        double dy = y - q.y;
+        double dz = z - q.z;
+        res = min(res, sqrt(dx * dx + dy * dy + dz * dz) - q.r);
+    }
+    return res;
+}
+
+struct Box {
+    double lx, rx, ly, ry, lz, rz;
+    double cx, cy, cz;
+    double val, ub;
+
+    Box(double _lx, double _rx, double _ly, double _ry, double _lz, double _rz) {
+        lx = _lx; rx = _rx;
+        ly = _ly; ry = _ry;
+        lz = _lz; rz = _rz;
+
+        cx = (lx + rx) * 0.5;
+        cy = (ly + ry) * 0.5;
+        cz = (lz + rz) * 0.5;
+
+        val = valueAt(cx, cy, cz);
+
+        double dx = (rx - lx) * 0.5;
+        double dy = (ry - ly) * 0.5;
+        double dz = (rz - lz) * 0.5;
+        ub = val + sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    bool operator<(const Box &other) const {
+        return ub < other.ub;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> W >> H >> D;
+    cin >> N;
+
+    g.resize(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> g[i].x >> g[i].y >> g[i].z >> g[i].r;
+    }
+
+    if (N == 0) {
+        cout << fixed << setprecision(15) << W / 2.0 << ' ' << H / 2.0 << ' ' << D / 2.0 << '\n';
+        return 0;
+    }
+
+    double bestX = W / 2.0, bestY = H / 2.0, bestZ = D / 2.0;
+    double bestVal = valueAt(bestX, bestY, bestZ);
+
+    auto relax = [&](double x, double y, double z) {
+        x = min(max(x, 0.0), W);
+        y = min(max(y, 0.0), H);
+        z = min(max(z, 0.0), D);
+
+        double cur = valueAt(x, y, z);
+        double step = max({W, H, D});
+
+        while (step > 1e-5) {
+            bool improved = false;
+
+            const double dx[6] = {1, -1, 0, 0, 0, 0};
+            const double dy[6] = {0, 0, 1, -1, 0, 0};
+            const double dz[6] = {0, 0, 0, 0, 1, -1};
+
+            for (int it = 0; it < 6; ++it) {
+                double nx = min(max(x + dx[it] * step, 0.0), W);
+                double ny = min(max(y + dy[it] * step, 0.0), H);
+                double nz = min(max(z + dz[it] * step, 0.0), D);
+
+                double nv = valueAt(nx, ny, nz);
+                if (nv > cur) {
+                    cur = nv;
+                    x = nx;
+                    y = ny;
+                    z = nz;
+                    improved = true;
+                }
+            }
+
+            if (!improved) step *= 0.5;
+        }
+
+        if (cur > bestVal) {
+            bestVal = cur;
+            bestX = x;
+            bestY = y;
+            bestZ = z;
+        }
+    };
+
+    relax(bestX, bestY, bestZ);
+
+    mt19937 rng(469469);
+    uniform_real_distribution<double> ux(0.0, W), uy(0.0, H), uz(0.0, D);
+
+    for (int i = 0; i < 250; ++i) {
+        relax(ux(rng), uy(rng), uz(rng));
+    }
+
+    priority_queue<Box> pq;
+    pq.emplace(0.0, W, 0.0, H, 0.0, D);
+
+    const double EPS = 2e-4;
+    int iterations = 0;
+    const int MAX_ITER = 800000;
+
+    while (!pq.empty() && iterations < MAX_ITER) {
+        Box b = pq.top();
+        pq.pop();
+
+        if (b.ub - bestVal <= EPS) break;
+
+        if (b.val > bestVal) {
+            bestVal = b.val;
+            bestX = b.cx;
+            bestY = b.cy;
+            bestZ = b.cz;
+        }
+
+        double sx = b.rx - b.lx;
+        double sy = b.ry - b.ly;
+        double sz = b.rz - b.lz;
+
+        if (sx >= sy && sx >= sz) {
+            double m = (b.lx + b.rx) * 0.5;
+            pq.emplace(b.lx, m, b.ly, b.ry, b.lz, b.rz);
+            pq.emplace(m, b.rx, b.ly, b.ry, b.lz, b.rz);
+        } else if (sy >= sx && sy >= sz) {
+            double m = (b.ly + b.ry) * 0.5;
+            pq.emplace(b.lx, b.rx, b.ly, m, b.lz, b.rz);
+            pq.emplace(b.lx, b.rx, m, b.ry, b.lz, b.rz);
+        } else {
+            double m = (b.lz + b.rz) * 0.5;
+            pq.emplace(b.lx, b.rx, b.ly, b.ry, b.lz, m);
+            pq.emplace(b.lx, b.rx, b.ly, b.ry, m, b.rz);
+        }
+
+        ++iterations;
+    }
+
+    relax(bestX, bestY, bestZ);
+
+    cout << fixed << setprecision(15) << bestX << ' ' << bestY << ' ' << bestZ << '\n';
+
+    return 0;
+}

@@ -1,0 +1,179 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Op {
+    int type; // 0 = command, 1 = argument, 2 = call
+    char ch;
+    vector<char> args;
+};
+
+struct Func {
+    char name;
+    vector<char> params;
+    vector<Op> ops;
+};
+
+int N, M;
+vector<string> field;
+map<char, Func> funcs;
+
+int x, y, dirr = 0;
+vector<pair<int, int>> answer;
+bool visited[55][55];
+
+void executeCommand(char c) {
+    if (c == 'L') {
+        dirr = (dirr + 3) % 4;
+    } else if (c == 'R') {
+        dirr = (dirr + 1) % 4;
+    } else if (c == 'C') {
+        int dx[4] = {-1, 0, 1, 0};
+        int dy[4] = {0, 1, 0, -1};
+
+        int nx = x + dx[dirr];
+        int ny = y + dy[dirr];
+
+        if (nx >= 0 && nx < N && ny >= 0 && ny < M) {
+            x = nx;
+            y = ny;
+
+            if (field[x][y] == '*' && !visited[x][y]) {
+                visited[x][y] = true;
+                answer.push_back({x + 1, y + 1});
+            }
+        }
+    }
+}
+
+void runFunction(char name, const map<char, char>& env) {
+    const Func& f = funcs[name];
+
+    for (const Op& op : f.ops) {
+        if (op.type == 0) {
+            executeCommand(op.ch);
+        } else if (op.type == 1) {
+            executeCommand(env.at(op.ch));
+        } else {
+            const Func& called = funcs[op.ch];
+            map<char, char> newEnv;
+
+            for (int i = 0; i < (int)called.params.size(); i++) {
+                char actual = op.args[i];
+
+                if (actual == 'L' || actual == 'R' || actual == 'C') {
+                    newEnv[called.params[i]] = actual;
+                } else {
+                    newEnv[called.params[i]] = env.at(actual);
+                }
+            }
+
+            runFunction(op.ch, newEnv);
+        }
+    }
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> N >> M;
+
+    field.resize(N);
+    for (int i = 0; i < N; i++) {
+        cin >> field[i];
+        for (int j = 0; j < M; j++) {
+            if (field[i][j] == 'R') {
+                x = i;
+                y = j;
+            }
+        }
+    }
+
+    string rest, line;
+    getline(cin, line);
+
+    while (getline(cin, line)) {
+        rest += line;
+    }
+
+    string s;
+    for (char c : rest) {
+        if (!isspace((unsigned char)c)) {
+            s += c;
+        }
+    }
+
+    int pos = 0;
+
+    while (pos < (int)s.size()) {
+        Func f;
+        f.name = s[pos++];
+
+        pos++; // '('
+
+        if (s[pos] != ')') {
+            while (true) {
+                f.params.push_back(s[pos++]);
+
+                if (s[pos] == ',') {
+                    pos++;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        pos++; // ')'
+        pos++; // '{'
+
+        while (s[pos] != '}') {
+            char c = s[pos];
+
+            if (c == 'L' || c == 'R' || c == 'C') {
+                f.ops.push_back({0, c, {}});
+                pos++;
+            } else if (c >= 'A' && c <= 'Z') {
+                f.ops.push_back({1, c, {}});
+                pos++;
+            } else {
+                Op op;
+                op.type = 2;
+                op.ch = c;
+                pos++;
+
+                pos++; // '('
+
+                if (s[pos] != ')') {
+                    while (true) {
+                        op.args.push_back(s[pos++]);
+
+                        if (s[pos] == ',') {
+                            pos++;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                pos++; // ')'
+
+                f.ops.push_back(op);
+            }
+        }
+
+        pos++; // '}'
+
+        funcs[f.name] = f;
+    }
+
+    memset(visited, false, sizeof(visited));
+
+    runFunction('m', {});
+
+    cout << answer.size() << '\n';
+    for (auto [r, c] : answer) {
+        cout << r << ' ' << c << '\n';
+    }
+
+    return 0;
+}

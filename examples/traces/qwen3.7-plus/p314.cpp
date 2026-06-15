@@ -1,0 +1,107 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct State {
+    long long f;
+    int u;
+    bool operator>(const State& other) const {
+        return f > other.f;
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m, k;
+    if (!(cin >> n >> m >> k)) return 0;
+
+    int s, t;
+    cin >> s >> t;
+
+    vector<vector<pair<int, int>>> adj(n + 1);
+    vector<vector<pair<int, int>>> rev_adj(n + 1);
+
+    for (int i = 0; i < m; ++i) {
+        int u, v, w;
+        cin >> u >> v >> w;
+        adj[u].push_back({v, w});
+        rev_adj[v].push_back({u, w});
+    }
+
+    vector<long long> H(n + 1, INF);
+    priority_queue<State, vector<State>, greater<State>> pq_h;
+    
+    H[t] = 0;
+    pq_h.push({0, t});
+
+    while (!pq_h.empty()) {
+        auto [d, u] = pq_h.top();
+        pq_h.pop();
+
+        if (d > H[u]) continue;
+
+        for (auto& edge : rev_adj[u]) {
+            int v = edge.first;
+            long long w = edge.second;
+            if (H[v] > d + w) {
+                H[v] = d + w;
+                pq_h.push({H[v], v});
+            }
+        }
+    }
+
+    if (H[s] == INF) {
+        for (int i = 0; i < k; ++i) {
+            cout << "NO\n";
+        }
+        return 0;
+    }
+
+    priority_queue<State, vector<State>, greater<State>> pq_a;
+    pq_a.push({H[s], s});
+
+    vector<int> count(n + 1, 0);
+    int paths_found = 0;
+
+    while (!pq_a.empty() && paths_found < k) {
+        auto [f, u] = pq_a.top();
+        pq_a.pop();
+
+        if (count[u] >= k) {
+            continue;
+        }
+        count[u]++;
+
+        long long g = f - H[u];
+
+        if (u == t) {
+            cout << g << "\n";
+            paths_found++;
+            if (paths_found == k) {
+                break;
+            }
+        }
+
+        for (auto& edge : adj[u]) {
+            int v = edge.first;
+            long long w = edge.second;
+            if (H[v] == INF) continue;
+            long long new_g = g + w;
+            long long new_f = new_g + H[v];
+            pq_a.push({new_f, v});
+        }
+    }
+
+    while (paths_found < k) {
+        cout << "NO\n";
+        paths_found++;
+    }
+
+    return 0;
+}

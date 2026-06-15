@@ -1,0 +1,106 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * - Cities are numbered 1 to n. Capital is 1.
+ * - On day 1, capital (city 1) is on fire.
+ * - On day d, a city v is on fire if dist(1, v) <= d-1.
+ * - Nikolay (N) moves on odd days, Vladimir (V) on even days.
+ * - On day d, the current pilot moves the robot from v_{d-1} to v_d.
+ * - If v_d is on fire, the robot is destroyed and that pilot pays.
+ * - To not lose, a pilot must move to a city v_d such that dist(1, v_d) > d-1.
+ * - Since the robot moves one step at a time, dist(1, v_d) is at most dist(1, v_{d-1}) + 1.
+ * - For the robot to have been safe on the previous day, dist(1, v_{d-1}) must have been d-1.
+ * - Therefore, the only safe move on day d is to a city v_d with dist(1, v_d) = d.
+ * - This turns the problem into a standard game on a Directed Acyclic Graph (DAG).
+ * - The DAG is formed by edges (u, v) such that dist(1, v) = dist(1, u) + 1.
+ * - A position is winning if there is a move to a losing position.
+ * - A position is losing if all possible moves are to winning positions (or no moves exist).
+ * - Nikolay starts at city 1. If city 1 is a winning position, Vladimir pays; otherwise, Nikolay pays.
+ */
+
+const int MAXN = 1005;
+vector<int> adj[MAXN];
+vector<int> dag[MAXN];
+int dists[MAXN];
+int memo[MAXN];
+
+// BFS to calculate the shortest path distance from the capital (city 1) to all other cities.
+void bfs(int n) {
+    for (int i = 1; i <= n; ++i) dists[i] = -1;
+    queue<int> q;
+    q.push(1);
+    dists[1] = 0;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        for (int v : adj[u]) {
+            if (dists[v] == -1) {
+                dists[v] = dists[u] + 1;
+                q.push(v);
+            }
+        }
+    }
+}
+
+// DFS with memoization to determine if a node is a winning or losing position in the DAG game.
+bool isWinning(int u) {
+    if (memo[u] != -1) return memo[u];
+    bool can_move_to_losing = false;
+    for (int v : dag[u]) {
+        // If any move leads to a losing position, current position is a winning position.
+        if (!isWinning(v)) {
+            can_move_to_losing = true;
+            break;
+        }
+    }
+    return memo[u] = can_move_to_losing;
+}
+
+int main() {
+    // Fast I/O
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+    for (int i = 0; i < m; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    // Step 1: Find distances from the capital.
+    bfs(n);
+
+    // Step 2: Construct the DAG of "safe" moves.
+    for (int u = 1; u <= n; ++u) {
+        for (int v : adj[u]) {
+            // A move is safe only if it increases the distance from the capital.
+            if (dists[v] == dists[u] + 1) {
+                dag[u].push_back(v);
+            }
+        }
+    }
+
+    // Step 3: Solve the game on the DAG.
+    for (int i = 1; i <= n; ++i) memo[i] = -1;
+
+    // Step 4: Determine who pays based on whether Nikolay's starting position is winning.
+    if (isWinning(1)) {
+        // Nikolay can move to a losing position for Vladimir, so Vladimir pays.
+        cout << "Vladimir" << endl;
+    } else {
+        // Nikolay starts at a losing position, so he pays.
+        cout << "Nikolay" << endl;
+    }
+
+    return 0;
+}
+

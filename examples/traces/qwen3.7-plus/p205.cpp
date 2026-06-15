@@ -1,0 +1,84 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<long long> x(n + 1);
+    for (int i = 1; i <= n; ++i) {
+        cin >> x[i];
+    }
+
+    int m, s;
+    if (!(cin >> m >> s)) return 0;
+
+    vector<vector<long long>> L(m, vector<long long>(s));
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < s; ++j) {
+            cin >> L[i][j];
+        }
+    }
+
+    vector<vector<long long>> dp(n + 1, vector<long long>(m, INF));
+    vector<vector<int>> choice(n + 1, vector<int>(m, -1));
+    vector<vector<int>> prev_state(n + 1, vector<int>(m, -1));
+
+    for (int k = 0; k < s; ++k) {
+        int i = k % m;
+        long long cost = std::abs(x[1] - L[0][k]);
+        if (cost < dp[1][i]) {
+            dp[1][i] = cost;
+            choice[1][i] = k;
+        }
+    }
+
+    for (int j = 2; j <= n; ++j) {
+        for (int u = 0; u < m; ++u) {
+            if (dp[j - 1][u] == INF) continue;
+            for (int k = 0; k < s; ++k) {
+                int i = k % m;
+                long long cost = dp[j - 1][u] + std::abs(x[j] - L[u][k]);
+                if (cost < dp[j][i]) {
+                    dp[j][i] = cost;
+                    choice[j][i] = k;
+                    prev_state[j][i] = u;
+                }
+            }
+        }
+    }
+
+    long long min_cost = INF;
+    int best_u = -1;
+    for (int u = 0; u < m; ++u) {
+        if (dp[n][u] < min_cost) {
+            min_cost = dp[n][u];
+            best_u = u;
+        }
+    }
+
+    cout << min_cost << "\n";
+
+    vector<int> ans(n + 1);
+    int curr_u = best_u;
+    for (int j = n; j >= 1; --j) {
+        ans[j] = choice[j][curr_u];
+        curr_u = prev_state[j][curr_u];
+    }
+
+    for (int i = 1; i <= n; ++i) {
+        cout << ans[i] << (i == n ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

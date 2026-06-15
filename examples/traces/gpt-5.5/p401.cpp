@@ -1,0 +1,95 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    long double u, T;
+    if (!(cin >> N >> u >> T)) return 0;
+
+    vector<long double> w(N), v(N);
+    long double totalWidth = 0.0L;
+    long double minTime = 0.0L;
+    long double maxLimit = 0.0L;
+
+    for (int i = 0; i < N; ++i) {
+        cin >> w[i] >> v[i];
+        totalWidth += w[i];
+        minTime += w[i] / u;
+        maxLimit = max(maxLimit, v[i] + u);
+    }
+
+    const long double EPS = 1e-12L;
+
+    if (minTime - T > 1e-10L) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<long double> ans(N);
+
+    if (fabsl(minTime - T) <= 1e-12L) {
+        long double y = 0.0L;
+        for (int i = 0; i < N; ++i) {
+            ans[i] = w[i] / u;
+            y += v[i] * ans[i];
+        }
+
+        long double dist = sqrtl(totalWidth * totalWidth + y * y);
+
+        cout << fixed << setprecision(10) << (double)dist << '\n';
+        for (int i = 0; i < N; ++i) {
+            if (i) cout << ' ';
+            cout << fixed << setprecision(10) << (double)ans[i];
+        }
+        cout << '\n';
+        return 0;
+    }
+
+    auto sumTime = [&](long double lambda) {
+        long double s = 0.0L;
+        for (int i = 0; i < N; ++i) {
+            long double A = lambda - v[i];
+            long double denom = u * sqrtl(A * A - u * u);
+            s += A * w[i] / denom;
+        }
+        return s;
+    };
+
+    long double low = maxLimit;
+    long double high = maxLimit + 1.0L;
+
+    while (sumTime(high) > T) {
+        high *= 2.0L;
+    }
+
+    for (int it = 0; it < 200; ++it) {
+        long double mid = (low + high) / 2.0L;
+        if (sumTime(mid) > T)
+            low = mid;
+        else
+            high = mid;
+    }
+
+    long double lambda = high;
+    long double y = 0.0L;
+
+    for (int i = 0; i < N; ++i) {
+        long double A = lambda - v[i];
+        ans[i] = A * w[i] / (u * sqrtl(A * A - u * u));
+        y += v[i] * ans[i] + sqrtl(u * u * ans[i] * ans[i] - w[i] * w[i]);
+    }
+
+    long double dist = sqrtl(totalWidth * totalWidth + y * y);
+
+    cout << fixed << setprecision(10) << (double)dist << '\n';
+    for (int i = 0; i < N; ++i) {
+        if (i) cout << ' ';
+        cout << fixed << setprecision(10) << (double)ans[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

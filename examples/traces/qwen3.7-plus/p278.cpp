@@ -1,0 +1,95 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    long long A_tot, B_tot;
+    if (!(cin >> N >> A_tot >> B_tot)) return 0;
+
+    long long max_c[105][105];
+    for (int i = 0; i <= 100; ++i) {
+        for (int j = 0; j <= 100; ++j) {
+            max_c[i][j] = -1;
+        }
+    }
+
+    for (int i = 0; i < N; ++i) {
+        long long a, b, c;
+        cin >> a >> b >> c;
+        if (a == 0 && b == 0) {
+            if (c > 0) {
+                cout << fixed << setprecision(6) << 1e18 << "\n";
+                return 0;
+            }
+            continue;
+        }
+        if (c > max_c[a][b]) {
+            max_c[a][b] = c;
+        }
+    }
+
+    vector<long long> A_arr, B_arr, C_arr, D_arr;
+    for (int a = 0; a <= 100; ++a) {
+        for (int b = 0; b <= 100; ++b) {
+            if (max_c[a][b] >= 0) {
+                A_arr.push_back(a);
+                B_arr.push_back(b);
+                C_arr.push_back(max_c[a][b]);
+                D_arr.push_back(A_tot * b - B_tot * a);
+            }
+        }
+    }
+
+    int M = A_arr.size();
+    double max_ans = 0.0;
+
+    for (int i = 0; i < M; ++i) {
+        long long a = A_arr[i];
+        long long b = B_arr[i];
+        long long c = C_arr[i];
+        double R = 1e18;
+        if (a > 0) R = min(R, (double)A_tot / a);
+        if (b > 0) R = min(R, (double)B_tot / b);
+        max_ans = max(max_ans, R * c);
+    }
+
+    vector<int> P, NEG;
+    for (int i = 0; i < M; ++i) {
+        if (D_arr[i] > 0) P.push_back(i);
+        else if (D_arr[i] < 0) NEG.push_back(i);
+    }
+
+    for (int p : P) {
+        long long D1 = D_arr[p];
+        long long c1 = C_arr[p];
+        long long a1 = A_arr[p];
+        long long b1 = B_arr[p];
+
+        for (int n : NEG) {
+            long long D2 = D_arr[n];
+            long long num = D2 * c1 - D1 * C_arr[n];
+            long long den_a = D2 * a1 - D1 * A_arr[n];
+            
+            if (den_a < 0) {
+                double val = (double)A_tot * num / den_a;
+                if (val > max_ans) max_ans = val;
+            } else {
+                long long den_b = D2 * b1 - D1 * B_arr[n];
+                if (den_b < 0) {
+                    double val = (double)B_tot * num / den_b;
+                    if (val > max_ans) max_ans = val;
+                }
+            }
+        }
+    }
+
+    cout << fixed << setprecision(6) << max_ans << "\n";
+    return 0;
+}

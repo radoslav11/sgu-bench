@@ -1,0 +1,95 @@
+#include <iostream>
+#include <vector>
+
+/**
+ * Problem: 188. Factory guard
+ * 
+ * Description:
+ * A circular fence of 1000m perimeter has N soldiers moving at constant speeds V_i.
+ * Each soldier moves clockwise (Vi > 0) or counter-clockwise (Vi < 0).
+ * A "meet" occurs if two soldiers are at the same position at the same time with opposite directions.
+ * If a soldier meets another, they ask each other a question.
+ * We need to find how many times each soldier asks a question in the period T (0 <= t <= T).
+ * 
+ * Approach:
+ * For each pair (i, j) of soldiers, they meet if:
+ * 1. sign(V_i) != sign(V_j)
+ * 2. (L_i + V_i * t) ≡ (L_j + V_j * t) (mod 1000)
+ * 
+ * Condition 2 is equivalent to:
+ * (V_i - V_j) * t = (L_j - L_i) + 1000 * k, for some integer k.
+ * 
+ * Let A = V_i - V_j and B = L_j - L_i.
+ * We need to find all integers k such that 0 <= (B + 1000 * k) / A <= T.
+ * This can be rewritten as:
+ * If A > 0: 0 <= B + 1000 * k <= A * T
+ * If A < 0: 0 >= B + 1000 * k >= A * T
+ * 
+ * Since N <= 20 and T <= 50, we can iterate through a small range of k for each pair.
+ * Given the constraints, |A| <= 200 and |B| <= 1000, and T <= 50,
+ * the numerator B + 1000k will be roughly in the range [-11000, 11000].
+ * So k from -20 to 20 is sufficient.
+ */
+
+using namespace std;
+
+int main() {
+    // Faster input/output
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, T;
+    if (!(cin >> N >> T)) return 0;
+
+    vector<int> L(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> L[i];
+    }
+
+    vector<int> V(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> V[i];
+    }
+
+    vector<int> B_count(N, 0);
+
+    // Iterate over all pairs of soldiers
+    for (int i = 0; i < N; ++i) {
+        for (int j = i + 1; j < N; ++j) {
+            // "Opposite velocities" condition (interpreted as opposite directions)
+            if ((V[i] > 0 && V[j] < 0) || (V[i] < 0 && V[j] > 0)) {
+                int A = V[i] - V[j];
+                int B = L[j] - L[i];
+
+                // Search for all k such that 0 <= t <= T
+                // The time t = (B + 1000 * k) / A must be in [0, T]
+                for (int k = -25; k <= 25; ++k) {
+                    long long numerator = (long long)B + 1000LL * k;
+                    
+                    if (A > 0) {
+                        // 0 <= numerator / A <= T  =>  0 <= numerator <= A * T
+                        if (numerator >= 0 && numerator <= (long long)A * T) {
+                            B_count[i]++;
+                            B_count[j]++;
+                        }
+                    } else if (A < 0) {
+                        // 0 <= numerator / A <= T  =>  0 >= numerator >= A * T (since A is negative)
+                        if (numerator <= 0 && numerator >= (long long)A * T) {
+                            B_count[i]++;
+                            B_count[j]++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Output the number of questions asked by each soldier
+    for (int i = 0; i < N; ++i) {
+        cout << B_count[i] << (i == N - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

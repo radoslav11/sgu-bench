@@ -1,0 +1,124 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+#include <unordered_set>
+
+using namespace std;
+
+bool matches(const string& p, const string& s) {
+    int n = p.length(), m = s.length();
+    vector<vector<bool>> dp(n + 1, vector<bool>(m + 1, false));
+    dp[0][0] = true;
+    for (int i = 0; i <= n; ++i) {
+        for (int j = 0; j <= m; ++j) {
+            if (!dp[i][j]) continue;
+            if (i < n && j < m && (p[i] == '?' || p[i] == s[j])) {
+                dp[i+1][j+1] = true;
+            }
+            if (i < n && p[i] == '*') {
+                dp[i+1][j] = true;
+                if (j < m) dp[i][j+1] = true;
+            }
+        }
+    }
+    return dp[n][m];
+}
+
+bool can_match(const string& p, const string& s) {
+    int n = p.length(), m = s.length();
+    vector<vector<bool>> dp(n + 1, vector<bool>(m + 1, false));
+    dp[0][0] = true;
+    for (int i = 0; i <= n; ++i) {
+        for (int j = 0; j <= m; ++j) {
+            if (!dp[i][j]) continue;
+            if (i < n && j < m && (p[i] == '?' || p[i] == s[j])) {
+                dp[i+1][j+1] = true;
+            }
+            if (i < n && p[i] == '*') {
+                dp[i+1][j] = true;
+                if (j < m) dp[i][j+1] = true;
+            }
+        }
+    }
+    for (int j = 0; j <= m; ++j) {
+        if (dp[n][j]) return true;
+    }
+    return false;
+}
+
+int n, m;
+vector<string> S, T;
+unordered_set<string> visited;
+
+void dfs(string p) {
+    if (visited.count(p)) return;
+    visited.insert(p);
+    
+    if (p.length() > 35) return;
+    int non_star = 0;
+    for (char c : p) if (c != '*') non_star++;
+    if (non_star > 11) return;
+    
+    bool ok = true;
+    for (const string& s : S) {
+        if (!matches(p, s)) { ok = false; break; }
+    }
+    if (ok) {
+        for (const string& t : T) {
+            if (matches(p, t)) { ok = false; break; }
+        }
+    }
+    if (ok) {
+        cout << p << "\n";
+        exit(0);
+    }
+    
+    for (const string& s : S) {
+        if (!can_match(p, s)) return;
+    }
+    
+    set<char> next_chars = {'?', '*'};
+    for (const string& s : S) {
+        int len_p = p.length(), len_s = s.length();
+        vector<vector<bool>> dp(len_p + 1, vector<bool>(len_s + 1, false));
+        dp[0][0] = true;
+        for (int i = 0; i <= len_p; ++i) {
+            for (int j = 0; j <= len_s; ++j) {
+                if (!dp[i][j]) continue;
+                if (i < len_p && j < len_s && (p[i] == '?' || p[i] == s[j])) {
+                    dp[i+1][j+1] = true;
+                }
+                if (i < len_p && p[i] == '*') {
+                    dp[i+1][j] = true;
+                    if (j < len_s) dp[i][j+1] = true;
+                }
+            }
+        }
+        for (int j = 0; j < len_s; ++j) {
+            if (dp[len_p][j]) {
+                next_chars.insert(s[j]);
+            }
+        }
+    }
+    
+    for (char c : next_chars) {
+        if (c == '*' && !p.empty() && p.back() == '*') continue;
+        dfs(p + c);
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    if (!(cin >> n >> m)) return 0;
+    S.resize(n);
+    for (int i = 0; i < n; ++i) cin >> S[i];
+    T.resize(m);
+    for (int i = 0; i < m; ++i) cin >> T[i];
+    
+    dfs("");
+    
+    cout << "OOPS\n";
+    return 0;
+}

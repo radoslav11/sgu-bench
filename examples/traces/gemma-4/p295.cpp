@@ -1,0 +1,151 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem analysis:
+ * A nickname is a sequence of one or more "words" separated by one or more spaces.
+ * A mult of a nickname is a nickname that has:
+ *   1. The same number of words.
+ *   2. Each corresponding word having the same length and equivalent characters.
+ *      - A character is equivalent if it's the same, or one is a Latin letter and
+ *        the other is its Russian analog.
+ *      - The letters with Russian analogs are: A, B, C, E, H, K, M, O, P, T, X,
+ *        a, c, e, o, p, x, y.
+ *   3. The same amount of spaces between each word (must be at least one space).
+ *   4. Any number of leading and trailing spaces.
+ * The total length of the mult nickname must be between q and c.
+ * 
+ * The question asks for the number of "different mults". Based on the sample, 
+ * this likely excludes the original nickname itself.
+ * 
+ * Let the words have lengths l_1, l_2, ..., l_k.
+ * Let the number of spaces be s_0 (leading), s_1, ..., s_{k-1} (between words),
+ * and s_k (trailing).
+ * The constraints are: s_0 >= 0, s_k >= 0, and s_i >= 1 for 1 <= i < k.
+ * Let S = sum(l_i).
+ * Total length L = S + sum(s_i).
+ * q <= S + s_0 + s_1 + ... + s_k <= c.
+ * Let s'_i = s_i - 1 for 1 <= i < k, and s'_0 = s_0, s'_k = s_k.
+ * All s'_i >= 0.
+ * The condition becomes: q <= S + (k-1) + sum(s'_i) <= c.
+ * Let Q = max(0, q - S - (k-1)) and C = c - S - (k-1).
+ * We need to find the number of ways to choose k+1 non-negative integers s'_i
+ * such that Q <= sum(s'_i) <= C.
+ * 
+ * The number of solutions for sum(x_i) = m with k+1 variables is binom(m + k, k).
+ * The total ways to choose spaces is sum_{m=Q}^{C} binom(m + k, k).
+ * This sum is binom(C + k + 1, k + 1) - binom(Q + k, k + 1).
+ */
+
+typedef __int128_t int128;
+
+int128 combinations(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    if (k == 0 || k == n) return 1;
+    if (k > n / 2) k = n - k;
+    int128 res = 1;
+    for (int i = 1; i <= k; ++i) {
+        res = res * (n - i + 1) / i;
+    }
+    return res;
+}
+
+bool is_convertible(char c) {
+    static const string list = "ABCEHKMOPTXaceopxy";
+    return list.find(c) != string::npos;
+}
+
+void print_int128(int128 n) {
+    if (n == 0) {
+        cout << "0" << endl;
+        return;
+    }
+    string s = "";
+    while (n > 0) {
+        s += (char)('0' + (n % 10));
+        n /= 10;
+    }
+    reverse(s.begin(), s.end());
+    cout << s << endl;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int q, c_val;
+    if (!(cin >> q >> c_val)) return 0;
+    string dummy;
+    getline(cin, dummy); // Consume the newline after c_val
+
+    string nickname;
+    if (!getline(cin, nickname)) nickname = "";
+
+    vector<string> words;
+    string current_word = "";
+    for (char ch : nickname) {
+        if (ch == ' ') {
+            if (!current_word.empty()) {
+                words.push_back(current_word);
+                current_word = "";
+            }
+        } else {
+            current_word += ch;
+        }
+    }
+    if (!current_word.empty()) {
+        words.push_back(current_word);
+    }
+
+    // Special case: empty nickname
+    if (words.empty()) {
+        // If nickname is just spaces, it effectively has 0 words.
+        // But the problem says length >= q and q >= 1. 
+        // So there must be at least one character.
+        // If there are no non-space characters, words.empty() is true.
+        // But we assume the input has words.
+        cout << 0 << endl;
+        return 0;
+    }
+
+    int k = words.size();
+    int128 letter_combinations = 1;
+    int S = 0;
+
+    for (const string& word : words) {
+        int128 ways = 1;
+        for (char ch : word) {
+            if (is_convertible(ch)) {
+                ways *= 2;
+            }
+            S++;
+        }
+        letter_combinations *= ways;
+    }
+
+    int Q = max(0, q - S - (k - 1));
+    int C = c_val - S - (k - 1);
+
+    if (C < 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    int128 space_ways = combinations(C + k + 1, k + 1) - combinations(Q + k, k + 1);
+    int128 total_mults = letter_combinations * space_ways;
+
+    // The problem sample suggests "different mults" means "mults other than the original".
+    // 576 - 1 = 575.
+    if (total_mults > 0) {
+        print_int128(total_mults - 1);
+    } else {
+        cout << 0 << endl;
+    }
+
+    return 0;
+}
+

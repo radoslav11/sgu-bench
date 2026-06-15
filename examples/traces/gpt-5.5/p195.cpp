@@ -1,0 +1,100 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+class FastInput {
+    static const int BUFSIZE = 1 << 20;
+    int idx, size;
+    char buf[BUFSIZE];
+
+public:
+    FastInput() : idx(0), size(0) {}
+
+    inline char read() {
+        if (idx >= size) {
+            size = (int)fread(buf, 1, BUFSIZE, stdin);
+            idx = 0;
+            if (size == 0) return 0;
+        }
+        return buf[idx++];
+    }
+
+    int nextInt() {
+        char c;
+        do {
+            c = read();
+        } while (c <= ' ');
+
+        int x = 0;
+        while (c > ' ') {
+            x = x * 10 + (c - '0');
+            c = read();
+        }
+        return x;
+    }
+};
+
+int main() {
+    FastInput in;
+
+    int N = in.nextInt();
+
+    vector<int> head(N + 1, 0), nxt(N + 1, 0);
+
+    for (int i = 2; i <= N; ++i) {
+        int p = in.nextInt();
+        nxt[i] = head[p];
+        head[p] = i;
+    }
+
+    vector<int> dp0(N + 1, 0), dp1(N + 1, 0), choice(N + 1, 0);
+
+    for (int v = N; v >= 1; --v) {
+        int base = 0;
+        int bestGain = 0;
+        int bestChild = 0;
+
+        for (int u = head[v]; u; u = nxt[u]) {
+            base += dp0[u];
+
+            int gain = 1 + dp1[u] - dp0[u];
+            if (gain > bestGain) {
+                bestGain = gain;
+                bestChild = u;
+            }
+        }
+
+        dp1[v] = base;
+        dp0[v] = base + bestGain;
+        choice[v] = bestChild;
+    }
+
+    vector<unsigned char> matchedToParent(N + 1, 0), receives(N + 1, 0);
+
+    for (int v = 1; v <= N; ++v) {
+        if (!matchedToParent[v] && choice[v] != 0) {
+            int u = choice[v];
+            matchedToParent[u] = 1;
+            receives[u] = 1;
+        }
+    }
+
+    string out;
+    out.reserve(N * 8);
+
+    out += to_string(1000LL * dp0[1]);
+    out += '\n';
+
+    bool first = true;
+    for (int i = 1; i <= N; ++i) {
+        if (receives[i]) {
+            if (!first) out += ' ';
+            first = false;
+            out += to_string(i);
+        }
+    }
+    out += '\n';
+
+    fwrite(out.c_str(), 1, out.size(), stdout);
+
+    return 0;
+}

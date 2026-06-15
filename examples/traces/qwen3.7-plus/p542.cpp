@@ -1,0 +1,139 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <map>
+
+using namespace std;
+
+struct Interval {
+    uint64_t L, R;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    if (!(cin >> n)) return 0;
+    
+    vector<uint64_t> A(n);
+    uint64_t a_min = -1ULL;
+    map<uint64_t, int> freq;
+    for (int i = 0; i < n; ++i) {
+        cin >> A[i];
+        if (A[i] < a_min) a_min = A[i];
+        freq[A[i]]++;
+    }
+    
+    vector<uint64_t> O;
+    for (auto const& pair : freq) {
+        if (pair.second % 2 != 0) {
+            O.push_back(pair.first);
+        }
+    }
+    
+    if (O.empty()) {
+        cout << a_min << "\n";
+        return 0;
+    }
+    
+    int m = O.size();
+    vector<uint64_t> S(61, 0);
+    for (uint64_t o : O) {
+        for (int k = 0; k <= 60; ++k) {
+            if ((o >> k) & 1) {
+                S[k]++;
+            }
+        }
+    }
+    
+    vector<Interval> valid;
+    valid.push_back({0, 1});
+    
+    vector<uint64_t> sorted_mod(m);
+    
+    for (int k = 0; k <= 60; ++k) {
+        for (int i = 0; i < m; ++i) {
+            sorted_mod[i] = O[i] & ((1ULL << k) - 1);
+        }
+        sort(sorted_mod.begin(), sorted_mod.end());
+        
+        vector<uint64_t> jumps;
+        jumps.push_back(0);
+        jumps.push_back(1ULL << k);
+        for (uint64_t o : O) {
+            jumps.push_back((o & ((1ULL << k) - 1)) + 1);
+        }
+        sort(jumps.begin(), jumps.end());
+        jumps.erase(unique(jumps.begin(), jumps.end()), jumps.end());
+        
+        vector<Interval> next_valid;
+        size_t i = 0;
+        size_t ptr = 0;
+        
+        for (size_t j = 0; j + 1 < jumps.size(); ++j) {
+            uint64_t cl = jumps[j];
+            uint64_t cr = jumps[j+1];
+            
+            while (i < valid.size() && valid[i].R <= cl) {
+                i++;
+            }
+            
+            size_t temp_i = i;
+            while (temp_i < valid.size() && valid[temp_i].L < cr) {
+                uint64_t L = max(valid[temp_i].L, cl);
+                uint64_t R = min(valid[temp_i].R, cr);
+                
+                if (L < R) {
+                    uint64_t v = L;
+                    while (ptr < m && sorted_mod[ptr] < v) {
+                        ptr++;
+                    }
+                    uint64_t B_k = ptr;
+                    uint64_t S_k = S[k];
+                    
+                    bool valid_c0 = ((S_k + B_k) % 2 == 0);
+                    bool valid_c1 = ((S_k + (m % 2) + B_k) % 2 == 0);
+                    
+                    if (valid_c0) {
+                        next_valid.push_back({L, R});
+                    }
+                    if (valid_c1) {
+                        next_valid.push_back({L + (1ULL << k), R + (1ULL << k)});
+                    }
+                }
+                temp_i++;
+            }
+        }
+        
+        sort(next_valid.begin(), next_valid.end(), [](const Interval& a, const Interval& b) {
+            return a.L < b.L;
+        });
+        
+        vector<Interval> merged;
+        for (const auto& interval : next_valid) {
+            if (merged.empty() || merged.back().R < interval.L) {
+                merged.push_back(interval);
+            } else {
+                merged.back().R = max(merged.back().R, interval.R);
+            }
+        }
+        valid = merged;
+        
+        if (valid.empty()) {
+            break;
+        }
+    }
+    
+    uint64_t ans = 0;
+    for (const auto& interval : valid) {
+        uint64_t L_int = max(interval.L, 0ULL);
+        uint64_t R_int = min(interval.R, a_min);
+        if (L_int < R_int) {
+            ans += (R_int - L_int);
+        }
+    }
+    
+    cout << ans << "\n";
+    return 0;
+}

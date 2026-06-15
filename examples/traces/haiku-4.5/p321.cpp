@@ -1,0 +1,135 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+struct Edge {
+    int to, id, protected_status; // protected_status: 1 = protected, 0 = almost protected
+};
+
+vector<Edge> adj[200005];
+int n;
+set<int> to_protect;
+
+bool dfs(int node, int parent, vector<pair<int,int>>& path) {
+    // path contains (edge_id, protected_status) pairs
+    
+    if(node == 1) {
+        // Check if this path has enough protected channels
+        int total = path.size();
+        int protected_count = 0;
+        vector<int> almost_protected_edges;
+        
+        for(auto& p : path) {
+            if(p.second == 1) {
+                protected_count++;
+            } else {
+                almost_protected_edges.push_back(p.first);
+            }
+        }
+        
+        int needed = (total + 1) / 2; // ceil(total/2)
+        
+        if(protected_count < needed) {
+            int to_convert = needed - protected_count;
+            for(int i = 0; i < to_convert && i < almost_protected_edges.size(); i++) {
+                to_protect.insert(almost_protected_edges[i]);
+            }
+        }
+        return true;
+    }
+    
+    for(auto& edge : adj[node]) {
+        if(edge.to != parent) {
+            path.push_back({edge.id, edge.protected_status});
+            dfs(edge.to, node, path);
+            path.pop_back();
+        }
+    }
+    
+    return true;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cin >> n;
+    
+    map<pair<int,int>, int> edge_id_map;
+    int edge_count = 0;
+    
+    for(int i = 0; i < n-1; i++) {
+        int u, v;
+        string s1, s2;
+        cin >> u >> v >> s1 >> s2;
+        
+        int protected_status = (s1 == "protected") ? 1 : 0;
+        
+        edge_count++;
+        adj[u].push_back({v, edge_count, protected_status});
+    }
+    
+    // For each node, check path to root
+    for(int node = 1; node <= n; node++) {
+        if(node == 1) continue;
+        
+        // Find path from node to 1
+        vector<pair<int,int>> path; // (edge_id, protected_status)
+        queue<int> q;
+        map<int, pair<int,int>> parent_map; // node -> (parent, edge_id, protected_status)
+        
+        // BFS to find path
+        q.push(node);
+        map<int, int> visited;
+        visited[node] = 1;
+        map<int, tuple<int,int,int>> came_from; // node -> (parent, edge_id, protected)
+        
+        while(!q.empty()) {
+            int curr = q.front();
+            q.pop();
+            
+            for(int check = 1; check <= n; check++) {
+                for(auto& e : adj[check]) {
+                    if(e.to == curr && visited[check] == 0) {
+                        visited[check] = 1;
+                        came_from[curr] = {check, e.id, e.protected_status};
+                        q.push(check);
+                    }
+                }
+            }
+        }
+        
+        // Reconstruct path
+        int curr = node;
+        vector<pair<int,int>> current_path;
+        while(curr != 1) {
+            auto [p, eid, prot] = came_from[curr];
+            current_path.push_back({eid, prot});
+            curr = p;
+        }
+        
+        int total = current_path.size();
+        int protected_count = 0;
+        vector<int> almost_edges;
+        
+        for(auto& p : current_path) {
+            if(p.second == 1) protected_count++;
+            else almost_edges.push_back(p.first);
+        }
+        
+        int needed = (total + 1) / 2;
+        if(protected_count < needed) {
+            int to_convert = needed - protected_count;
+            for(int i = 0; i < to_convert; i++) {
+                to_protect.insert(almost_edges[i]);
+            }
+        }
+    }
+    
+    cout << to_protect.size() << "\n";
+    for(int id : to_protect) {
+        cout << id << " ";
+    }
+    if(!to_protect.empty()) cout << "\n";
+    
+    return 0;
+}

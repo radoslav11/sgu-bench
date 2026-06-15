@@ -1,0 +1,34 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    int n;
+    cin >> n;
+    while (n--) {
+        string w;
+        cin >> w;
+        int len = w.size();
+        // Check rules in order
+        // Rule 1: ends with ch, x, s, o -> add es
+        if ((len >= 2 && w.substr(len-2) == "ch") ||
+            w[len-1] == 'x' || w[len-1] == 's' || w[len-1] == 'o') {
+            cout << w << "es\n";
+        }
+        // Rule 2: ends with fe -> replace fe with ves; ends with f -> replace f with ves
+        else if (len >= 2 && w.substr(len-2) == "fe") {
+            cout << w.substr(0, len-2) << "ves\n";
+        }
+        else if (w[len-1] == 'f') {
+            cout << w.substr(0, len-1) << "ves\n";
+        }
+        // Rule 3: ends with y -> replace y with ies
+        else if (w[len-1] == 'y') {
+            cout << w.substr(0, len-1) << "ies\n";
+        }
+        // Rule 4: add s
+        else {
+            cout << w << "s\n";
+        }
+    }
+    return 0;
+}

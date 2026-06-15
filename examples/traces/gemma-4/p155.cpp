@@ -1,0 +1,110 @@
+#include <cstdio>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Cartesian Tree
+ * A Cartesian tree is a binary search tree based on the keys (k_i) and a min-heap
+ * based on the auxiliary keys (a_i). Given a set of unique pairs (k_i, a_i),
+ * we need to construct such a tree or determine if it's not possible.
+ * Since all k_i and a_i are unique, a Cartesian tree always exists and is unique.
+ * 
+ * Approach:
+ * 1. Sort the nodes by their main key (k_i).
+ * 2. Use a stack-based approach to maintain the "right spine" of the tree.
+ *    The right spine consists of nodes such that each node's k is greater than 
+ *    its parent's k and each node's a is greater than its parent's a.
+ * 3. For each new node (in sorted k order), traverse up the right spine
+ *    to find its appropriate parent such that the min-heap property (a_parent < a_child)
+ *    is maintained.
+ * 4. The stack-based construction takes O(N) time after sorting, which is O(N log N).
+ * 
+ * Complexity:
+ * Time: O(N log N) due to sorting.
+ * Space: O(N) to store nodes and the tree.
+ */
+
+struct Node {
+    int k, a, id;
+    int parent = 0, left = 0, right = 0;
+};
+
+// Comparator to sort nodes by the main key (k)
+bool compareK(const Node& a, const Node& b) {
+    return a.k < b.k;
+}
+
+struct Result {
+    int p, l, r;
+};
+
+// Static arrays for efficiency and to stay within memory limits
+Node nodes[50005];
+Node sorted_nodes[50005];
+Result results[50005];
+int stk[50005];
+
+int main() {
+    int N;
+    // Reading the number of pairs
+    if (scanf("%d", &N) != 1) return 0;
+
+    for (int i = 0; i < N; ++i) {
+        scanf("%d %d", &nodes[i].k, &nodes[i].a);
+        nodes[i].id = i + 1;
+        // Initialize sorted_nodes with current node data
+        sorted_nodes[i] = nodes[i];
+    }
+
+    // Sort nodes by their k values to satisfy the BST property
+    sort(sorted_nodes, sorted_nodes + N, compareK);
+
+    // Stack to keep track of the indices in the sorted_nodes array
+    int top = -1;
+    for (int i = 0; i < N; ++i) {
+        int last_popped = -1;
+        // Maintain the min-heap property for auxiliary keys (a)
+        // While the current node's a value is smaller than the a value of the node at stack top,
+        // the node at stack top should be a child of the current node.
+        while (top >= 0 && sorted_nodes[stk[top]].a > sorted_nodes[i].a) {
+            last_popped = stk[top];
+            top--;
+        }
+
+        // If the stack is not empty, the current node's parent is the new stack top.
+        if (top >= 0) {
+            int parent_idx = stk[top];
+            sorted_nodes[i].parent = sorted_nodes[parent_idx].id;
+            sorted_nodes[parent_idx].right = sorted_nodes[i].id;
+        }
+
+        // The node that was the previous rightmost node in the spine (last_popped)
+        // becomes the left child of the current node.
+        if (last_popped != -1) {
+            sorted_nodes[i].left = sorted_nodes[last_popped].id;
+            sorted_nodes[last_popped].parent = sorted_nodes[i].id;
+        }
+        
+        // Add current node to the right spine stack
+        stk[++top] = i;
+    }
+
+    // Fill results array mapping original IDs to their parent/left/right children
+    for (int i = 0; i < N; ++i) {
+        results[sorted_nodes[i].id].p = sorted_nodes[i].parent;
+        results[sorted_nodes[i].id].l = sorted_nodes[i].left;
+        results[sorted_nodes[i].id].r = sorted_nodes[i].right;
+    }
+
+    // Output the result
+    // A Cartesian tree always exists when all k_i and a_i are unique.
+    printf("YES\n");
+    for (int i = 1; i <= N; ++i) {
+        printf("%d %d %d\n", results[i].p, results[i].l, results[i].r);
+    }
+
+    return 0;
+}
+

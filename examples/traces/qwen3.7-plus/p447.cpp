@@ -1,0 +1,125 @@
+#pragma GCC optimize("O3,unroll-loops")
+#pragma GCC target("avx2,bmi,bmi2,lzcnt,popcnt")
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+
+using namespace std;
+
+struct Command {
+    string s;
+    int val;
+    int len;
+    
+    bool operator<(const Command& other) const {
+        return s < other.s;
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string input;
+    if (!(cin >> input)) return 0;
+
+    int N = 0;
+    int i = 0;
+    int n = input.length();
+    while (i < n) {
+        if (input[i] == 'R') {
+            i++;
+            string num_str = "";
+            while (i < n && isdigit(input[i])) {
+                num_str += input[i];
+                i++;
+            }
+            int dots = 0;
+            while (i < n && input[i] == '.') {
+                dots++;
+                i++;
+            }
+            int base_val = 0;
+            if (num_str == "1") base_val = 64;
+            else if (num_str == "2") base_val = 32;
+            else if (num_str == "4") base_val = 16;
+            else if (num_str == "8") base_val = 8;
+            else if (num_str == "16") base_val = 4;
+            else if (num_str == "32") base_val = 2;
+            else if (num_str == "64") base_val = 1;
+            
+            int val = 0;
+            int cur = base_val;
+            for (int d = 0; d <= dots; ++d) {
+                val += cur;
+                cur /= 2;
+            }
+            N += val;
+        } else {
+            i++;
+        }
+    }
+
+    vector<Command> cmds;
+    int bases[] = {1, 2, 4, 8, 16, 32, 64};
+    int base_vals[] = {64, 32, 16, 8, 4, 2, 1};
+
+    for (int idx = 0; idx < 7; ++idx) {
+        int max_dots = 6 - idx;
+        int sum_val = base_vals[idx];
+        int add_val = base_vals[idx] / 2;
+        for (int dots = 0; dots <= max_dots; ++dots) {
+            string s = "R" + to_string(bases[idx]) + string(dots, '.');
+            cmds.push_back({s, sum_val, (int)s.length()});
+            sum_val += add_val;
+            add_val /= 2;
+        }
+    }
+
+    sort(cmds.begin(), cmds.end());
+
+    int num_cmds = cmds.size();
+    vector<int> val(num_cmds), len(num_cmds);
+    for(int c = 0; c < num_cmds; ++c) {
+        val[c] = cmds[c].val;
+        len[c] = cmds[c].len;
+    }
+
+    vector<int> dp(N + 1, 1e9);
+    dp[N] = 0;
+
+    for (int j = N - 1; j >= 0; --j) {
+        int best = 1e9;
+        for (int c = 0; c < num_cmds; ++c) {
+            int nxt = j + val[c];
+            if (nxt <= N) {
+                int cand = dp[nxt] + len[c];
+                if (cand < best) {
+                    best = cand;
+                }
+            }
+        }
+        dp[j] = best;
+    }
+
+    string res = "";
+    res.reserve(N * 2);
+    int curr = 0;
+    while (curr < N) {
+        for (int c = 0; c < num_cmds; ++c) {
+            int nxt = curr + val[c];
+            if (nxt <= N && dp[nxt] + len[c] == dp[curr]) {
+                res += cmds[c].s;
+                curr = nxt;
+                break;
+            }
+        }
+    }
+
+    cout << res << "\n";
+
+    return 0;
+}

@@ -1,0 +1,131 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct BigInt {
+    static const int BASE = 1000000000;
+    vector<int> d;
+
+    BigInt(long long x = 0) {
+        if (x == 0) return;
+        while (x > 0) {
+            d.push_back(x % BASE);
+            x /= BASE;
+        }
+    }
+
+    bool isZero() const {
+        return d.empty();
+    }
+
+    void operator+=(const BigInt& other) {
+        int carry = 0;
+        size_t n = max(d.size(), other.d.size());
+        if (d.size() < n) d.resize(n, 0);
+
+        for (size_t i = 0; i < n; ++i) {
+            long long sum = 1LL * d[i] + carry;
+            if (i < other.d.size()) sum += other.d[i];
+
+            d[i] = sum % BASE;
+            carry = sum / BASE;
+        }
+
+        if (carry) d.push_back(carry);
+    }
+
+    string toString() const {
+        if (d.empty()) return "0";
+
+        string s = to_string(d.back());
+        for (int i = (int)d.size() - 2; i >= 0; --i) {
+            string part = to_string(d[i]);
+            s += string(9 - part.length(), '0') + part;
+        }
+        return s;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int M, N;
+    cin >> M >> N;
+
+    int H = max(M, N);
+    int W = min(M, N);
+
+    int FULL = (1 << W) - 1;
+
+    vector<BigInt> dp(1 << W), ndp(1 << W);
+    dp[0] = BigInt(1);
+
+    for (int row = 0; row < H; ++row) {
+        for (auto& x : ndp) x = BigInt(0);
+
+        for (int mask = 0; mask <= FULL; ++mask) {
+            if (dp[mask].isZero()) continue;
+
+            function<void(int, int)> dfs = [&](int curMask, int nextMask) {
+                if (curMask == FULL) {
+                    ndp[nextMask] += dp[mask];
+                    return;
+                }
+
+                int c = 0;
+                while (curMask & (1 << c)) ++c;
+
+                int bitC = 1 << c;
+
+                // Horizontal domino: (row,c) + (row,c+1)
+                if (c + 1 < W && !(curMask & (1 << (c + 1)))) {
+                    dfs(curMask | bitC | (1 << (c + 1)), nextMask);
+                }
+
+                if (row + 1 < H) {
+                    // Vertical domino: (row,c) + (row+1,c)
+                    if (!(nextMask & bitC)) {
+                        dfs(curMask | bitC, nextMask | bitC);
+                    }
+
+                    // L-trominoes inside columns c and c+1, with current cell as top-left
+                    if (c + 1 < W) {
+                        int bitR = 1 << (c + 1);
+
+                        // Missing top-right
+                        if (!(nextMask & bitC) && !(nextMask & bitR)) {
+                            dfs(curMask | bitC, nextMask | bitC | bitR);
+                        }
+
+                        // Missing bottom-left
+                        if (!(curMask & bitR) && !(nextMask & bitR)) {
+                            dfs(curMask | bitC | bitR, nextMask | bitR);
+                        }
+
+                        // Missing bottom-right
+                        if (!(curMask & bitR) && !(nextMask & bitC)) {
+                            dfs(curMask | bitC | bitR, nextMask | bitC);
+                        }
+                    }
+
+                    // L-tromino in columns c-1 and c, missing top-left
+                    if (c > 0) {
+                        int bitL = 1 << (c - 1);
+
+                        if (!(nextMask & bitL) && !(nextMask & bitC)) {
+                            dfs(curMask | bitC, nextMask | bitL | bitC);
+                        }
+                    }
+                }
+            };
+
+            dfs(mask, 0);
+        }
+
+        dp.swap(ndp);
+    }
+
+    cout << dp[0].toString() << '\n';
+
+    return 0;
+}

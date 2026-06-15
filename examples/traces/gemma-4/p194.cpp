@@ -1,0 +1,153 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: 194. Reactor Cooling
+ * Goal: Find a valid circulation with lower bounds for a directed graph.
+ * Approach: Transform the circulation problem into a standard maximum flow problem.
+ * For each edge (u, v) with lower bound l and capacity c:
+ * 1. Add an edge u -> v with capacity (c - l).
+ * 2. Track the net demand of each node: demand[v] += l, demand[u] -= l.
+ * 3. After processing all edges, for each node i with demand[i] > 0:
+ *    Connect source S -> i with capacity demand[i].
+ * 4. For each node i with demand[i] < 0:
+ *    Connect i -> sink T with capacity -demand[i].
+ * 5. A valid circulation exists if and only if max flow from S to T equals 
+ *    the sum of all positive demands.
+ * 6. The actual flow on edge (u, v) is: l + (flow found in the f' network).
+ */
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+    long long capacity;
+    long long flow;
+    int rev;
+    int id; // To identify original edges; -1 for auxiliary edges
+};
+
+vector<Edge> adj[205];
+int level[205];
+int iter[205];
+
+// Adds a directed edge to the flow network
+void addEdge(int from, int to, long long cap, int id) {
+    adj[from].push_back({to, cap, 0, (int)adj[to].size(), id});
+    adj[to].push_back({from, 0, 0, (int)adj[from].size() - 1, -1});
+}
+
+// Dinic's Algorithm: BFS to build the level graph
+bool bfs(int s, int t, int n) {
+    for (int i = 0; i <= n; ++i) level[i] = -1;
+    level[s] = 0;
+    queue<int> que;
+    que.push(s);
+    while (!que.empty()) {
+        int v = que.front();
+        que.pop();
+        for (auto& e : adj[v]) {
+            if (e.capacity > e.flow && level[e.to] < 0) {
+                level[e.to] = level[v] + 1;
+                que.push(e.to);
+            }
+        }
+    }
+    return level[t] != -1;
+}
+
+// Dinic's Algorithm: DFS to find augmenting paths in the level graph
+long long dfs(int v, int t, long long f) {
+    if (v == t) return f;
+    for (int& i = iter[v]; i < (int)adj[v].size(); ++i) {
+        Edge& e = adj[v][i];
+        if (e.capacity > e.flow && level[v] < level[e.to]) {
+            long long d = dfs(e.to, t, min(f, e.capacity - e.flow));
+            if (d > 0) {
+                e.flow += d;
+                adj[e.to][e.rev].flow -= d;
+                return d;
+            }
+        }
+    }
+    return 0;
+}
+
+// Dinic's Algorithm: Main max flow procedure
+long long max_flow(int s, int t, int n) {
+    long long flow = 0;
+    while (bfs(s, t, n)) {
+        for (int i = 0; i <= n; ++i) iter[i] = 0;
+        long long f;
+        while ((f = dfs(s, t, INF)) > 0) {
+            flow += f;
+        }
+    }
+    return flow;
+}
+
+struct Pipe {
+    int u, v, l, c;
+};
+
+int main() {
+    // Faster standard input and output
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<Pipe> pipes(M);
+    vector<long long> demand(N + 1, 0);
+
+    // Step 1: Build the transformed network
+    for (int i = 0; i < M; ++i) {
+        cin >> pipes[i].u >> pipes[i].v >> pipes[i].l >> pipes[i].c;
+        // Edge (u, v) with capacity c-l
+        addEdge(pipes[i].u, pipes[i].v, (long long)pipes[i].c - pipes[i].l, i);
+        // Update node demands to handle lower bounds
+        demand[pipes[i].v] += pipes[i].l;
+        demand[pipes[i].u] -= pipes[i].l;
+    }
+
+    // Step 2: Add auxiliary source S and sink T to balance demands
+    int S = 0, T = N + 1;
+    long long total_pos_demand = 0;
+    for (int i = 1; i <= N; ++i) {
+        if (demand[i] > 0) {
+            // Node i has excess incoming flow from lower bounds, so it acts as a source
+            addEdge(S, i, demand[i], -1);
+            total_pos_demand += demand[i];
+        } else if (demand[i] < 0) {
+            // Node i has excess outgoing flow from lower bounds, so it acts as a sink
+            addEdge(i, T, -demand[i], -1);
+        }
+    }
+
+    // Step 3: Calculate max flow and check validity
+    if (max_flow(S, T, T) == total_pos_demand) {
+        cout << "YES" << "\n";
+        vector<long long> results(M);
+        for (int i = 1; i <= N; ++i) {
+            for (auto& e : adj[i]) {
+                // If the edge is an original pipe, record its total flow
+                if (e.id != -1) {
+                    results[e.id] = e.flow + pipes[e.id].l;
+                }
+            }
+        }
+        for (int i = 0; i < M; ++i) {
+            cout << results[i] << "\n";
+        }
+    } else {
+        cout << "NO" << "\n";
+    }
+
+    return 0;
+}
+

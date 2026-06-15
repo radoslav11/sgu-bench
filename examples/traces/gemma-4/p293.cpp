@@ -1,0 +1,160 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * He writes 2n-1 letters. Qc makes 2n-1 turns.
+ * Qc's odd turns are 1, 3, 5, ..., 2n-1.
+ * At turn k (if k is odd), the string on the fence must be a palindrome.
+ * At each turn, Qc can either pass (0 0) or swap two already written letters (q c).
+ * 
+ * The number of constraints (for all odd turns) can be up to n(n-1)/2.
+ * With 2n-1 turns, a greedy approach is required.
+ * At each odd turn k, we must satisfy the palindrome condition. 
+ * If the string is not a palindrome, we need to find a single swap to make it so.
+ * Since we only have one swap, the string must have at most one pair of unequal letters.
+ * At each even turn k, we can use a swap to prepare for the next odd turn k+1.
+ */
+
+bool is_palindrome(const string& s) {
+    int len = s.length();
+    for (int i = 0; i < len / 2; ++i) {
+        if (s[i] != s[len - 1 - i]) return false;
+    }
+    return true;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+    string L;
+    cin >> L;
+
+    string current = "";
+    vector<pair<int, int>> swaps;
+
+    for (int k = 1; k <= 2 * n - 1; ++k) {
+        current += L[k - 1];
+        if (k % 2 != 0) {
+            // Odd turn: must be a palindrome
+            vector<int> bad_indices;
+            int len = current.length();
+            for (int i = 0; i < len / 2; ++i) {
+                if (current[i] != current[len - 1 - i]) {
+                    bad_indices.push_back(i);
+                }
+            }
+
+            if (bad_indices.empty()) {
+                swaps.push_back({0, 0});
+            } else if (bad_indices.size() == 1) {
+                int idx1 = bad_indices[0];
+                int idx2 = len - 1 - bad_indices[0];
+                bool found = false;
+
+                // Try swapping current[idx1] or current[idx2] with some current[j]
+                // to satisfy the palindrome requirement.
+                // We'll try all possible swaps to keep it simple.
+                // A single swap can only fix at most two pairs. 
+                // But here we know we only have one bad pair.
+                for (int i = 0; i < len; ++i) {
+                    for (int j = i + 1; j < len; ++j) {
+                        swap(current[i], current[j]);
+                        if (is_palindrome(current)) {
+                            swaps.push_back({i + 1, j + 1});
+                            found = true;
+                            break;
+                        }
+                        swap(current[i], current[j]); // backtrack
+                    }
+                    if (found) break;
+                }
+                if (!found) {
+                    cout << "He" << endl;
+                    return 0;
+                }
+            } else {
+                // More than one bad pair means a single swap cannot make it a palindrome.
+                cout << "He" << endl;
+                return 0;
+            }
+        } else {
+            // Even turn: use a swap to prepare for the next odd turn (k+1).
+            // At k+1, the new length will be k+1. The only new pair is (i, k+1-i).
+            // Wait, the most basic strategy is to try to fix any bad pairs for the next turn.
+            // Let's check if there's a swap that results in the next turn having at most one bad pair.
+            if (k + 1 < 2 * n) {
+                bool found = false;
+                // Check if current is already "good" for the next turn.
+                // The next turn's palindrome condition is about indices 0...k.
+                // The new element is at k.
+                
+                // However, testing all O(k^2) swaps might be slow. 
+                // Let's check if the string is already "almost" a palindrome for k+1.
+                int next_len = k + 1;
+                int bad_count = 0;
+                for (int i = 0; i < next_len / 2; ++i) {
+                    if (current[i] != current[next_len - 1 - i]) bad_count++;
+                }
+
+                if (bad_count <= 1) {
+                    swaps.push_back({0, 0});
+                } else {
+                    // Try to fix one of the bad pairs.
+                    for (int i = 0; i < k; ++i) {
+                        for (int j = i + 1; j < k; ++j) {
+                            swap(current[i], current[j]);
+                            int next_bad = 0;
+                            for (int m = 0; m < next_len / 2; ++m) {
+                                if (current[m] != current[next_len - 1 - m]) next_bad++;
+                            }
+                            if (next_bad <= 1) {
+                                swaps.push_back({i + 1, j + 1});
+                                found = true;
+                                break;
+                            }
+                            swap(current[i], current[j]);
+                        }
+                        if (found) break;
+                    }
+                    if (!found) {
+                        // Try swapping with the last added element (index k-1).
+                        for (int i = 0; i < k - 1; ++i) {
+                            swap(current[i], current[k - 1]);
+                            int next_bad = 0;
+                            for (int m = 0; m < next_len / 2; ++m) {
+                                if (current[m] != current[next_len - 1 - m]) next_bad++;
+                            }
+                            if (next_bad <= 1) {
+                                swaps.push_back({i + 1, k});
+                                found = true;
+                                break;
+                            }
+                            swap(current[i], current[k - 1]);
+                        }
+                    }
+                    if (!found) {
+                        swaps.push_back({0, 0});
+                    }
+                }
+            } else {
+                swaps.push_back({0, 0});
+            }
+        }
+    }
+
+    cout << "Qc" << endl;
+    for (auto& p : swaps) {
+        cout << p.first << " " << p.second << "\n";
+    }
+
+    return 0;
+}
+

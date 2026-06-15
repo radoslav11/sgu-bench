@@ -1,0 +1,146 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int N, M;
+vector<int> Bv;
+vector<vector<int>> adj;
+vector<int> val;
+vector<bool> used;
+
+bool feasible() {
+    for (int v = 0; v < M; ++v) {
+        if (used[v]) {
+            int greater = 0, unknown = 0;
+            for (int to : adj[v]) {
+                if (used[to]) {
+                    if (val[to] > val[v]) greater++;
+                } else {
+                    if (val[v] < 9) unknown++;
+                }
+            }
+            if (Bv[v] < greater || Bv[v] > greater + unknown)
+                return false;
+        } else {
+            bool ok = false;
+            for (int x = 0; x <= 9; ++x) {
+                int greater = 0, unknown = 0;
+                for (int to : adj[v]) {
+                    if (used[to]) {
+                        if (val[to] > x) greater++;
+                    } else {
+                        if (x < 9) unknown++;
+                    }
+                }
+                if (Bv[v] >= greater && Bv[v] <= greater + unknown) {
+                    ok = true;
+                    break;
+                }
+            }
+            if (!ok) return false;
+        }
+    }
+    return true;
+}
+
+bool dfs() {
+    if (!feasible()) return false;
+
+    bool complete = true;
+    for (int i = 0; i < M; ++i) {
+        if (!used[i]) {
+            complete = false;
+            break;
+        }
+    }
+    if (complete) return true;
+
+    int best = -1;
+    vector<int> bestDomain;
+
+    for (int i = 0; i < M; ++i) {
+        if (used[i]) continue;
+
+        vector<int> domain;
+        used[i] = true;
+
+        for (int x = 0; x <= 9; ++x) {
+            val[i] = x;
+            if (feasible()) domain.push_back(x);
+        }
+
+        used[i] = false;
+        val[i] = 0;
+
+        if (domain.empty()) return false;
+
+        if (best == -1 || domain.size() < bestDomain.size()) {
+            best = i;
+            bestDomain = domain;
+        }
+    }
+
+    used[best] = true;
+    for (int x : bestDomain) {
+        val[best] = x;
+        if (dfs()) return true;
+    }
+    used[best] = false;
+    val[best] = 0;
+
+    return false;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> N;
+    M = N * N;
+
+    Bv.assign(M, 0);
+    for (int i = 0; i < M; ++i) {
+        cin >> Bv[i];
+    }
+
+    adj.assign(M, {});
+    int dx[4] = {-1, 1, 0, 0};
+    int dy[4] = {0, 0, -1, 1};
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            int id = i * N + j;
+            for (int d = 0; d < 4; ++d) {
+                int ni = i + dx[d];
+                int nj = j + dy[d];
+                if (ni >= 0 && ni < N && nj >= 0 && nj < N) {
+                    adj[id].push_back(ni * N + nj);
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < M; ++i) {
+        if (Bv[i] > (int)adj[i].size()) {
+            cout << "NO SOLUTION\n";
+            return 0;
+        }
+    }
+
+    val.assign(M, 0);
+    used.assign(M, false);
+
+    if (!dfs()) {
+        cout << "NO SOLUTION\n";
+        return 0;
+    }
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (j) cout << ' ';
+            cout << val[i * N + j];
+        }
+        cout << '\n';
+    }
+
+    return 0;
+}

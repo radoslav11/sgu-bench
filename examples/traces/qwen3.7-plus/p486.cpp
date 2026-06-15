@@ -1,0 +1,24 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    string s, g;
+    if (cin >> s >> g) {
+        int bulls = 0, cows = 0;
+        for (size_t i = 0; i < s.length(); ++i) {
+            if (s[i] == g[i]) {
+                bulls++;
+            } else if (s.find(g[i]) != string::npos) {
+                cows++;
+            }
+        }
+        cout << bulls << " " << cows << "\n";
+    }
+    
+    return 0;
+}

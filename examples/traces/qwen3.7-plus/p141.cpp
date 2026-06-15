@@ -1,0 +1,130 @@
+#include <iostream>
+
+using namespace std;
+
+long long ll_abs(long long x) {
+    return x < 0 ? -x : x;
+}
+
+long long extgcd(long long a, long long b, long long &x, long long &y) {
+    if (b == 0) {
+        x = 1;
+        y = 0;
+        return a;
+    }
+    long long x1, y1;
+    long long d = extgcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - y1 * (a / b);
+    return d;
+}
+
+long long get_f(long long k, long long A0, long long B0, long long P_prime, long long x1_prime, long long x2_prime) {
+    long long Ak = A0 * P_prime + k * x2_prime;
+    long long Bk = B0 * P_prime - k * x1_prime;
+    return ll_abs(Ak) + ll_abs(Bk);
+}
+
+long long get_diff(long long k, long long A0, long long B0, long long P_prime, long long x1_prime, long long x2_prime) {
+    long long Ak = A0 * P_prime + k * x2_prime;
+    long long Bk = B0 * P_prime - k * x1_prime;
+    long long Ak_next = Ak + x2_prime;
+    long long Bk_next = Bk - x1_prime;
+    return (ll_abs(Ak_next) + ll_abs(Bk_next)) - (ll_abs(Ak) + ll_abs(Bk));
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    long long x1, x2, P, K;
+    if (!(cin >> x1 >> x2 >> P >> K)) return 0;
+
+    long long A0, B0;
+    long long g = extgcd(x1, x2, A0, B0);
+
+    if (P % g != 0) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    long long x1_prime = x1 / g;
+    long long x2_prime = x2 / g;
+    long long P_prime = P / g;
+
+    long long low = -6000000000LL, high = 6000000000LL;
+    long long best_k = 0;
+    while (low <= high) {
+        long long mid = low + (high - low) / 2;
+        if (get_diff(mid, A0, B0, P_prime, x1_prime, x2_prime) >= 0) {
+            best_k = mid;
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
+    }
+
+    long long M = get_f(best_k, A0, B0, P_prime, x1_prime, x2_prime);
+    if (M > K) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    long long low_L = -6000000000LL, high_L = best_k;
+    long long ans_L = best_k;
+    while (low_L <= high_L) {
+        long long mid = low_L + (high_L - low_L) / 2;
+        if (get_f(mid, A0, B0, P_prime, x1_prime, x2_prime) <= K) {
+            ans_L = mid;
+            high_L = mid - 1;
+        } else {
+            low_L = mid + 1;
+        }
+    }
+
+    long long low_R = best_k, high_R = 6000000000LL;
+    long long ans_R = best_k;
+    while (low_R <= high_R) {
+        long long mid = low_R + (high_R - low_R) / 2;
+        if (get_f(mid, A0, B0, P_prime, x1_prime, x2_prime) <= K) {
+            ans_R = mid;
+            low_R = mid + 1;
+        } else {
+            high_R = mid - 1;
+        }
+    }
+
+    long long best_valid_k = -1;
+    long long target_parity = (K % 2 + 2) % 2;
+    for (long long k = ans_L; k <= ans_R && k <= ans_L + 2; ++k) {
+        long long fk = get_f(k, A0, B0, P_prime, x1_prime, x2_prime);
+        long long fk_parity = (fk % 2 + 2) % 2;
+        if (fk_parity == target_parity) {
+            best_valid_k = k;
+            break;
+        }
+    }
+
+    if (best_valid_k == -1) {
+        cout << "NO\n";
+    } else {
+        long long Ak = A0 * P_prime + best_valid_k * x2_prime;
+        long long Bk = B0 * P_prime - best_valid_k * x1_prime;
+        
+        long long S1 = ll_abs(Ak);
+        long long S2 = ll_abs(Bk);
+        long long rem = K - (S1 + S2);
+        
+        S1 += rem;
+        
+        long long P1 = (S1 + Ak) / 2;
+        long long N1 = (S1 - Ak) / 2;
+        long long P2 = (S2 + Bk) / 2;
+        long long N2 = (S2 - Bk) / 2;
+        
+        cout << "YES\n";
+        cout << P1 << " " << N1 << " " << P2 << " " << N2 << "\n";
+    }
+
+    return 0;
+}

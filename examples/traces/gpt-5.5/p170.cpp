@@ -1,0 +1,36 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string a, b;
+    cin >> a >> b;
+
+    if (a.size() != b.size()) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<int> pa, pb;
+
+    for (int i = 0; i < (int)a.size(); ++i) {
+        if (a[i] == '+') pa.push_back(i);
+        if (b[i] == '+') pb.push_back(i);
+    }
+
+    if (pa.size() != pb.size()) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    long long ans = 0;
+    for (int i = 0; i < (int)pa.size(); ++i) {
+        ans += llabs(pa[i] - pb[i]);
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

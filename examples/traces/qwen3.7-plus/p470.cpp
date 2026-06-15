@@ -1,0 +1,64 @@
+#include <iostream>
+
+using namespace std;
+
+void solve() {
+    long long X, Y, Z;
+    int case_num = 1;
+    while (cin >> X >> Y >> Z) {
+        long long OX = (X > 1) ? 2 : 0;
+        long long EX = X - OX;
+        long long OY = (Y > 1) ? 2 : 0;
+        long long EY = Y - OY;
+        long long OZ = (Z > 1) ? 2 : 0;
+        long long EZ = Z - OZ;
+
+        long long V_odd = OX * EY * EZ + EX * OY * EZ + EX * EY * OZ + OX * OY * OZ;
+
+        long long added = 0;
+        if (V_odd == 0 || V_odd == 2) {
+            added = 0;
+        } else {
+            bool same_parity = true;
+            if (X <= 3 && Y <= 3 && Z <= 3) {
+                int first_parity = -1;
+                for (long long x = 1; x <= X; ++x) {
+                    for (long long y = 1; y <= Y; ++y) {
+                        for (long long z = 1; z <= Z; ++z) {
+                            long long cx = (X == 1) ? 0 : (x == 1 || x == X ? 1 : 2);
+                            long long cy = (Y == 1) ? 0 : (y == 1 || y == Y ? 1 : 2);
+                            long long cz = (Z == 1) ? 0 : (z == 1 || z == Z ? 1 : 2);
+                            if ((cx + cy + cz) % 2 == 1) {
+                                int p = (x + y + z) % 2;
+                                if (first_parity == -1) {
+                                    first_parity = p;
+                                } else if (first_parity != p) {
+                                    same_parity = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                same_parity = false;
+            }
+
+            if (same_parity) {
+                added = V_odd - 2;
+            } else {
+                added = (V_odd - 2) / 2;
+            }
+        }
+
+        long long edges = (X - 1) * Y * Z + X * (Y - 1) * Z + X * Y * (Z - 1);
+        long long ans = edges + added;
+        cout << "Case #" << case_num++ << ": " << ans << "\n";
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    solve();
+    return 0;
+}

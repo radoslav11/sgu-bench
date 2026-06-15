@@ -1,0 +1,110 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+struct Edge {
+    int u, v;
+    long long c, t;
+};
+
+int N, M;
+vector<Edge> edges;
+
+pair<bool, vector<int>> check(long double lambda) {
+    vector<long double> dist(N + 1, 0.0L);
+    vector<int> parent(N + 1, 0);
+    int last_updated = -1;
+    
+    for (int i = 1; i <= N; ++i) {
+        last_updated = -1;
+        bool updated = false;
+        for (const auto& edge : edges) {
+            long double w = (long double)edge.c - lambda * (long double)edge.t;
+            if (dist[edge.u] + w > dist[edge.v] + 1e-14L) {
+                dist[edge.v] = dist[edge.u] + w;
+                parent[edge.v] = edge.u;
+                last_updated = edge.v;
+                updated = true;
+            }
+        }
+        if (!updated) break;
+    }
+    
+    if (last_updated == -1) {
+        return {false, {}};
+    }
+    
+    int curr = last_updated;
+    for (int i = 0; i < N; ++i) {
+        curr = parent[curr];
+    }
+    
+    int start = curr;
+    vector<int> cycle;
+    do {
+        cycle.push_back(curr);
+        curr = parent[curr];
+    } while (curr != start);
+    
+    reverse(cycle.begin(), cycle.end());
+    return {true, cycle};
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> N >> M)) return 0;
+    
+    edges.resize(M);
+    vector<vector<long long>> cost(N + 1, vector<long long>(N + 1, -1));
+    vector<vector<long long>> time(N + 1, vector<long long>(N + 1, -1));
+    
+    for (int i = 0; i < M; ++i) {
+        cin >> edges[i].u >> edges[i].v >> edges[i].c >> edges[i].t;
+        cost[edges[i].u][edges[i].v] = edges[i].c;
+        time[edges[i].u][edges[i].v] = edges[i].t;
+    }
+    
+    auto res0 = check(0.0L);
+    if (!res0.first) {
+        cout << 0 << "\n";
+        return 0;
+    }
+    
+    long long best_C = -1, best_T = 1;
+    vector<int> best_cycle;
+    
+    long double low = 0.0L, high = 100.0L;
+    for (int iter = 0; iter < 60; ++iter) {
+        long double mid = low + (high - low) / 2.0L;
+        auto res = check(mid);
+        if (res.first) {
+            long long C_sum = 0, T_sum = 0;
+            for (size_t i = 0; i < res.second.size(); ++i) {
+                int u = res.second[i];
+                int v = res.second[(i + 1) % res.second.size()];
+                C_sum += cost[u][v];
+                T_sum += time[u][v];
+            }
+            if (best_C == -1 || C_sum * best_T > best_C * T_sum) {
+                best_C = C_sum;
+                best_T = T_sum;
+                best_cycle = res.second;
+            }
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    
+    cout << best_cycle.size() << "\n";
+    for (size_t i = 0; i < best_cycle.size(); ++i) {
+        cout << best_cycle[i] << (i + 1 == best_cycle.size() ? "" : " ");
+    }
+    cout << "\n";
+    
+    return 0;
+}

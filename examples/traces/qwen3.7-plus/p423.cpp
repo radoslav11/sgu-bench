@@ -1,0 +1,93 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+int n, s, t;
+int adj[15][15];
+int pop[15];
+int memo[1594323 + 1];
+
+int get_state(int maskA, int maskB) {
+    int state = 0;
+    int p3 = 1;
+    for (int i = 0; i < n; i++) {
+        int v = 0;
+        if (maskA & (1 << i)) v = 1;
+        else if (maskB & (1 << i)) v = 2;
+        state += v * p3;
+        p3 *= 3;
+    }
+    return state;
+}
+
+int solve(int maskA, int maskB, bool turn) {
+    int state = get_state(maskA, maskB);
+    if (memo[state] != -1e9) return memo[state];
+    
+    int best = turn ? 1e9 : -1e9;
+    bool moved = false;
+    
+    for (int i = 0; i < n; i++) {
+        if ((maskA | maskB) & (1 << i)) continue;
+        bool can = false;
+        if (turn) { // B's turn
+            for (int j = 0; j < n; j++) {
+                if ((maskB & (1 << j)) && adj[i][j]) {
+                    can = true; break;
+                }
+            }
+        } else { // A's turn
+            for (int j = 0; j < n; j++) {
+                if ((maskA & (1 << j)) && adj[i][j]) {
+                    can = true; break;
+                }
+            }
+        }
+        if (can) {
+            moved = true;
+            int nxtA = turn ? maskA : (maskA | (1 << i));
+            int nxtB = turn ? (maskB | (1 << i)) : maskB;
+            int res = solve(nxtA, nxtB, !turn);
+            if (turn) best = min(best, res);
+            else best = max(best, res);
+        }
+    }
+    
+    if (!moved) {
+        int sumA = 0, sumB = 0;
+        for (int i = 0; i < n; i++) {
+            if (maskA & (1 << i)) sumA += pop[i];
+            if (maskB & (1 << i)) sumB += pop[i];
+        }
+        best = sumA - sumB;
+    }
+    
+    return memo[state] = best;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    if (!(cin >> n >> s >> t)) return 0;
+    s--; t--;
+    for (int i = 0; i < n; i++) {
+        string row; cin >> row;
+        for (int j = 0; j < n; j++) {
+            adj[i][j] = row[j] - '0';
+        }
+    }
+    for (int i = 0; i < n; i++) cin >> pop[i];
+    
+    for (int i = 0; i < 1594323 + 1; i++) {
+        memo[i] = -1e9;
+    }
+    
+    int startA = 1 << s;
+    int startB = 1 << t;
+    
+    cout << solve(startA, startB, false) << "\n";
+    return 0;
+}

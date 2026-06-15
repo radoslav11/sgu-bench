@@ -1,0 +1,59 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cstdio>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+    
+    vector<double> R(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> R[i];
+    }
+
+    if (N == 3) {
+        double S = R[0] + R[1] + R[2];
+        printf("YES\n");
+        printf("0.0000 0.0000\n");
+        printf("%.4f 0.0000\n", 2.0 * S);
+        printf("0.0000 1.0000\n");
+    } else if (N == 4) {
+        // Condition 1: R1 + R2 = 2 * R3 (since R3 = R4 is guaranteed)
+        if (std::abs(R[0] + R[1] - 2.0 * R[2]) < 1e-9) {
+            double c = R[0] + R[1] + R[2];
+            double x3 = (R[0] - R[1]) / 2.0;
+            double x4 = (R[0] + R[1] + 4.0 * R[2]) / 2.0;
+            printf("YES\n");
+            printf("0.0000 0.0000\n");
+            printf("%.4f 0.0000\n", c);
+            printf("%.4f 2.0000\n", x3);
+            printf("%.4f -2.0000\n", x4);
+        } 
+        // Condition 2: R1 = R2
+        else if (std::abs(R[0] - R[1]) < 1e-9) {
+            double a = 2.0 * (2.0 * R[0] + R[2]) / (3.0 * (R[0] + R[2]));
+            double b = 2.0 * (R[0] + 2.0 * R[2]) / (3.0 * (R[0] + R[2]));
+            double c = 2.0 * R[0] + R[2];
+            double d = R[0] + 2.0 * R[2];
+            printf("YES\n");
+            printf("%.4f 0.0000\n", -a);
+            printf("0.0000 %.4f\n", c);
+            printf("%.4f 0.0000\n", b);
+            printf("0.0000 %.4f\n", -d);
+        } else {
+            printf("NO\n");
+        }
+    } else {
+        // For N >= 5, the system of area equations is overdetermined 
+        // and generally has no valid solution for arbitrary positive R[i].
+        printf("NO\n");
+    }
+
+    return 0;
+}

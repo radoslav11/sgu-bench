@@ -1,0 +1,63 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<int> A(N);
+    for (int i = 0; i < N; ++i) cin >> A[i];
+
+    vector<vector<int>> adj(N);
+    for (int i = 0; i < N; ++i) {
+        int K;
+        cin >> K;
+        adj[i].resize(K);
+        for (int j = 0; j < K; ++j) {
+            cin >> adj[i][j];
+            --adj[i][j];
+        }
+    }
+
+    vector<int> order(N);
+    iota(order.begin(), order.end(), 0);
+
+    sort(order.begin(), order.end(), [&](int x, int y) {
+        if (A[x] != A[y]) return A[x] > A[y];
+        return x < y;
+    });
+
+    vector<int> matchGirl(N, -1), matchSon(N, -1);
+    vector<int> used(N, 0);
+    int timer = 0;
+
+    function<bool(int)> dfs = [&](int son) {
+        for (int girl : adj[son]) {
+            if (used[girl] == timer) continue;
+            used[girl] = timer;
+
+            if (matchGirl[girl] == -1 || dfs(matchGirl[girl])) {
+                matchGirl[girl] = son;
+                matchSon[son] = girl;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    for (int son : order) {
+        ++timer;
+        dfs(son);
+    }
+
+    for (int i = 0; i < N; ++i) {
+        if (i) cout << ' ';
+        cout << (matchSon[i] == -1 ? 0 : matchSon[i] + 1);
+    }
+    cout << '\n';
+
+    return 0;
+}

@@ -1,0 +1,112 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem: Inheritance (129)
+ * Task: Find the length of the portion of several given line segments (mineral deposits) 
+ * that lie strictly inside a given convex polygon (the territory).
+ *
+ * Since the polygon is convex, its interior is the intersection of half-planes
+ * defined by its edges. For each segment AB, we can represent it parametrically
+ * as P(t) = A + t(B-A) for t in [0, 1]. For each edge of the polygon, 
+ * we solve the inequality f(P(t)) > 0, where f(x, y) = 0 is the equation of the
+ * edge line and f(x, y) > 0 for points inside the polygon. This gives an interval
+ * for t. The intersection of all such intervals for all edges and [0, 1] is the
+ * portion of the segment that is strictly inside.
+ */
+
+struct Point {
+    long double x, y;
+};
+
+// Calculate the Euclidean distance between two points
+long double dist(Point a, Point b) {
+    return sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+}
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<Point> pts(N);
+    long double cx = 0, cy = 0;
+    for (int i = 0; i < N; ++i) {
+        double tx, ty;
+        cin >> tx >> ty;
+        pts[i].x = tx;
+        pts[i].y = ty;
+        cx += pts[i].x;
+        cy += pts[i].y;
+    }
+    // Find the centroid to sort points for the convex hull
+    cx /= N;
+    cy /= N;
+
+    // Sort points by angle around the centroid to form a polygon boundary
+    sort(pts.begin(), pts.end(), [&](const Point& a, const Point& b) {
+        return atan2(a.y - cy, a.x - cx) < atan2(b.y - cy, b.x - cx);
+    });
+
+    int M;
+    if (!(cin >> M)) return 0;
+    for (int j = 0; j < M; ++j) {
+        Point A, B;
+        double tax, tay, tbx, tby;
+        cin >> tax >> tay >> tbx >> tby;
+        A.x = tax; A.y = tay;
+        B.x = tbx; B.y = tby;
+
+        long double t_min = 0.0, t_max = 1.0;
+        bool possible = true;
+
+        for (int i = 0; i < N; ++i) {
+            Point V1 = pts[i];
+            Point V2 = pts[(i + 1) % N];
+
+            // Edge line: dx*(y - V1.y) - dy*(x - V1.x) = 0
+            // Interior: dx*(y - V1.y) - dy*(x - V1.x) > 0
+            long double dx = V2.x - V1.x;
+            long double dy = V2.y - V1.y;
+
+            // Substitute x = A.x + t(B.x - A.x), y = A.y + t(B.y - A.y)
+            // The inequality becomes t*C + E > 0
+            long double C = dx * (B.y - A.y) - dy * (B.x - A.x);
+            long double E = dx * (A.y - V1.y) - dy * (A.x - V1.x);
+
+            if (abs(C) < 1e-15) {
+                // The segment is parallel to the edge.
+                // If E <= 0, the segment is outside or on the boundary.
+                if (E <= 1e-15) {
+                    possible = false;
+                    break;
+                }
+            } else if (C > 0) {
+                // t > -E/C
+                t_min = max(t_min, -E / C);
+            } else {
+                // t < -E/C
+                t_max = min(t_max, -E / C);
+            }
+        }
+
+        // If the resulting interval (t_min, t_max) is empty or invalid, the length is 0
+        if (!possible || t_min >= t_max - 1e-15) {
+            cout << "0\n";
+        } else {
+            // Output formatted to 2 decimal places as required
+            cout << fixed << setprecision(2) << (double)(t_max - t_min) * dist(A, B) << "\n";
+        }
+    }
+
+    return 0;
+}
+

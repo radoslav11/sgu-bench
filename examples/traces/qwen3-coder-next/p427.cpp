@@ -1,0 +1,264 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+#include <cassert>
+#include <unordered_map>
+#include <set>
+
+using namespace std;
+
+const double EPS = 1e-9;
+
+struct Point {
+    double x, y, z;
+    
+    Point() : x(0), y(0), z(0) {}
+    Point(double x, double y, double z) : x(x), y(y), z(z) {}
+    
+    Point operator-(const Point& p) const {
+        return Point(x - p.x, y - p.y, z - p.z);
+    }
+    
+    double dot(const Point& p) const {
+        return x * p.x + y * p.y + z * p.z;
+    }
+    
+    Point cross(const Point& p) const {
+        return Point(
+            y * p.z - z * p.y,
+            z * p.x - x * p.z,
+            x * p.y - y * p.x
+        );
+    }
+    
+    double len2() const {
+        return x * x + y * y + z * z;
+    }
+    
+    double len() const {
+        return sqrt(len2());
+    }
+    
+    Point normalize() const {
+        double l = len();
+        return Point(x / l, y / l, z / l);
+    }
+    
+    bool operator==(const Point& p) const {
+        return fabs(x - p.x) < EPS && fabs(y - p.y) < EPS && fabs(z - p.z) < EPS;
+    }
+    
+    bool operator<(const Point& p) const {
+        if (fabs(x - p.x) > EPS) return x < p.x;
+        if (fabs(y - p.y) > EPS) return y < p.y;
+        return z < p.z;
+    }
+};
+
+// Round coordinates to 9 decimal places as per input
+Point roundPoint(const Point& p) {
+    auto round = [](double x) {
+        return round(x * 1e9) / 1e9;
+    };
+    return Point(round(p.x), round(p.y), round(p.z));
+}
+
+struct Facet {
+    vector<Point> points;
+    vector<int> indices; // indices in global points list
+    Point normal;
+    
+    Facet() {}
+    
+    void computeNormal() {
+        if (points.size() < 3) return;
+        vector<Point> vecs;
+        for (int i = 0; i < points.size(); i++) {
+            Point p1 = points[i];
+            Point p2 = points[(i + 1) % points.size()];
+            Point p3 = points[(i + 2) % points.size()];
+            Point v1 = p2 - p1;
+            Point v2 = p3 - p2;
+            vecs.push_back(v1.cross(v2));
+        }
+        // Sum cross products to get robust normal
+        normal = Point(0, 0, 0);
+        for (auto& v : vecs) {
+            normal.x += v.x;
+            normal.y += v.y;
+            normal.z += v.z;
+        }
+        double l = normal.len();
+        if (l > EPS) {
+            normal.x /= l;
+            normal.y /= l;
+            normal.z /= l;
+        }
+    }
+};
+
+// Global data
+vector<Point> points;
+vector<Facet> facets;
+vector<vector<int>> adj; // adjacency list
+
+// Function to round point for comparison
+Point normalizePoint(const Point& p) {
+    // Use a hash-like representation for comparison
+    // Since coordinates are given with 9 decimal places, round to that precision
+    auto round9 = [](double x) {
+        return floor(x * 1e9 + 0.5) / 1e9;
+    };
+    return Point(round9(p.x), round9(p.y), round9(p.z));
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int f;
+    cin >> f;
+    
+    // Map to uniquely identify points
+    vector<Point> rawPoints;
+    unordered_map<string, int> pointMap;
+    
+    // Read all facets
+    for (int i = 0; i < f; i++) {
+        int k;
+        cin >> k;
+        
+        vector<Point> facetPoints;
+        for (int j = 0; j < k; j++) {
+            double x, y, z;
+            cin >> x >> y >> z;
+            Point p = normalizePoint(Point(x, y, z));
+            string key = to_string(p.x) + "," + to_string(p.y) + "," + to_string(p.z);
+            
+            if (!pointMap.count(key)) {
+                pointMap[key] = rawPoints.size();
+                rawPoints.push_back(p);
+            }
+            facetPoints.push_back(p);
+        }
+        
+        Facet facet;
+        facet.points = facetPoints;
+        facets.push_back(facet);
+    }
+    
+    points = rawPoints;
+    int n = points.size();
+    
+    // Build adjacency list: for each vertex, find which other vertices are connected by an edge
+    adj.resize(n);
+    for (int i = 0; i < n; i++) {
+        adj[i] = vector<int>();
+    }
+    
+    // For each facet, mark edges between consecutive vertices
+    for (auto& facet : facets) {
+        int k = facet.points.size();
+        for (int i = 0; i < k; i++) {
+            Point p1 = facet.points[i];
+            Point p2 = facet.points[(i + 1) % k];
+            
+            // Find indices
+            int idx1 = -1, idx2 = -1;
+            for (int j = 0; j < n; j++) {
+                if (points[j] == p1) idx1 = j;
+                if (points[j] == p2) idx2 = j;
+            }
+            if (idx1 == -1 || idx2 == -1 || idx1 == idx2) continue;
+            
+            // Add edge (undirected)
+            bool exists = false;
+            for (int neighbor : adj[idx1]) {
+                if (neighbor == idx2) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                adj[idx1].push_back(idx2);
+                adj[idx2].push_back(idx1);
+            }
+        }
+    }
+    
+    // Now we need to find a Hamiltonian cycle
+    // For convex polyhedra, by Steinitz's theorem, the graph is planar and 3-connected
+    // By Tait's theorem, a convex polyhedron has a Hamiltonian cycle if and only if
+    // its graph is Hamiltonian.
+    // Since the graph is planar and 3-connected, and n <= 100, we can use backtracking
+    
+    // Check if the graph is Hamiltonian using backtracking with pruning
+    
+    vector<int> path;
+    vector<bool> visited(n, false);
+    
+    // Use DFS/backtracking with pruning
+    function<bool(int)> backtrack = [&](int u) {
+        if (path.size() == n) {
+            // Check if last and first are adjacent
+            for (int v : adj[u]) {
+                if (v == path[0]) {
+                    path.push_back(u);
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        for (int v : adj[u]) {
+            if (!visited[v]) {
+                visited[v] = true;
+                path.push_back(v);
+                
+                if (backtrack(v)) {
+                    return true;
+                }
+                
+                path.pop_back();
+                visited[v] = false;
+            }
+        }
+        
+        return false;
+    };
+    
+    // Try starting from each vertex
+    bool found = false;
+    for (int start = 0; start < n; start++) {
+        path.clear();
+        fill(visited.begin(), visited.end(), false);
+        
+        visited[start] = true;
+        path.push_back(start);
+        
+        if (backtrack(start)) {
+            found = true;
+            break;
+        }
+    }
+    
+    if (!found) {
+        cout << "No" << endl;
+    } else {
+        cout << "Yes" << endl;
+        cout << n << endl;
+        
+        // Remove the duplicate last vertex (which was added as the closing edge)
+        path.pop_back();
+        
+        // Output points in the order of the path
+        for (int idx : path) {
+            cout << fixed << setprecision(9);
+            cout << points[idx].x << " " << points[idx].y << " " << points[idx].z << endl;
+        }
+    }
+    
+    return 0;
+}

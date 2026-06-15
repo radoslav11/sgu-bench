@@ -1,0 +1,32 @@
+#include <bits/stdc++.h>
+using namespace std;
+int N,M;
+int X1[5005],Y1c[5005],X2[5005],Y2[5005];
+char C[5005];
+int color[1001][1001]; // 0 unset, processed
+int main(){
+    scanf("%d %d",&N,&M);
+    for(int i=0;i<M;i++){
+        int x1,y1,x2,y2;char c;
+        scanf("%d %d %d %d %c",&x1,&y1,&x2,&y2,&c);
+        while(getchar()!='\n' && !feof(stdin));
+        if(x1>x2)swap(x1,x2);
+        if(y1>y2)swap(y1,y2);
+        X1[i]=x1;Y1c[i]=y1;X2[i]=x2;Y2[i]=y2;C[i]=c;
+    }
+    // assigned[x][y]: -1 unassigned
+    static int8_t col[1001][1001];
+    memset(col,-1,sizeof(col));
+    for(int i=M-1;i>=0;i--){
+        for(int x=X1[i];x<=X2[i];x++){
+            for(int y=Y1c[i];y<=Y2[i];y++){
+                if(col[x][y]==-1) col[x][y]=(C[i]=='b'?1:0);
+            }
+        }
+    }
+    long long white=0;
+    for(int x=1;x<=N;x++)for(int y=1;y<=N;y++){
+        if(col[x][y]==-1||col[x][y]==0)white++;
+    }
+    printf("%lld\n",white);
+}

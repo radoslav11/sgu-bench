@@ -1,0 +1,54 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int primes[] = {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71};
+int NP = 20;
+long double LIMIT = 1e18L; // cap
+
+long double best;
+unsigned long long bestN;
+bool found;
+
+int K;
+
+void rec(int idx, int remK, long double curLog, unsigned long long curN, int maxExp){
+    // remK = remaining product of (e+1) needed
+    if(remK == 1){
+        if(curLog < best){
+            best = curLog;
+            bestN = curN;
+            found = true;
+        }
+        return;
+    }
+    if(idx >= NP) return;
+    // try exponents e such that (e+1) divides remK, e from 1..maxExp
+    long double lp = logl((long double)primes[idx]);
+    long double accLog = curLog;
+    unsigned long long accN = curN;
+    for(int e=1; e<=maxExp; e++){
+        accLog += lp;
+        // check overflow
+        if(accLog >= best) break;
+        // accN multiply
+        if(accN > (unsigned long long)(2e18)/primes[idx]) break;
+        accN *= primes[idx];
+        if((remK % (e+1))==0){
+            rec(idx+1, remK/(e+1), accLog, accN, e);
+        }
+    }
+}
+
+int main(){
+    cin >> K;
+    best = 1e30L;
+    bestN = 0;
+    found = false;
+    rec(0, K, 0.0L, 1ULL, 60);
+    if(!found){
+        cout << 0 << endl;
+    } else {
+        cout << bestN << endl;
+    }
+    return 0;
+}

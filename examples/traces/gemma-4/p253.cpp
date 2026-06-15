@@ -1,0 +1,88 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstdio>
+
+using namespace std;
+
+/**
+ * Problem: Theodore Roosevelt
+ * Task: Determine if at least K points fall inside a given convex polygon of N vertices.
+ * Complexity: O(M log N) using binary search on the angle for each point.
+ * Time limit: 0.25s - This is quite tight, so we'll use fast I/O and optimize the search.
+ */
+
+struct Point {
+    long long x, y;
+};
+
+/**
+ * Calculates the cross product of vectors (b-a) and (c-a).
+ * A positive result means c is to the left of the directed line ab (CCW).
+ * A negative result means c is to the right (CW).
+ * Zero means a, b, and c are collinear.
+ */
+inline long long cross_product(const Point& a, const Point& b, const Point& c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+/**
+ * Checks if a point p is inside or on the boundary of a convex polygon poly.
+ * The polygon vertices are expected in counter-clockwise (CCW) order.
+ * The complexity of this function is O(log N).
+ */
+bool isInside(const vector<Point>& poly, const Point& p) {
+    int n = poly.size();
+    // Check if the point is outside the angular range of the polygon relative to poly[0].
+    // Since vertices are CCW, p must be to the left of poly[0]->poly[1] 
+    // and to the right of poly[0]->poly[n-1].
+    if (cross_product(poly[0], poly[1], p) < 0) return false;
+    if (cross_product(poly[0], poly[n - 1], p) > 0) return false;
+
+    // Binary search for the wedge (poly[0], poly[idx], poly[idx+1]) that the point p might lie in.
+    int l = 1, r = n - 2, idx = 1;
+    while (l <= r) {
+        int mid = l + (r - l) / 2;
+        // Check if p is to the left of (or on) the ray from poly[0] through poly[mid].
+        if (cross_product(poly[0], poly[mid], p) >= 0) {
+            idx = mid;
+            l = mid + 1;
+        } else {
+            r = mid - 1;
+        }
+    }
+
+    // The point is in the polygon if it is to the left of (or on) the edge (poly[idx], poly[idx+1]).
+    return cross_product(poly[idx], poly[idx + 1], p) >= 0;
+}
+
+int main() {
+    int N, M, K;
+    // Using scanf for potentially faster input reading within the strict 0.25s limit.
+    if (scanf("%d %d %d", &N, &M, &K) != 3) return 0;
+
+    vector<Point> poly(N);
+    for (int i = 0; i < N; ++i) {
+        scanf("%lld %lld", &poly[i].x, &poly[i].y);
+    }
+
+    int count = 0;
+    for (int i = 0; i < M; ++i) {
+        Point p;
+        scanf("%lld %lld", &p.x, &p.y);
+        // Check each explosion to see if it's within the carrier's region.
+        if (isInside(poly, p)) {
+            count++;
+        }
+    }
+
+    // Output YES if the carrier was destroyed (at least K hits), NO otherwise.
+    if (count >= K) {
+        printf("YES\n");
+    } else {
+        printf("NO\n");
+    }
+
+    return 0;
+}
+

@@ -1,0 +1,218 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const double EPS = 1e-10;
+
+struct Stone {
+    double l, r;
+    int t;
+};
+
+using Interval = pair<double,double>;
+
+double v;
+double G;
+int n;
+
+bool leq(double a, double b) { return a <= b + EPS; }
+bool geq(double a, double b) { return a + EPS >= b; }
+
+vector<Interval> expandIntervals(const vector<Interval>& segs, double d) {
+    vector<Interval> res;
+    for (auto [l, r] : segs) {
+        res.push_back({l - d, r + d});
+    }
+    sort(res.begin(), res.end());
+    
+    vector<Interval> merged;
+    for (auto [l, r] : res) {
+        if (merged.empty() || l > merged.back().second + EPS) {
+            merged.push_back({l, r});
+        } else {
+            merged.back().second = max(merged.back().second, r);
+        }
+    }
+    return merged;
+}
+
+vector<Interval> removeOpenInterval(const vector<Interval>& segs, double L, double R) {
+    if (R <= L + EPS) return segs;
+    
+    vector<Interval> res;
+    for (auto [a, b] : segs) {
+        if (b <= L + EPS || a >= R - EPS) {
+            res.push_back({a, b});
+        } else {
+            if (a <= L + EPS) {
+                double nl = a, nr = min(b, L);
+                if (nl <= nr + EPS) res.push_back({nl, nr});
+            }
+            if (b >= R - EPS) {
+                double nl = max(a, R), nr = b;
+                if (nl <= nr + EPS) res.push_back({nl, nr});
+            }
+        }
+    }
+    return res;
+}
+
+double distanceToPoint(const vector<Interval>& segs, double x) {
+    double ans = 1e100;
+    for (auto [l, r] : segs) {
+        if (l - EPS <= x && x <= r + EPS) return 0.0;
+        if (x < l) ans = min(ans, l - x);
+        else ans = min(ans, x - r);
+    }
+    return ans;
+}
+
+bool containsPoint(const vector<Interval>& segs, double x) {
+    for (auto [l, r] : segs) {
+        if (l - EPS <= x && x <= r + EPS) return true;
+    }
+    return false;
+}
+
+double choosePointInIntersection(const vector<Interval>& segs, double L, double R) {
+    for (auto [l, r] : segs) {
+        double a = max(l, L);
+        double b = min(r, R);
+        if (a <= b + EPS) {
+            if (0 >= a - EPS && 0 <= b + EPS) return 0;
+            return (a + b) / 2.0;
+        }
+    }
+    return 1e100;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cin >> v >> G >> n;
+    
+    vector<Stone> stones(n);
+    for (int i = 0; i < n; i++) {
+        cin >> stones[i].l >> stones[i].r >> stones[i].t;
+    }
+    
+    sort(stones.begin(), stones.end(), [](const Stone& a, const Stone& b) {
+        return a.t < b.t;
+    });
+    
+    vector<vector<Interval>> layers;
+    vector<double> times;
+    
+    layers.push_back({{0.0, 0.0}});
+    times.push_back(0.0);
+    
+    bool found = false;
+    double finishTime = -1.0;
+    int finishLayer = 0;
+    
+    int idx = 0;
+    while (idx < n) {
+        int curT = stones[idx].t;
+        double prevT = times.back();
+        
+        double dist = distanceToPoint(layers.back(), G);
+        double canArrive = prevT + dist / v;
+        if (canArrive <= curT + EPS) {
+            found = true;
+            finishTime = canArrive;
+            finishLayer = (int)layers.size() - 1;
+            break;
+        }
+        
+        vector<Interval> cur = expandIntervals(layers.back(), v * (curT - prevT));
+        
+        while (idx < n && stones[idx].t == curT) {
+            cur = removeOpenInterval(cur, stones[idx].l, stones[idx].r);
+            idx++;
+            if (cur.empty()) break;
+        }
+        
+        if (cur.empty()) {
+            cout << -1 << '\n';
+            return 0;
+        }
+        
+        layers.push_back(cur);
+        times.push_back(curT);
+    }
+    
+    if (!found) {
+        double prevT = times.back();
+        double dist = distanceToPoint(layers.back(), G);
+        if (dist > 1e90) {
+            cout << -1 << '\n';
+            return 0;
+        }
+        found = true;
+        finishTime = prevT + dist / v;
+        finishLayer = (int)layers.size() - 1;
+    }
+    
+    vector<double> pos(finishLayer + 1);
+    pos[finishLayer] = choosePointInIntersection(
+        layers[finishLayer],
+        G - v * (finishTime - times[finishLayer]),
+        G + v * (finishTime - times[finishLayer])
+    );
+    
+    if (pos[finishLayer] > 1e90) {
+        cout << -1 << '\n';
+        return 0;
+    }
+    
+    for (int i = finishLayer; i >= 1; i--) {
+        double dt = times[i] - times[i - 1];
+        pos[i - 1] = choosePointInIntersection(
+            layers[i - 1],
+            pos[i] - v * dt,
+            pos[i] + v * dt
+        );
+        
+        if (pos[i - 1] > 1e90) {
+            cout << -1 << '\n';
+            return 0;
+        }
+    }
+    
+    pos[0] = 0.0;
+    
+    vector<pair<double,double>> ans;
+    
+    for (int i = 1; i <= finishLayer; i++) {
+        double dt = times[i] - times[i - 1];
+        if (dt <= EPS) continue;
+        double speed = (pos[i] - pos[i - 1]) / dt;
+        ans.push_back({speed, dt});
+    }
+    
+    double finalDt = finishTime - times[finishLayer];
+    if (finalDt > EPS) {
+        double speed = (G - pos[finishLayer]) / finalDt;
+        ans.push_back({speed, finalDt});
+    }
+    
+    vector<pair<double,double>> compressed;
+    for (auto [w, t] : ans) {
+        if (t <= EPS) continue;
+        if (!compressed.empty() && fabs(compressed.back().first - w) <= 1e-9) {
+            compressed.back().second += t;
+        } else {
+            compressed.push_back({w, t});
+        }
+    }
+    
+    cout << compressed.size() << '\n';
+    cout.setf(ios::fixed);
+    cout << setprecision(15);
+    for (auto [w, t] : compressed) {
+        if (fabs(w) < 5e-13) w = 0.0;
+        cout << w << ' ' << t << '\n';
+    }
+    
+    return 0;
+}

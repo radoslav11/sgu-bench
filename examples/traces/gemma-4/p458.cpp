@@ -1,0 +1,151 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstdio>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * We need to find the longest subsequence such that no two adjacent elements differ by exactly 1.
+ * Let dp[i] be the length of the longest valid subsequence ending at index i.
+ * dp[i] = 1 + max({dp[j] | j < i and |c[i] - c[j]| != 1} union {0}).
+ * To find this max in O(1) or O(log n), we maintain the top 3 (dp_value, color, index) 
+ * tuples with distinct colors. Since we want to avoid at most 2 colors (c[i]-1 and c[i]+1),
+ * the third-best color is guaranteed to satisfy the condition.
+ *
+ * Complexity:
+ * Time: O(n), with a small constant due to keeping only the top 3 colors.
+ * Space: O(n + max_color), which is around 10MB.
+ * Time limit is tight (0.25s), so we use fast I/O and avoid slow data structures.
+ */
+
+struct Node {
+    int dp, color, idx;
+};
+
+const int MAXC = 1000005;
+const int MAXN = 100005;
+int max_dp_for_color[MAXC];
+int dp[MAXN];
+int parent[MAXN];
+int c[MAXN];
+
+int main() {
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
+    for (int i = 0; i < n; ++i) {
+        if (scanf("%d", &c[i]) != 1) break;
+    }
+
+    // best_colors stores at most 3 (dp, color, index) with distinct colors.
+    // Using dummy colors -2, -3, -4 for non-existent entries.
+    Node best_colors[3];
+    for (int i = 0; i < 3; ++i) {
+        best_colors[i] = {0, -2 - i, -1};
+    }
+
+    // Initialize max_dp_for_color to 0.
+    for (int i = 0; i < MAXC; ++i) {
+        max_dp_for_color[i] = 0;
+    }
+
+    for (int i = 0; i < n; ++i) {
+        int best_dp = 0;
+        int best_idx = -1;
+        
+        // Check the top 3 best colors for the current pixel's valid predecessor.
+        for (int k = 0; k < 3; ++k) {
+            if (best_colors[k].color != c[i] - 1 && best_colors[k].color != c[i] + 1) {
+                best_dp = best_colors[k].dp;
+                best_idx = best_colors[k].idx;
+                break;
+            }
+        }
+
+        dp[i] = best_dp + 1;
+        parent[i] = best_idx;
+
+        // Update max_dp_for_color for the current pixel's color.
+        // dp[i] is always > max_dp_for_color[c[i]] because |c[i]-c[i]| = 0 != 1.
+        if (dp[i] > max_dp_for_color[c[i]]) {
+            max_dp_for_color[c[i]] = dp[i];
+
+            bool found = false;
+            for (int k = 0; k < 3; ++k) {
+                if (best_colors[k].color == c[i]) {
+                    best_colors[k].dp = dp[i];
+                    best_colors[k].idx = i;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                // If the current color is not among the top 3, add it and keep only top 3.
+                Node temp[4];
+                int count = 0;
+                for (int k = 0; k < 3; ++k) {
+                    if (best_colors[k].color >= 0) {
+                        temp[count++] = best_colors[k];
+                    }
+                }
+                temp[count++] = {dp[i], c[i], i};
+
+                // Simple bubble sort for at most 4 elements.
+                for (int k = 0; k < count - 1; ++k) {
+                    for (int l = k + 1; l < count; ++l) {
+                        if (temp[k].dp < temp[l].dp) {
+                            swap(temp[k], temp[l]);
+                        }
+                    }
+                }
+
+                int new_count = 0;
+                for (int k = 0; k < count && new_count < 3; ++k) {
+                    best_colors[new_count++] = temp[k];
+                }
+                while (new_count < 3) {
+                    best_colors[new_count++] = {0, -2 - new_count, -1};
+                }
+            } else {
+                // If color was already in top 3, just re-sort.
+                for (int k = 0; k < 2; ++k) {
+                    for (int l = k + 1; l < 3; ++l) {
+                        if (best_colors[k].dp < best_colors[l].dp) {
+                            swap(best_colors[k], best_colors[l]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Find the maximum length and the ending index.
+    int max_len = 0;
+    int last_idx = -1;
+    for (int i = 0; i < n; ++i) {
+        if (dp[i] > max_len) {
+            max_len = dp[i];
+            last_idx = i;
+        }
+    }
+
+    // Output the number of deletions and the reconstructed subsequence.
+    printf("%d\n", n - max_len);
+    if (max_len > 0) {
+        vector<int> res;
+        while (last_idx != -1) {
+            res.push_back(c[last_idx]);
+            last_idx = parent[last_idx];
+        }
+        for (int i = (int)res.size() - 1; i >= 0; --i) {
+            printf("%d%c", res[i], (i == 0 ? '\n' : ' '));
+        }
+    } else {
+        printf("\n");
+    }
+
+    return 0;
+}
+

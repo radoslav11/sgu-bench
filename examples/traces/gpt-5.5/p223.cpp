@@ -1,0 +1,71 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, k;
+    cin >> n >> k;
+
+    vector<int> masks, bits;
+    int totalMasks = 1 << n;
+
+    for (int mask = 0; mask < totalMasks; ++mask) {
+        if ((mask & (mask << 1)) == 0) {
+            masks.push_back(mask);
+            bits.push_back(__builtin_popcount((unsigned)mask));
+        }
+    }
+
+    int s = masks.size();
+
+    vector<vector<int>> compat(s);
+    for (int i = 0; i < s; ++i) {
+        for (int j = 0; j < s; ++j) {
+            int a = masks[i], b = masks[j];
+            if ((a & b) == 0 && ((a << 1) & b) == 0 && ((a >> 1) & b) == 0) {
+                compat[i].push_back(j);
+            }
+        }
+    }
+
+    vector<vector<long long>> dp(k + 1, vector<long long>(s, 0));
+    vector<vector<long long>> ndp(k + 1, vector<long long>(s, 0));
+
+    for (int i = 0; i < s; ++i) {
+        if (bits[i] <= k) {
+            dp[bits[i]][i] = 1;
+        }
+    }
+
+    for (int row = 1; row < n; ++row) {
+        for (int used = 0; used <= k; ++used) {
+            fill(ndp[used].begin(), ndp[used].end(), 0);
+        }
+
+        for (int used = 0; used <= k; ++used) {
+            for (int prev = 0; prev < s; ++prev) {
+                if (dp[used][prev] == 0) continue;
+
+                for (int cur : compat[prev]) {
+                    int newUsed = used + bits[cur];
+                    if (newUsed <= k) {
+                        ndp[newUsed][cur] += dp[used][prev];
+                    }
+                }
+            }
+        }
+
+        dp.swap(ndp);
+    }
+
+    long long ans = 0;
+    for (int i = 0; i < s; ++i) {
+        ans += dp[k][i];
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

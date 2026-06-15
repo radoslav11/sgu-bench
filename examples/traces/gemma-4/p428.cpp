@@ -1,0 +1,170 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: 428. Rebus
+ * Goal: Output 1000 different proper aligned addition rebuses.
+ * A rebus is proper if it has exactly one solution.
+ * An aligned rebus has all three numbers with the same length.
+ * Different rebuses are those that cannot be transformed into each other by renaming letters.
+ *
+ * Approach:
+ * We generate all possible partitions of 9 positions (since we'll use length L=3).
+ * For each partition, we calculate the weights of each letter in the equation N1 + N2 = N3.
+ * We use backtracking (DFS) with pruning to count the number of valid digit assignments.
+ * If exactly one assignment is found, the partition corresponds to a "proper aligned rebus".
+ * We collect the first 1000 such rebuses.
+ */
+
+int partition_arr[9];
+int K_curr;
+long long w[10];
+bool is_leading[10];
+int solution_count;
+bool used[10];
+long long pos_w_rem[10], neg_w_rem[10];
+vector<vector<int>> valid_partitions;
+
+/**
+ * DFS with pruning to count solutions for the equation sum(w[i] * x[i]) = 0.
+ * x[i] are distinct digits from 0-9, and leading digits cannot be 0.
+ */
+void dfs(int idx, long long current_sum) {
+    if (idx == K_curr) {
+        if (current_sum == 0) solution_count++;
+        return;
+    }
+
+    // Find the smallest and largest available digits for pruning.
+    int d_min = 10, d_max = -1;
+    for (int d = 0; d <= 9; ++d) {
+        if (!used[d]) {
+            d_min = d;
+            break;
+        }
+    }
+    for (int d = 9; d >= 0; --d) {
+        if (!used[d]) {
+            d_max = d;
+            break;
+        }
+    }
+
+    if (d_min == 10) { // Should not happen if idx < K_curr
+        if (current_sum == 0) solution_count++;
+        return;
+    }
+
+    // Loose pruning: calculate the minimum and maximum possible remaining sum.
+    long long min_rem = pos_w_rem[idx] * d_min + neg_w_rem[idx] * d_max;
+    long long max_rem = pos_w_rem[idx] * d_max + neg_w_rem[idx] * d_min;
+
+    if (current_sum + min_rem > 0 || current_sum + max_rem < 0) return;
+
+    for (int d = 0; d <= 9; ++d) {
+        if (!used[d]) {
+            // Constraint: no leading zeros for numbers with length L=3.
+            if (d == 0 && is_leading[idx]) continue;
+            used[d] = true;
+            dfs(idx + 1, current_sum + w[idx] * d);
+            used[d] = false;
+            // If we found more than one solution, the rebus is not proper.
+            if (solution_count > 1) return;
+        }
+    }
+}
+
+/**
+ * Recursively generates all partitions of a 9-element set.
+ * Each partition represents a unique rebus structure up to renaming.
+ */
+void generate_partitions(int index, int K) {
+    if (index == 9) {
+        K_curr = K;
+        for (int i = 0; i < K; ++i) {
+            w[i] = 0;
+            is_leading[i] = false;
+        }
+        // Construct the linear equation weight for each unique letter.
+        for (int i = 0; i < 9; ++i) {
+            int digit_idx = partition_arr[i];
+            int power = 2 - (i % 3);
+            long long val = 1;
+            for (int p = 0; p < power; ++p) val *= 10;
+
+            // Equation: N1 + N2 - N3 = 0.
+            if (i < 3) w[digit_idx] += val;
+            else if (i < 6) w[digit_idx] += val;
+            else w[digit_idx] -= val;
+
+            // Leading digit cannot be zero (for aligned L=3).
+            if (i == 0 || i == 3 || i == 6) is_leading[digit_idx] = true;
+        }
+        // Pre-calculate partial sums of positive and negative weights for pruning.
+        for (int i = 0; i < K; ++i) {
+            pos_w_rem[i] = 0;
+            neg_w_rem[i] = 0;
+            for (int j = i; j < K; ++j) {
+                if (w[j] > 0) pos_w_rem[i] += w[j];
+                else neg_w_rem[i] += w[j];
+            }
+        }
+        solution_count = 0;
+        for (int d = 0; d < 10; ++d) used[d] = false;
+        dfs(0, 0);
+        if (solution_count == 1) {
+            vector<int> p(9);
+            for (int i = 0; i < 9; ++i) p[i] = partition_arr[i];
+            valid_partitions.push_back(p);
+        }
+        return;
+    }
+
+    // Try placing current index in one of the existing K sets.
+    for (int i = 0; i < K; ++i) {
+        partition_arr[index] = i;
+        generate_partitions(index + 1, K);
+        if (valid_partitions.size() >= 1000) return;
+    }
+    // Or create a new set for the current index.
+    partition_arr[index] = K;
+    generate_partitions(index + 1, K + 1);
+    if (valid_partitions.size() >= 1000) return;
+}
+
+int main() {
+    // Fast I/O.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    // Generate the rebuses.
+    generate_partitions(0, 0);
+
+    // Output the requested 1000 rebuses.
+    for (int i = 0; i < min((int)valid_partitions.size(), 1000); ++i) {
+        string res = "";
+        const vector<int>& p = valid_partitions[i];
+        char mapping[10];
+        for (int j = 0; j < 10; ++j) mapping[j] = ' ';
+        int next_letter = 0;
+        // Assign letters A, B, C... based on the order of appearance in the pattern.
+        for (int val : p) {
+            if (mapping[val] == ' ') {
+                mapping[val] = (char)('A' + next_letter++);
+            }
+        }
+        // Formulate the string N1 + N2 = N3.
+        for (int j = 0; j < 3; ++j) res += mapping[p[j]];
+        res += '+';
+        for (int j = 3; j < 6; ++j) res += mapping[p[j]];
+        res += '=';
+        for (int j = 6; j < 9; ++j) res += mapping[p[j]];
+        cout << res << "\n";
+    }
+
+    return 0;
+}

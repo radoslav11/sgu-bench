@@ -1,0 +1,42 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    // Optimize standard I/O operations for speed
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (cin >> n >> m) {
+        vector<int> hp(n + 1, 100);
+        vector<int> score(n + 1, 0);
+
+        for (int i = 0; i < m; ++i) {
+            int u, v;
+            cin >> u >> v;
+            
+            // Each shot always reduces the hit points of the target tank by 8
+            if (hp[v] > 0) {
+                hp[v] -= 8;
+                // If the number of hit points before the shot was greater than zero,
+                // the shooting tank receives 3 score points.
+                score[u] += 3;
+            } else {
+                hp[v] -= 8;
+            }
+        }
+
+        for (int i = 1; i <= n; ++i) {
+            // At the end of the match, each tank with positive hit points 
+            // additionally receives score points equal to half of its hit points.
+            if (hp[i] > 0) {
+                score[i] += hp[i] / 2;
+            }
+            cout << hp[i] << " " << score[i] << "\n";
+        }
+    }
+
+    return 0;
+}

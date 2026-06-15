@@ -1,0 +1,138 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Road {
+    int u, v;
+};
+
+struct Arc {
+    int to, id;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, K;
+    if (!(cin >> N >> K)) return 0;
+
+    int M = N * K / 2;
+    vector<Road> roads(M + 1);
+    vector<vector<pair<int,int>>> g(N + 1);
+
+    for (int i = 1; i <= M; i++) {
+        int u, v;
+        cin >> u >> v;
+        roads[i] = {u, v};
+        g[u].push_back({v, i});
+        g[v].push_back({u, i});
+    }
+
+    if (K % 2 != 0) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    vector<vector<Arc>> bg(N + 1);
+    vector<int> ptr(N + 1, 0);
+    vector<char> used(M + 1, 0);
+
+    for (int s = 1; s <= N; s++) {
+        while (ptr[s] < (int)g[s].size() && used[g[s][ptr[s]].second]) ptr[s]++;
+        if (ptr[s] == (int)g[s].size()) continue;
+
+        stack<int> st;
+        st.push(s);
+
+        while (!st.empty()) {
+            int v = st.top();
+
+            while (ptr[v] < (int)g[v].size() && used[g[v][ptr[v]].second]) ptr[v]++;
+
+            if (ptr[v] == (int)g[v].size()) {
+                st.pop();
+            } else {
+                auto [to, id] = g[v][ptr[v]];
+                used[id] = 1;
+
+                bg[v].push_back({to, id});
+
+                st.push(to);
+            }
+        }
+    }
+
+    vector<int> pairU(N + 1, 0), pairV(N + 1, 0), dist(N + 1), matchEdge(N + 1, 0);
+
+    auto bfs = [&]() {
+        queue<int> q;
+        bool found = false;
+
+        for (int u = 1; u <= N; u++) {
+            if (pairU[u] == 0) {
+                dist[u] = 0;
+                q.push(u);
+            } else {
+                dist[u] = -1;
+            }
+        }
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            for (auto e : bg[u]) {
+                int v = e.to;
+                int u2 = pairV[v];
+
+                if (u2 == 0) {
+                    found = true;
+                } else if (dist[u2] == -1) {
+                    dist[u2] = dist[u] + 1;
+                    q.push(u2);
+                }
+            }
+        }
+
+        return found;
+    };
+
+    function<bool(int)> dfs = [&](int u) {
+        for (auto e : bg[u]) {
+            int v = e.to;
+            int u2 = pairV[v];
+
+            if (u2 == 0 || (dist[u2] == dist[u] + 1 && dfs(u2))) {
+                pairU[u] = v;
+                pairV[v] = u;
+                matchEdge[u] = e.id;
+                return true;
+            }
+        }
+
+        dist[u] = -1;
+        return false;
+    };
+
+    int matching = 0;
+
+    while (bfs()) {
+        for (int u = 1; u <= N; u++) {
+            if (pairU[u] == 0 && dfs(u)) {
+                matching++;
+            }
+        }
+    }
+
+    if (matching != N) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    cout << "YES\n";
+    for (int u = 1; u <= N; u++) {
+        cout << matchEdge[u] << '\n';
+    }
+
+    return 0;
+}

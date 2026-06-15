@@ -1,0 +1,117 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <climits>
+#include <utility>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    long long d;
+    cin >> n >> d;
+
+    vector<pair<long long, long long>> banks(n);
+    for (int i = 0; i < n; i++) {
+        cin >> banks[i].first >> banks[i].second;
+    }
+
+    // We need to find two banks i and j such that |x_i - x_j| >= d and w_i + w_j is maximized.
+    // Since banks are sorted by x, for a bank j, we want to find a bank i with x_i <= x_j - d or x_i >= x_j + d.
+    // For each bank j, consider:
+    //   - Left candidate: bank i with x_i <= x_j - d and maximum w_i
+    //   - Right candidate: bank i with x_i >= x_j + d and maximum w_i
+
+    // Build prefix maximum structure (for left side): for each index i, store the index of the bank with max w among banks 0..i
+    vector<int> prefix_max_index(n);
+    prefix_max_index[0] = 0;
+    for (int i = 1; i < n; i++) {
+        if (banks[i].second > banks[prefix_max_index[i-1]].second) {
+            prefix_max_index[i] = i;
+        } else {
+            prefix_max_index[i] = prefix_max_index[i-1];
+        }
+    }
+
+    // Build suffix maximum structure (for right side): for each index i, store the index of the bank with max w among banks i..n-1
+    vector<int> suffix_max_index(n);
+    suffix_max_index[n-1] = n-1;
+    for (int i = n-2; i >= 0; i--) {
+        if (banks[i].second > banks[suffix_max_index[i+1]].second) {
+            suffix_max_index[i] = i;
+        } else {
+            suffix_max_index[i] = suffix_max_index[i+1];
+        }
+    }
+
+    long long max_sum = -1;
+    int idx1 = -1, idx2 = -1;
+
+    // For each bank j, check left candidate (i with x_i <= x_j - d)
+    for (int j = 0; j < n; j++) {
+        long long target_x = banks[j].first - d;
+        // Find the rightmost bank i such that x_i <= target_x
+        int lo = 0, hi = j - 1;
+        int candidate_idx = -1;
+        while (lo <= hi) {
+            int mid = (lo + hi) / 2;
+            if (banks[mid].first <= target_x) {
+                candidate_idx = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+
+        if (candidate_idx != -1) {
+            // Get the bank with maximum w in [0, candidate_idx]
+            int i = prefix_max_index[candidate_idx];
+            long long sum = banks[i].second + banks[j].second;
+            if (sum > max_sum) {
+                max_sum = sum;
+                idx1 = i;
+                idx2 = j;
+            }
+        }
+    }
+
+    // For each bank j, check right candidate (i with x_i >= x_j + d)
+    for (int j = 0; j < n; j++) {
+        long long target_x = banks[j].first + d;
+        // Find the leftmost bank i such that x_i >= target_x
+        int lo = j + 1, hi = n - 1;
+        int candidate_idx = -1;
+        while (lo <= hi) {
+            int mid = (lo + hi) / 2;
+            if (banks[mid].first >= target_x) {
+                candidate_idx = mid;
+                hi = mid - 1;
+            } else {
+                lo = mid + 1;
+            }
+        }
+
+        if (candidate_idx != -1) {
+            // Get the bank with maximum w in [candidate_idx, n-1]
+            int i = suffix_max_index[candidate_idx];
+            long long sum = banks[i].second + banks[j].second;
+            if (sum > max_sum) {
+                max_sum = sum;
+                idx1 = i;
+                idx2 = j;
+            }
+        }
+    }
+
+    if (max_sum == -1) {
+        cout << "-1 -1\n";
+    } else {
+        // Output 1-indexed indices in any order
+        cout << idx1 + 1 << " " << idx2 + 1 << "\n";
+    }
+
+    return 0;
+}

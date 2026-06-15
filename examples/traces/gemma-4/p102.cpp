@@ -1,0 +1,74 @@
+#include <iostream>
+
+/**
+ * Problem: Find the number of positive integers not greater than N that are coprime with N.
+ * This is equivalent to finding the Euler's totient function phi(N).
+ * 
+ * Euler's totient function phi(N) is calculated using the formula:
+ * phi(N) = N * product over all distinct prime factors p of N, of (1 - 1/p).
+ * This can be rewritten as:
+ * phi(N) = N * product of (p - 1) / p.
+ * 
+ * Constraints: 1 <= N <= 10^4.
+ * Time limit: 0.25 sec.
+ * Memory limit: 4096 KB.
+ * 
+ * Algorithm:
+ * 1. Read N.
+ * 2. If N = 1, the answer is 1 since gcd(1, 1) = 1.
+ * 3. For N > 1:
+ *    a. Start with result = N.
+ *    b. For every prime factor p of N:
+ *       result = result * (p - 1) / p
+ *    c. To find prime factors, iterate from 2 up to sqrt(N).
+ *    d. If temp_n is still > 1 after the loop, it means the remaining temp_n is prime.
+ * 4. Output the result.
+ */
+
+int main() {
+    // Optimization for faster I/O
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+
+    int n;
+    // Reading N from standard input
+    if (!(std::cin >> n)) {
+        return 0;
+    }
+
+    // Special case: phi(1) = 1
+    if (n == 1) {
+        std::cout << 1 << std::endl;
+        return 0;
+    }
+
+    int result = n;
+    int temp_n = n;
+
+    // Iterating through possible prime factors up to sqrt(temp_n)
+    for (int i = 2; i * i <= temp_n; ++i) {
+        if (temp_n % i == 0) {
+            // Found a prime factor 'i'
+            // Divide out all instances of this factor to find the next prime factor
+            while (temp_n % i == 0) {
+                temp_n /= i;
+            }
+            // Apply the totient formula segment: result *= (1 - 1/i)
+            // We use integer arithmetic: result = result - (result / i)
+            // Since 'i' is a prime factor of the original N and 'result' is calculated iteratively,
+            // result will always be divisible by the prime factors we find.
+            result -= result / i;
+        }
+    }
+
+    // If temp_n > 1, then the remaining temp_n is a prime factor
+    if (temp_n > 1) {
+        result -= result / temp_n;
+    }
+
+    // Output the final Euler's totient value
+    std::cout << result << std::endl;
+
+    return 0;
+}
+

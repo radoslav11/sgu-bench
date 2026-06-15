@@ -1,0 +1,22 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int P;
+    int tc = 1;
+
+    while (cin >> P) {
+        int ans;
+        if (P == 0) ans = 0;
+        else if (P <= 78) ans = 1;
+        else if (P <= 95) ans = 2;
+        else ans = 3;
+
+        cout << "Case #" << tc++ << ": " << ans << '\n';
+    }
+
+    return 0;
+}

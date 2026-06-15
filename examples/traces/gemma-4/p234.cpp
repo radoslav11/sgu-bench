@@ -1,0 +1,196 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+#include <string>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The goal is to place the maximum number of "Guardians" in a kingdom of M x N cells.
+ * Some cells are removed (represented by 0). Guardians can only be placed in cells that are 1.
+ * Two Guardians cannot be in the same or neighboring cells (this makes them an independent set).
+ * Every cell with a 1 must be defended (this means the Guardians must form a dominating set of the 1-cells).
+ * 
+ * Any maximal independent set is also a dominating set.
+ * Thus, the maximum number of Guardians is the size of the Maximum Independent Set (MIS)
+ * of the subgraph formed by the 1-cells in the grid graph.
+ * Since a grid graph is bipartite, MIS can be found in polynomial time:
+ * |MIS| = (Total number of 1-cells) - |Maximum Matching|.
+ */
+
+const int MAXN = 205;
+int M, N;
+int grid[MAXN][MAXN];
+int u_idx[MAXN][MAXN], v_idx[MAXN][MAXN];
+vector<int> adj[MAXN * MAXN]; // adj[u] contains v's from the V set
+int matchU[MAXN * MAXN], matchV[MAXN * MAXN];
+int dist[MAXN * MAXN];
+int numU, numV;
+bool Z_U[MAXN * MAXN], Z_V[MAXN * MAXN];
+bool isGuardian[MAXN][MAXN];
+
+// Hopcroft-Karp: BFS to find the shortest augmenting path distances
+bool bfs() {
+    queue<int> q;
+    for (int u = 0; u < numU; ++u) {
+        if (matchU[u] == -1) {
+            dist[u] = 0;
+            q.push(u);
+        } else {
+            dist[u] = -1;
+        }
+    }
+    bool found = false;
+    int min_dist = 1e9;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        if (dist[u] < min_dist) {
+            for (int v : adj[u]) {
+                if (matchV[v] == -1) {
+                    found = true;
+                    min_dist = dist[u] + 1;
+                } else if (dist[matchV[v]] == -1) {
+                    dist[matchV[v]] = dist[u] + 1;
+                    q.push(matchV[v]);
+                }
+            }
+        }
+    }
+    return found;
+}
+
+// Hopcroft-Karp: DFS to find the augmenting paths
+bool dfs(int u) {
+    for (int v : adj[u]) {
+        if (matchV[v] == -1 || (dist[matchV[v]] == dist[u] + 1 && dfs(matchV[v]))) {
+            matchV[v] = u;
+            matchU[u] = v;
+            return true;
+        }
+    }
+    dist[u] = -1;
+    return false;
+}
+
+struct State {
+    int id;
+    bool isU;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    if (!(cin >> M >> N)) return 0;
+    numU = 0;
+    numV = 0;
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            cin >> grid[i][j];
+            if (grid[i][j] == 1) {
+                if ((i + j) % 2 == 0) u_idx[i][j] = numU++;
+                else v_idx[i][j] = numV++;
+            }
+        }
+    }
+
+    // Build the bipartite graph edges
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (grid[i][j] == 1 && (i + j) % 2 == 0) {
+                int u = u_idx[i][j];
+                int dr[] = {-1, 1, 0, 0};
+                int dc[] = {0, 0, -1, 1};
+                for (int k = 0; k < 4; ++k) {
+                    int ni = i + dr[k], nj = j + dc[k];
+                    if (ni >= 0 && ni < M && nj >= 0 && nj < N && grid[ni][nj] == 1) {
+                        adj[u].push_back(v_idx[ni][nj]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Initialize matching
+    for (int i = 0; i < numU; ++i) matchU[i] = -1;
+    for (int i = 0; i < numV; ++i) matchV[i] = -1;
+
+    // Run Hopcroft-Karp to find Maximum Matching
+    while (bfs()) {
+        for (int i = 0; i < numU; ++i) {
+            if (matchU[i] == -1) {
+                dfs(i);
+            }
+        }
+    }
+
+    // Find Z: set of vertices reachable from unmatched vertices in U via alternating paths
+    // An alternating path starts with an unmatched edge and alternates between unmatched and matched edges.
+    queue<State> q;
+    for (int i = 0; i < numU; ++i) {
+        if (matchU[i] == -1) {
+            Z_U[i] = true;
+            q.push({i, true});
+        }
+    }
+
+    while (!q.empty()) {
+        State curr = q.front();
+        q.pop();
+        if (curr.isU) {
+            int u = curr.id;
+            for (int v : adj[u]) {
+                // From U to V: use an unmatched edge
+                if (matchU[u] != v && !Z_V[v]) {
+                    Z_V[v] = true;
+                    q.push({v, false});
+                }
+            }
+        } else {
+            int v = curr.id;
+            // From V to U: use a matched edge
+            int u = matchV[v];
+            if (u != -1 && !Z_U[u]) {
+                Z_U[u] = true;
+                q.push({u, true});
+            }
+        }
+    }
+
+    // Maximum Independent Set (MIS) is (U ∩ Z) ∪ (V \ Z)
+    int count = 0;
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (grid[i][j] == 1) {
+                if ((i + j) % 2 == 0) {
+                    if (Z_U[u_idx[i][j]]) {
+                        isGuardian[i][j] = true;
+                        count++;
+                    }
+                } else {
+                    if (!Z_V[v_idx[i][j]]) {
+                        isGuardian[i][j] = true;
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+
+    // Output the number of Guardians and the grid layout
+    cout << count << "\n";
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (grid[i][j] == 0) cout << '#';
+            else if (isGuardian[i][j]) cout << 'G';
+            else cout << '.';
+        }
+        cout << "\n";
+    }
+
+    return 0;
+}
+

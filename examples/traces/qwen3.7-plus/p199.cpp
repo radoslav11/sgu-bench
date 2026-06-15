@@ -1,0 +1,67 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+struct Member {
+    int S, B, id;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<Member> members(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> members[i].S >> members[i].B;
+        members[i].id = i + 1;
+    }
+
+    sort(members.begin(), members.end(), [](const Member& a, const Member& b) {
+        if (a.S != b.S) return a.S < b.S;
+        return a.B > b.B;
+    });
+
+    vector<int> tail;
+    vector<int> parent(N, -1);
+
+    for (int i = 0; i < N; ++i) {
+        auto it = lower_bound(tail.begin(), tail.end(), members[i].B, 
+            [&](int idx, int val) {
+                return members[idx].B < val;
+            });
+        
+        int pos = distance(tail.begin(), it);
+        if (pos == (int)tail.size()) {
+            tail.push_back(i);
+        } else {
+            tail[pos] = i;
+        }
+        
+        if (pos > 0) {
+            parent[i] = tail[pos - 1];
+        } else {
+            parent[i] = -1;
+        }
+    }
+
+    cout << tail.size() << "\n";
+    vector<int> result;
+    int curr = tail.back();
+    while (curr != -1) {
+        result.push_back(members[curr].id);
+        curr = parent[curr];
+    }
+
+    reverse(result.begin(), result.end());
+    for (int i = 0; i < (int)result.size(); ++i) {
+        cout << result[i] << (i + 1 == (int)result.size() ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

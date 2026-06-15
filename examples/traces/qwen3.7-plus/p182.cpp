@@ -1,0 +1,131 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <bitset>
+
+using namespace std;
+
+string s;
+int pos = 0;
+vector<char> vars;
+int N = 0;
+
+bitset<1024> parse_expr();
+bitset<1024> parse_term();
+bitset<1024> parse_factor();
+
+bitset<1024> parse_expr() {
+    bitset<1024> res = parse_term();
+    while (pos < s.length()) {
+        if (pos + 1 < s.length() && s.substr(pos, 2) == "||") {
+            pos += 2;
+            res |= parse_term();
+        } else if (pos + 2 < s.length() && s.substr(pos, 3) == "<=>") {
+            pos += 3;
+            bitset<1024> right = parse_term();
+            res = ~(res ^ right);
+        } else if (pos + 1 < s.length() && s.substr(pos, 2) == "=>") {
+            pos += 2;
+            bitset<1024> right = parse_term();
+            res = ~res | right;
+        } else if (s[pos] == '#') {
+            pos += 1;
+            res ^= parse_term();
+        } else {
+            break;
+        }
+    }
+    return res;
+}
+
+bitset<1024> parse_term() {
+    bitset<1024> res = parse_factor();
+    while (pos < s.length() && s[pos] == '&') {
+        pos++;
+        res &= parse_factor();
+    }
+    return res;
+}
+
+bitset<1024> parse_factor() {
+    if (s[pos] == '!') {
+        pos++;
+        return ~parse_factor();
+    } else if (s[pos] == '(') {
+        pos++;
+        bitset<1024> res = parse_expr();
+        pos++; // skip ')'
+        return res;
+    } else {
+        char c = s[pos];
+        pos++;
+        int idx = -1;
+        for (int i = 0; i < N; ++i) {
+            if (vars[i] == c) {
+                idx = i;
+                break;
+            }
+        }
+        bitset<1024> bs;
+        for (int i = 0; i < (1 << N); ++i) {
+            if ((i >> idx) & 1) {
+                bs.set(i);
+            }
+        }
+        return bs;
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> s)) return 0;
+
+    for (char c = 'a'; c <= 'j'; ++c) {
+        if (s.find(c) != string::npos) {
+            vars.push_back(c);
+        }
+    }
+    N = vars.size();
+
+    if (N == 0) {
+        cout << "a&!a\n";
+        return 0;
+    }
+
+    bitset<1024> result = parse_expr();
+
+    if (result.count() == 0) {
+        cout << vars[0] << "&!" << vars[0] << "\n";
+        return 0;
+    }
+    if (result.count() == (1ULL << N)) {
+        cout << vars[0] << "||!" << vars[0] << "\n";
+        return 0;
+    }
+
+    string dnf = "";
+    dnf.reserve(32768);
+    for (int i = 0; i < (1 << N); ++i) {
+        if (result.test(i)) {
+            if (!dnf.empty()) {
+                dnf += "||";
+            }
+            string term = "";
+            for (int j = 0; j < N; ++j) {
+                if (!term.empty()) term += "&";
+                if ((i >> j) & 1) {
+                    term += vars[j];
+                } else {
+                    term += "!";
+                    term += vars[j];
+                }
+            }
+            dnf += term;
+        }
+    }
+
+    cout << dnf << "\n";
+    return 0;
+}

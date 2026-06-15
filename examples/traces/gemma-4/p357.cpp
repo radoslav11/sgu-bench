@@ -1,0 +1,135 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Remote Control
+ * The goal is to find the minimum number of clicks to switch from channel X to channel Y.
+ * Channels are 0 to 99.
+ * Buttons:
+ * - 0-9: Directly switch to that channel (if the button is working) - 1 click.
+ * - '--' followed by two digits: Directly switch to channel 10-99 (if '--' and both digits work) - 3 clicks.
+ * - '↑': Increments the current channel (modulo 100) - 1 click.
+ * - '↓': Decrements the current channel (modulo 100) - 1 click.
+ * 
+ * We can model this as a shortest path problem on a graph with 100 nodes (channels).
+ * Since some direct jumps have weights 1 or 3, we use Dijkstra's algorithm.
+ */
+
+const int INF = 1e9;
+
+int main() {
+    // Optimized I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    bool can[10];
+    bool can_up, can_down, can_dash;
+
+    // Input processing for button productivity
+    int b1, b2, b3, b_up;
+    if (!(cin >> b1 >> b2 >> b3 >> b_up)) return 0;
+    can[1] = (b1 == 1);
+    can[2] = (b2 == 1);
+    can[3] = (b3 == 1);
+    can_up = (b_up == 1);
+
+    int b4, b5, b6, b_down;
+    cin >> b4 >> b5 >> b6 >> b_down;
+    can[4] = (b4 == 1);
+    can[5] = (b5 == 1);
+    can[6] = (b6 == 1);
+    can_down = (b_down == 1);
+
+    int b7, b8, b9;
+    cin >> b7 >> b8 >> b9;
+    can[7] = (b7 == 1);
+    can[8] = (b8 == 1);
+    can[9] = (b9 == 1);
+
+    int b_dash, b0;
+    cin >> b_dash >> b0;
+    can_dash = (b_dash == 1);
+    can[0] = (b0 == 1);
+
+    int X, Y;
+    cin >> X >> Y;
+
+    // Special case: already at the target channel
+    if (X == Y) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    // Dijkstra's Algorithm
+    // dist[i] stores the minimum clicks to reach channel i
+    vector<int> dist(100, INF);
+    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
+
+    // Starting point: the current channel X
+    dist[X] = 0;
+    pq.push({0, X});
+
+    // Possible direct jumps (can be done from any current state)
+    // Direct jump to 0-9: 1 click
+    for (int k = 0; k <= 9; ++k) {
+        if (can[k]) {
+            if (dist[k] > 1) {
+                dist[k] = 1;
+                pq.push({1, k});
+            }
+        }
+    }
+
+    // Direct jump to 10-99: 3 clicks ('--', digit1, digit2)
+    if (can_dash) {
+        for (int k = 10; k <= 99; ++k) {
+            if (can[k / 10] && can[k % 10]) {
+                if (dist[k] > 3) {
+                    dist[k] = 3;
+                    pq.push({3, k});
+                }
+            }
+        }
+    }
+
+    // Dijkstra exploration
+    while (!pq.empty()) {
+        int d = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+
+        if (d > dist[u]) continue;
+
+        // Option 1: Press the 'up' button
+        if (can_up) {
+            int v = (u + 1) % 100;
+            if (dist[v] > d + 1) {
+                dist[v] = d + 1;
+                pq.push({dist[v], v});
+            }
+        }
+
+        // Option 2: Press the 'down' button
+        if (can_down) {
+            int v = (u - 1 + 100) % 100;
+            if (dist[v] > d + 1) {
+                dist[v] = d + 1;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    // Final output: the shortest distance to channel Y or -1 if unreachable
+    if (dist[Y] == INF) {
+        cout << -1 << endl;
+    } else {
+        cout << dist[Y] << endl;
+    }
+
+    return 0;
+}
+

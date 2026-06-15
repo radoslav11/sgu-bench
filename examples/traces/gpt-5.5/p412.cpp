@@ -1,0 +1,154 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const double PI = acos(-1.0);
+const double TWO_PI = 2.0 * PI;
+const double EPS = 1e-12;
+
+struct Point {
+    double x, y;
+};
+
+struct Interval {
+    double l, r;
+    bool operator<(const Interval& other) const {
+        if (fabs(l - other.l) > EPS) return l < other.l;
+        return r < other.r;
+    }
+};
+
+double cross(Point a, Point b) {
+    return a.x * b.y - a.y * b.x;
+}
+
+double dist(Point a, Point b) {
+    double dx = a.x - b.x;
+    double dy = a.y - b.y;
+    return sqrt(dx * dx + dy * dy);
+}
+
+double angleOf(Point p) {
+    double a = atan2(p.y, p.x);
+    if (a < 0) a += TWO_PI;
+    return a;
+}
+
+void addInterval(vector<Interval>& intervals, double l, double len) {
+    while (l < 0) l += TWO_PI;
+    while (l >= TWO_PI) l -= TWO_PI;
+
+    double r = l + len;
+
+    if (r <= TWO_PI + EPS) {
+        intervals.push_back({l, min(r, TWO_PI)});
+    } else {
+        intervals.push_back({l, TWO_PI});
+        intervals.push_back({0.0, r - TWO_PI});
+    }
+}
+
+Point pointOnEdgeByAngle(Point a, Point b, double theta) {
+    Point d{cos(theta), sin(theta)};
+    Point e{b.x - a.x, b.y - a.y};
+
+    double t = cross(a, e) / cross(d, e);
+
+    return {d.x * t, d.y * t};
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    vector<Point> poly(N);
+    for (int i = 0; i < N; i++) {
+        cin >> poly[i].x >> poly[i].y;
+    }
+
+    vector<Interval> blocked;
+
+    for (int i = 0; i < M; i++) {
+        Point a, b;
+        cin >> a.x >> a.y >> b.x >> b.y;
+
+        double aa = angleOf(a);
+        double bb = angleOf(b);
+
+        double diff = bb - aa;
+        if (diff < 0) diff += TWO_PI;
+
+        if (diff <= PI) {
+            addInterval(blocked, aa, diff);
+        } else {
+            addInterval(blocked, bb, TWO_PI - diff);
+        }
+    }
+
+    if (blocked.empty()) {
+        cout << fixed << setprecision(12) << 0.0 << '\n';
+        return 0;
+    }
+
+    sort(blocked.begin(), blocked.end());
+
+    vector<Interval> merged;
+    for (auto in : blocked) {
+        if (in.r - in.l < EPS) continue;
+
+        if (merged.empty() || in.l > merged.back().r + EPS) {
+            merged.push_back(in);
+        } else {
+            merged.back().r = max(merged.back().r, in.r);
+        }
+    }
+
+    vector<Interval> intervals = merged;
+    for (auto in : merged) {
+        intervals.push_back({in.l + TWO_PI, in.r + TWO_PI});
+    }
+
+    double answer = 0.0;
+
+    double curAng = angleOf(poly[0]);
+    int ptr = 0;
+
+    for (int i = 0; i < N; i++) {
+        Point a = poly[i];
+        Point b = poly[(i + 1) % N];
+
+        double nextAng;
+        if (i + 1 == N) {
+            nextAng = angleOf(poly[0]) + TWO_PI;
+        } else {
+            nextAng = angleOf(poly[i + 1]);
+            while (nextAng <= curAng + EPS) nextAng += TWO_PI;
+        }
+
+        while (ptr < (int)intervals.size() && intervals[ptr].r <= curAng + EPS) {
+            ptr++;
+        }
+
+        int j = ptr;
+        while (j < (int)intervals.size() && intervals[j].l < nextAng - EPS) {
+            double l = max(curAng, intervals[j].l);
+            double r = min(nextAng, intervals[j].r);
+
+            if (r > l + EPS) {
+                Point p1 = pointOnEdgeByAngle(a, b, l);
+                Point p2 = pointOnEdgeByAngle(a, b, r);
+                answer += dist(p1, p2);
+            }
+
+            j++;
+        }
+
+        curAng = nextAng;
+    }
+
+    cout << fixed << setprecision(12) << answer << '\n';
+
+    return 0;
+}

@@ -1,0 +1,184 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <queue>
+#include <cstring>
+#include <cmath>
+
+using namespace std;
+
+struct Piece {
+    char type;
+    int r, c;
+};
+
+int n, m;
+char grid_arr[15][15];
+Piece pieces[16];
+int num_black = 0;
+
+int blockers[15][15][16];
+bool can_attack[15][15][16];
+
+int dist_arr[15][15][32768];
+
+int dr[] = {-1, -1, -1, 0, 0, 1, 1, 1};
+int dc[] = {-1, 0, 1, -1, 1, -1, 0, 1};
+
+inline int pack(int r, int c, int mask) {
+    return (r << 19) | (c << 15) | mask;
+}
+inline int unpack_r(int state) { return (state >> 19) & 15; }
+inline int unpack_c(int state) { return (state >> 15) & 15; }
+inline int unpack_mask(int state) { return state & 32767; }
+
+inline bool is_attacked(int r, int c, int active_mask) {
+    for (int i = 0; i < num_black; ++i) {
+        if (!(active_mask & (1 << i))) continue;
+        if (can_attack[r][c][i]) {
+            if ((blockers[r][c][i] & active_mask) == 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> n >> m)) return 0;
+
+    int kr = -1, kc = -1;
+    for (int r = 0; r < n; ++r) {
+        string row;
+        cin >> row;
+        for (int c = 0; c < m; ++c) {
+            grid_arr[r][c] = row[c];
+            if (grid_arr[r][c] == '*') {
+                kr = r;
+                kc = c;
+            } else if (grid_arr[r][c] != '.') {
+                pieces[num_black++] = {grid_arr[r][c], r, c};
+            }
+        }
+    }
+
+    if (num_black == 0) {
+        cout << 0 << "\n";
+        return 0;
+    }
+
+    for (int r = 0; r < n; ++r) {
+        for (int c = 0; c < m; ++c) {
+            for (int i = 0; i < num_black; ++i) {
+                can_attack[r][c][i] = false;
+                blockers[r][c][i] = 0;
+                
+                if (pieces[i].type == 'K') {
+                    int d_r = abs(r - pieces[i].r);
+                    int d_c = abs(c - pieces[i].c);
+                    if (d_r <= 2 && d_c <= 2 && d_r + d_c == 3) {
+                        can_attack[r][c][i] = true;
+                    }
+                } else if (pieces[i].type == 'R') {
+                    if (r == pieces[i].r || c == pieces[i].c) {
+                        can_attack[r][c][i] = true;
+                        int step_r = (r == pieces[i].r) ? 0 : (r > pieces[i].r ? 1 : -1);
+                        int step_c = (c == pieces[i].c) ? 0 : (c > pieces[i].c ? 1 : -1);
+                        int curr_r = pieces[i].r + step_r;
+                        int curr_c = pieces[i].c + step_c;
+                        while (curr_r != r || curr_c != c) {
+                            for (int j = 0; j < num_black; ++j) {
+                                if (pieces[j].r == curr_r && pieces[j].c == curr_c) {
+                                    blockers[r][c][i] |= (1 << j);
+                                }
+                            }
+                            curr_r += step_r;
+                            curr_c += step_c;
+                        }
+                    }
+                } else if (pieces[i].type == 'B') {
+                    if (abs(r - pieces[i].r) == abs(c - pieces[i].c) && abs(r - pieces[i].r) > 0) {
+                        can_attack[r][c][i] = true;
+                        int step_r = (r > pieces[i].r) ? 1 : -1;
+                        int step_c = (c > pieces[i].c) ? 1 : -1;
+                        int curr_r = pieces[i].r + step_r;
+                        int curr_c = pieces[i].c + step_c;
+                        while (curr_r != r || curr_c != c) {
+                            for (int j = 0; j < num_black; ++j) {
+                                if (pieces[j].r == curr_r && pieces[j].c == curr_c) {
+                                    blockers[r][c][i] |= (1 << j);
+                                }
+                            }
+                            curr_r += step_r;
+                            curr_c += step_c;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    memset(dist_arr, -1, sizeof(dist_arr));
+
+    queue<int> q;
+    dist_arr[kr][kc][0] = 0;
+    q.push(pack(kr, kc, 0));
+
+    int goal_mask = (1 << num_black) - 1;
+
+    while (!q.empty()) {
+        int state = q.front();
+        q.pop();
+
+        int r = unpack_r(state);
+        int c = unpack_c(state);
+        int mask = unpack_mask(state);
+
+        if (mask == goal_mask) {
+            cout << dist_arr[r][c][mask] << "\n";
+            return 0;
+        }
+
+        int active_mask = goal_mask ^ mask;
+
+        for (int i = 0; i < 8; ++i) {
+            int nr = r + dr[i];
+            int nc = c + dc[i];
+
+            if (nr < 0 || nr >= n || nc < 0 || nc >= m) continue;
+
+            int next_mask = mask;
+            int piece_idx = -1;
+            for (int j = 0; j < num_black; ++j) {
+                if (pieces[j].r == nr && pieces[j].c == nc) {
+                    if (!(mask & (1 << j))) {
+                        piece_idx = j;
+                    }
+                    break;
+                }
+            }
+
+            if (piece_idx != -1) {
+                next_mask = mask | (1 << piece_idx);
+            }
+
+            int check_active_mask = active_mask;
+            if (piece_idx != -1) {
+                check_active_mask &= ~(1 << piece_idx);
+            }
+
+            if (!is_attacked(nr, nc, check_active_mask)) {
+                if (dist_arr[nr][nc][next_mask] == -1) {
+                    dist_arr[nr][nc][next_mask] = dist_arr[r][c][mask] + 1;
+                    q.push(pack(nr, nc, next_mask));
+                }
+            }
+        }
+    }
+
+    cout << -1 << "\n";
+    return 0;
+}

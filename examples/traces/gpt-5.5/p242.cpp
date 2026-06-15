@@ -1,0 +1,149 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Dinic {
+    struct Edge {
+        int to, rev, cap;
+    };
+
+    int n;
+    vector<vector<Edge>> g;
+    vector<int> level, it;
+
+    Dinic(int n) : n(n), g(n), level(n), it(n) {}
+
+    void addEdge(int v, int to, int cap) {
+        Edge a{to, (int)g[to].size(), cap};
+        Edge b{v, (int)g[v].size(), 0};
+        g[v].push_back(a);
+        g[to].push_back(b);
+    }
+
+    bool bfs(int s, int t) {
+        fill(level.begin(), level.end(), -1);
+        queue<int> q;
+        level[s] = 0;
+        q.push(s);
+
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+
+            for (const Edge &e : g[v]) {
+                if (e.cap > 0 && level[e.to] == -1) {
+                    level[e.to] = level[v] + 1;
+                    q.push(e.to);
+                }
+            }
+        }
+
+        return level[t] != -1;
+    }
+
+    int dfs(int v, int t, int pushed) {
+        if (v == t || pushed == 0) return pushed;
+
+        for (int &i = it[v]; i < (int)g[v].size(); i++) {
+            Edge &e = g[v][i];
+
+            if (e.cap > 0 && level[e.to] == level[v] + 1) {
+                int tr = dfs(e.to, t, min(pushed, e.cap));
+                if (tr > 0) {
+                    e.cap -= tr;
+                    g[e.to][e.rev].cap += tr;
+                    return tr;
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    int maxflow(int s, int t) {
+        int flow = 0;
+
+        while (bfs(s, t)) {
+            fill(it.begin(), it.end(), 0);
+
+            while (true) {
+                int pushed = dfs(s, t, INT_MAX);
+                if (pushed == 0) break;
+                flow += pushed;
+            }
+        }
+
+        return flow;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, K;
+    cin >> N >> K;
+
+    int S = 0;
+    int studentStart = 1;
+    int universityStart = studentStart + N;
+    int T = universityStart + K;
+    int totalNodes = T + 1;
+
+    Dinic dinic(totalNodes);
+
+    for (int i = 1; i <= N; i++) {
+        dinic.addEdge(S, studentStart + i - 1, 1);
+    }
+
+    for (int i = 1; i <= N; i++) {
+        int cnt;
+        cin >> cnt;
+
+        for (int j = 0; j < cnt; j++) {
+            int u;
+            cin >> u;
+
+            if (1 <= u && u <= K) {
+                dinic.addEdge(studentStart + i - 1, universityStart + u - 1, 1);
+            }
+        }
+    }
+
+    for (int u = 1; u <= K; u++) {
+        dinic.addEdge(universityStart + u - 1, T, 2);
+    }
+
+    int need = 2 * K;
+    int flow = dinic.maxflow(S, T);
+
+    if (flow < need) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    vector<vector<int>> answer(K + 1);
+
+    for (int i = 1; i <= N; i++) {
+        int studentNode = studentStart + i - 1;
+
+        for (const auto &e : dinic.g[studentNode]) {
+            if (universityStart <= e.to && e.to < universityStart + K && e.cap == 0) {
+                int university = e.to - universityStart + 1;
+                answer[university].push_back(i);
+                break;
+            }
+        }
+    }
+
+    cout << "YES\n";
+
+    for (int u = 1; u <= K; u++) {
+        cout << answer[u].size();
+        for (int student : answer[u]) {
+            cout << ' ' << student;
+        }
+        cout << '\n';
+    }
+
+    return 0;
+}

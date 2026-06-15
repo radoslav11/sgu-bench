@@ -1,0 +1,74 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    long long x1, y1, x2, y2, n;
+    cin >> x1 >> y1 >> x2 >> y2 >> n;
+
+    long long dx = x2 - x1;
+    long long dy = y2 - y1;
+
+    if (dx == 0 || dy == 0) {
+        cout << "no solution\n";
+        return 0;
+    }
+
+    long long sx = (dx > 0 ? 1 : -1);
+    long long sy = (dy > 0 ? 1 : -1);
+    long long ax = llabs(dx);
+    long long ay = llabs(dy);
+
+    long long cx = (sx > 0 ? x1 : x1 - 1);
+    long long cy = (sy > 0 ? y1 : y1 - 1);
+
+    if (n == 1) {
+        cout << cx << ' ' << cy << '\n';
+        return 0;
+    }
+
+    long long cnt = 1;
+    long long kx = 1, ky = 1;
+
+    while (true) {
+        bool hasX = (kx < ax);
+        bool hasY = (ky < ay);
+
+        if (!hasX && !hasY) break;
+
+        if (hasX && hasY) {
+            long long left = kx * ay;
+            long long right = ky * ax;
+
+            if (left < right) {
+                cx += sx;
+                kx++;
+            } else if (left > right) {
+                cy += sy;
+                ky++;
+            } else {
+                cx += sx;
+                cy += sy;
+                kx++;
+                ky++;
+            }
+        } else if (hasX) {
+            cx += sx;
+            kx++;
+        } else {
+            cy += sy;
+            ky++;
+        }
+
+        cnt++;
+        if (cnt == n) {
+            cout << cx << ' ' << cy << '\n';
+            return 0;
+        }
+    }
+
+    cout << "no solution\n";
+    return 0;
+}

@@ -1,0 +1,39 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+int64 countOddUpTo(int64 x) {
+    return (x + 1) / 2;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int64 l, v1, v2, t;
+    cin >> l >> v1 >> v2 >> t;
+
+    int64 S = v1 + v2;
+    int64 D = llabs(v1 - v2);
+
+    int64 ans = 0;
+
+    ans += countOddUpTo((__int128)S * t / l);
+
+    if (D != 0) {
+        ans += countOddUpTo((__int128)D * t / l);
+
+        int64 g = std::gcd(S, D);
+        int64 s = S / g;
+        int64 d = D / g;
+
+        if (s % 2 == 1 && d % 2 == 1) {
+            ans -= countOddUpTo((__int128)g * t / l);
+        }
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

@@ -1,0 +1,194 @@
+#include <cstdio>
+#include <cstdint>
+#include <algorithm>
+
+const int MAXN = 130000 + 5;
+
+int lc[MAXN], rc[MAXN], sz[MAXN];
+uint32_t prior_[MAXN];
+bool rev_[MAXN];
+
+uint32_t rnd_state = 123456789;
+
+uint32_t rnd() {
+    rnd_state ^= rnd_state << 13;
+    rnd_state ^= rnd_state >> 17;
+    rnd_state ^= rnd_state << 5;
+    return rnd_state;
+}
+
+int getSize(int v) {
+    return v ? sz[v] : 0;
+}
+
+void update(int v) {
+    if (v) sz[v] = getSize(lc[v]) + getSize(rc[v]) + 1;
+}
+
+void push(int v) {
+    if (v && rev_[v]) {
+        std::swap(lc[v], rc[v]);
+        if (lc[v]) rev_[lc[v]] = !rev_[lc[v]];
+        if (rc[v]) rev_[rc[v]] = !rev_[rc[v]];
+        rev_[v] = false;
+    }
+}
+
+int mergeTreap(int a, int b) {
+    if (!a) return b;
+    if (!b) return a;
+
+    if (prior_[a] > prior_[b]) {
+        push(a);
+        rc[a] = mergeTreap(rc[a], b);
+        update(a);
+        return a;
+    } else {
+        push(b);
+        lc[b] = mergeTreap(a, lc[b]);
+        update(b);
+        return b;
+    }
+}
+
+void splitTreap(int v, int k, int &a, int &b) {
+    if (!v) {
+        a = b = 0;
+        return;
+    }
+
+    push(v);
+
+    if (getSize(lc[v]) >= k) {
+        splitTreap(lc[v], k, a, lc[v]);
+        b = v;
+        update(b);
+    } else {
+        splitTreap(rc[v], k - getSize(lc[v]) - 1, rc[v], b);
+        a = v;
+        update(a);
+    }
+}
+
+class FastInput {
+private:
+    static const int BUFSIZE = 1 << 16;
+    char buf[BUFSIZE];
+    int pos, len;
+
+    char getChar() {
+        if (pos == len) {
+            len = (int)fread(buf, 1, BUFSIZE, stdin);
+            pos = 0;
+            if (len == 0) return 0;
+        }
+        return buf[pos++];
+    }
+
+public:
+    FastInput() : pos(0), len(0) {}
+
+    int nextInt() {
+        char c;
+        do {
+            c = getChar();
+        } while (c && (c < '0' || c > '9'));
+
+        int x = 0;
+        while (c >= '0' && c <= '9') {
+            x = x * 10 + (c - '0');
+            c = getChar();
+        }
+        return x;
+    }
+};
+
+class FastOutput {
+private:
+    static const int BUFSIZE = 1 << 16;
+    char buf[BUFSIZE];
+    int pos;
+
+    void putChar(char c) {
+        if (pos == BUFSIZE) flush();
+        buf[pos++] = c;
+    }
+
+public:
+    FastOutput() : pos(0) {}
+
+    ~FastOutput() {
+        flush();
+    }
+
+    void flush() {
+        if (pos) {
+            fwrite(buf, 1, pos, stdout);
+            pos = 0;
+        }
+    }
+
+    void writeInt(int x, char after) {
+        char s[12];
+        int n = 0;
+        if (x == 0) {
+            s[n++] = '0';
+        } else {
+            while (x > 0) {
+                s[n++] = char('0' + x % 10);
+                x /= 10;
+            }
+        }
+        while (n--) putChar(s[n]);
+        putChar(after);
+    }
+};
+
+FastOutput out;
+
+void printTreap(int v, int n, int &cnt) {
+    if (!v) return;
+
+    push(v);
+    printTreap(lc[v], n, cnt);
+
+    ++cnt;
+    out.writeInt(v, cnt == n ? '\n' : ' ');
+
+    printTreap(rc[v], n, cnt);
+}
+
+int main() {
+    FastInput in;
+
+    int N = in.nextInt();
+    int M = in.nextInt();
+
+    int root = 0;
+
+    for (int i = 1; i <= N; ++i) {
+        lc[i] = rc[i] = 0;
+        sz[i] = 1;
+        prior_[i] = rnd();
+        rev_[i] = false;
+        root = mergeTreap(root, i);
+    }
+
+    for (int i = 0; i < M; ++i) {
+        int p = in.nextInt();
+        int q = in.nextInt();
+
+        int a, b, c;
+        splitTreap(root, p - 1, a, b);
+        splitTreap(b, q - p + 1, b, c);
+
+        if (b) rev_[b] = !rev_[b];
+
+        root = mergeTreap(mergeTreap(a, b), c);
+    }
+
+    int cnt = 0;
+    printTreap(root, N, cnt);
+
+    return 0;
+}

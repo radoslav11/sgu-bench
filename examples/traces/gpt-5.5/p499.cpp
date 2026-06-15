@@ -1,0 +1,64 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+class FastScanner {
+    static const int BUFSIZE = 1 << 16;
+    int idx = 0, size = 0;
+    char buf[BUFSIZE];
+
+    char getChar() {
+        if (idx >= size) {
+            size = (int)fread(buf, 1, BUFSIZE, stdin);
+            idx = 0;
+            if (size == 0) return 0;
+        }
+        return buf[idx++];
+    }
+
+public:
+    int nextInt() {
+        char c;
+        do {
+            c = getChar();
+        } while (c <= ' ' && c);
+
+        int x = 0;
+        while (c > ' ') {
+            x = x * 10 + (c - '0');
+            c = getChar();
+        }
+        return x;
+    }
+};
+
+int main() {
+    FastScanner fs;
+
+    int n = fs.nextInt();
+    vector<int> a(n);
+    int mx = 0;
+
+    for (int i = 0; i < n; ++i) {
+        a[i] = fs.nextInt();
+        mx = max(mx, a[i]);
+    }
+
+    vector<unsigned char> exists(mx + 1, 0);
+    for (int x : a) exists[x] = 1;
+
+    for (int d = mx / 2; d >= 1; --d) {
+        int cnt = 0;
+        for (int multiple = d; multiple <= mx; multiple += d) {
+            if (exists[multiple]) {
+                ++cnt;
+                if (cnt == 2) {
+                    cout << d << '\n';
+                    return 0;
+                }
+            }
+        }
+    }
+
+    cout << 1 << '\n';
+    return 0;
+}

@@ -1,0 +1,43 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<int> scores(n, 0);
+
+    for (int i = 0; i < m; ++i) {
+        int a, b;
+        cin >> a >> b;
+        for (int j = 0; j < n; ++j) {
+            int x, y;
+            cin >> x >> y;
+            
+            if ((a > b && x > y) || (a < b && x < y) || (a == b && x == y)) {
+                scores[j] += 2;
+            }
+            if (a - b == x - y) {
+                scores[j] += 3;
+            }
+            if (a == x) {
+                scores[j] += 1;
+            }
+            if (b == y) {
+                scores[j] += 1;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        cout << scores[i] << (i == n - 1 ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

@@ -1,0 +1,40 @@
+#include <iostream>
+
+using namespace std;
+
+long long get_key(long long n) {
+    long long largest = 0;
+    long long sum = 0;
+    for (long long i = 2; i * i <= n; ++i) {
+        if (n % i == 0) {
+            largest = i;
+            sum += i;
+            while (n % i == 0) {
+                n /= i;
+            }
+        }
+    }
+    if (n > 1) {
+        largest = n;
+        sum += n;
+    }
+    return 2 * largest - sum;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    long long a, b;
+    if (cin >> a >> b) {
+        long long key_a = get_key(a);
+        long long key_b = get_key(b);
+        if (key_a > key_b) {
+            cout << "a\n";
+        } else {
+            cout << "b\n";
+        }
+    }
+    
+    return 0;
+}

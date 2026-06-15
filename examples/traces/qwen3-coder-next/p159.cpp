@@ -1,0 +1,424 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cctype>
+
+using namespace std;
+
+// Convert a digit value (0-35) to character
+char digitToChar(int d) {
+    if (d < 10) return '0' + d;
+    return 'A' + (d - 10);
+}
+
+// Convert a character to digit value
+int charToDigit(char c) {
+    if (isdigit(c)) return c - '0';
+    return 10 + toupper(c) - 'A';
+}
+
+// Multiply two big numbers represented as vectors of digits (least significant digit first)
+vector<int> multiply(const vector<int>& a, const vector<int>& b) {
+    if (a.empty() || b.empty()) return {};
+    
+    int na = a.size(), nb = b.size();
+    vector<int> res(na + nb, 0);
+    
+    for (int i = 0; i < na; ++i) {
+        for (int j = 0; j < nb; ++j) {
+            res[i + j] += a[i] * b[j];
+            // We don't normalize here to avoid overhead; normalization will happen at the end
+        }
+    }
+    
+    // Normalize carries
+    int carry = 0;
+    for (int i = 0; i < (int)res.size(); ++i) {
+        res[i] += carry;
+        carry = res[i] / 10; // This is wrong - base b, not 10
+        res[i] %= 10; // This is wrong - base b, not 10
+    }
+    while (carry > 0) {
+        res.push_back(carry % 10);
+        carry /= 10;
+    }
+    
+    return res;
+}
+
+// Actually, let's rewrite multiply for base b
+vector<int> multiplyBaseB(const vector<int>& a, const vector<int>& b, int base) {
+    if (a.empty() || b.empty()) return {};
+    
+    int na = a.size(), nb = b.size();
+    vector<int> res(na + nb, 0);
+    
+    for (int i = 0; i < na; ++i) {
+        for (int j = 0; j < nb; ++j) {
+            res[i + j] += a[i] * b[j];
+        }
+    }
+    
+    // Normalize carries
+    int carry = 0;
+    for (int i = 0; i < (int)res.size(); ++i) {
+        res[i] += carry;
+        carry = res[i] / base;
+        res[i] %= base;
+    }
+    while (carry > 0) {
+        res.push_back(carry % base);
+        carry /= base;
+    }
+    
+    return res;
+}
+
+// Compare two numbers represented as vectors (least significant digit first)
+bool lessThanOrEqual(const vector<int>& a, const vector<int>& b, int base) {
+    if (a.size() != b.size()) return a.size() < b.size();
+    for (int i = (int)a.size() - 1; i >= 0; --i) {
+        if (a[i] < b[i]) return true;
+        if (a[i] > b[i]) return false;
+    }
+    return true; // equal
+}
+
+// Compare a (most significant first) to the last n digits of num (least significant digit first)
+bool compareLastNDigits(const vector<int>& a, const vector<int>& num, int n) {
+    // a is most significant first (the original number representation)
+    // num is least significant digit first
+    if ((int)a.size() != n) return false;
+    
+    // Compare a[i] with num[n-1-i]
+    for (int i = 0; i < n; ++i) {
+        if (a[i] != num[n - 1 - i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int main() {
+    int b, n;
+    cin >> b >> n;
+    
+    vector<int> results;
+    
+    // For small n (n <= 2), we can try all numbers
+    // But for n up to 2000, we need a smarter approach
+    
+    // Observation: self-replicating numbers are exactly the fixed points of the function f(x) = x^2 mod b^n
+    // i.e., x^2 ≡ x (mod b^n), so x(x-1) ≡ 0 (mod b^n)
+    // So we're looking for solutions to x^2 ≡ x (mod b^n), also called idempotents
+    
+    // However, note: the problem defines self-replicating as an n-digit number that equals the last n digits of its square
+    // That means: x^2 mod b^n = x, with the constraint that x is an n-digit number (i.e., b^(n-1) <= x < b^n)
+    
+    // But note: for base 10, n=4, 9376 is a solution to x^2 ≡ x (mod 10^4)
+    // Check: 9376^2 = 87909376, last 4 digits: 9376 ✓
+    // Also, 0 and 1 are trivial solutions (but they don't have n digits for n>1)
+    
+    // Actually, x^2 ≡ x (mod m) means x(x-1) ≡ 0 (mod m)
+    // Solutions depend on the factorization of m = b^n
+    
+    // Since b may not be prime, we need to consider its prime factorization
+    // Let b = p1^e1 * p2^e2 * ... * pk^ek
+    // Then b^n = p1^(e1*n) * p2^(e2*n) * ... * pk^(ek*n)
+    // By Chinese Remainder Theorem, solutions to x^2 ≡ x (mod b^n) correspond to tuples of solutions modulo each p_i^(e_i*n)
+    // For each prime power p^k, the only solutions to x^2 ≡ x (mod p^k) are x ≡ 0 and x ≡ 1 (mod p^k)
+    
+    // Therefore, the number of solutions to x^2 ≡ x (mod b^n) is 2^k where k is the number of distinct prime factors of b
+    
+    // But wait: let's check with base 10 (b=10=2*5, so k=2). Then we should have 4 solutions modulo 10^4.
+    // Indeed, the solutions to x^2 ≡ x (mod 10000) are:
+    //   0, 1, 625, 9376
+    // But only 9376 is a 4-digit number (since 0 and 1 have fewer than 4 digits, and 625 has only 3 digits)
+    
+    // So the plan is:
+    // 1. Factor b
+    // 2. For each combination of choices (0 or 1 modulo each prime power), use CRT to find the solution modulo b^n
+    // 3. Filter solutions that are exactly n-digit numbers (i.e., in [b^(n-1), b^n))
+    
+    // However, note that the problem sample: base 12, n=6 gives 2 solutions
+    // Let's factor 12 = 2^2 * 3, so k=2 distinct primes, meaning 4 solutions modulo 12^6
+    // But only 2 of them have exactly 6 digits
+    
+    // Implementation:
+    // Step 1: Factor b
+    vector<pair<int, int>> factors;
+    int temp = b;
+    for (int p = 2; p * p <= temp; ++p) {
+        if (temp % p == 0) {
+            int exp = 0;
+            while (temp % p == 0) {
+                temp /= p;
+                exp++;
+            }
+            factors.push_back({p, exp});
+        }
+    }
+    if (temp > 1) {
+        factors.push_back({temp, 1});
+    }
+    
+    int k = factors.size();
+    vector<long long> moduli;
+    vector<long long> remainders0; // all 0s
+    vector<long long> remainders1; // all 1s
+    
+    for (auto& [p, exp] : factors) {
+        long long m = 1;
+        for (int i = 0; i < exp * n; ++i) {
+            m *= p;
+        }
+        moduli.push_back(m);
+    }
+    
+    // We'll generate all 2^k combinations of (0 or 1) for each modulus
+    vector<long long> solutions;
+    
+    // Use CRT to solve the system:
+    // x ≡ a1 (mod m1)
+    // x ≡ a2 (mod m2)
+    // ...
+    // where each ai is either 0 or 1
+    
+    // First, compute M = product of all moduli
+    long long M = 1;
+    for (long long m : moduli) {
+        M *= m;
+    }
+    
+    // For each subset of {0,1} choices
+    for (int mask = 0; mask < (1 << k); ++mask) {
+        // Build the system: x ≡ ai (mod mi) where ai = (mask >> i) & 1
+        vector<long long> a(k), m_vec(k);
+        for (int i = 0; i < k; ++i) {
+            a[i] = (mask >> i) & 1;
+            m_vec[i] = moduli[i];
+        }
+        
+        // Solve using CRT
+        long long x = 0;
+        for (int i = 0; i < k; ++i) {
+            long long Mi = M / m_vec[i];
+            // Find inverse of Mi modulo m_vec[i]
+            long long inv = 0;
+            // Extended Euclidean algorithm for Mi and m_vec[i]
+            long long a_val = Mi % m_vec[i];
+            long long b_val = m_vec[i];
+            long long x_inv = 0, y_inv = 1;
+            long long last_x = 1, last_y = 0;
+            
+            if (b_val == 1) {
+                inv = 0;
+            } else {
+                long long r1 = b_val, r2 = a_val;
+                long long t1 = 0, t2 = 1;
+                while (r2 != 0) {
+                    long long q = r1 / r2;
+                    long long tmp = r1 - q * r2;
+                    r1 = r2;
+                    r2 = tmp;
+                    
+                    tmp = t1 - q * t2;
+                    t1 = t2;
+                    t2 = tmp;
+                }
+                if (r1 == 1) {
+                    inv = (t1 % m_vec[i] + m_vec[i]) % m_vec[i];
+                }
+            }
+            
+            x = (x + a[i] * inv * Mi) % M;
+        }
+        
+        // Ensure x is in [0, M)
+        if (x < 0) x += M;
+        
+        // Now check if this solution has exactly n digits in base b
+        // That means: b^(n-1) <= x < b^n
+        
+        // Compute b^(n-1) and b^n
+        long long lower_bound = 1;
+        for (int i = 0; i < n - 1; ++i) {
+            if (lower_bound > LONG_MAX / b) {
+                // overflow, but for n>=1 and b>=2, this might happen
+                lower_bound = LONG_MAX;
+                break;
+            }
+            lower_bound *= b;
+        }
+        
+        long long upper_bound = 1;
+        for (int i = 0; i < n; ++i) {
+            if (upper_bound > LONG_MAX / b) {
+                upper_bound = LONG_MAX;
+                break;
+            }
+            upper_bound *= b;
+        }
+        
+        if (x >= lower_bound && x < upper_bound) {
+            solutions.push_back(x);
+        }
+    }
+    
+    // But wait: the above CRT approach has issues with large numbers (b^n can be huge for n=2000)
+    // We need a different approach using big integers
+    
+    // Alternative approach: iterative construction
+    // Let f(n) be the set of solutions modulo b^n
+    // We know that if x is a solution modulo b^k, then we can try to extend it to b^(k+1)
+    // Specifically, if x_k^2 ≡ x_k (mod b^k), then we look for x_{k+1} = x_k + t * b^k such that
+    // (x_k + t*b^k)^2 ≡ x_k + t*b^k (mod b^(k+1))
+    // => x_k^2 + 2*x_k*t*b^k ≡ x_k + t*b^k (mod b^(k+1))
+    // => (x_k^2 - x_k) + (2*x_k - 1)*t*b^k ≡ 0 (mod b^(k+1))
+    // Since x_k^2 - x_k ≡ 0 (mod b^k), let d = (x_k^2 - x_k) / b^k (integer)
+    // Then: d*b^k + (2*x_k - 1)*t*b^k ≡ 0 (mod b^(k+1))
+    // => d + (2*x_k - 1)*t ≡ 0 (mod b)
+    // => (2*x_k - 1)*t ≡ -d (mod b)
+    
+    // This gives a linear equation for t modulo b, which may have 0, 1, or multiple solutions
+    
+    // Start with solutions modulo b (n=1): x^2 ≡ x (mod b) => x(x-1) ≡ 0 (mod b)
+    // Solutions: all x in [0, b-1] such that x(x-1) ≡ 0 (mod b)
+    
+    // Since this is getting complex, let's look for a simpler method using the fact that
+    // there are at most 2^k solutions total (where k is number of distinct prime factors of b)
+    // And for each solution, we can compute it modulo b^n using Hensel's lifting
+    
+    // Given the constraints (n <= 2000, b <= 36), we can use big integers represented as strings or arrays
+    
+    // However, looking at sample inputs: 
+    // b=10, n=4 -> 1 solution
+    // b=12, n=6 -> 2 solutions
+    
+    // For base b, the number of idempotent elements modulo b^n is 2^k where k is number of distinct prime factors of b
+    
+    // Let's implement with big integers using vector<int> for digits (least significant first)
+    
+    auto bigPow = [b](int exp) -> vector<int> {
+        vector<int> res = {1};
+        for (int i = 0; i < exp; ++i) {
+            res = multiplyBaseB(res, {1}, b); // multiply by b? No, we want b^exp
+            vector<int> baseVec = {b};
+            res = multiplyBaseB(res, baseVec, b);
+        }
+        return res;
+    };
+    
+    // But this is expensive for n=2000
+    // Instead, let's use the CRT approach but with big integer arithmetic
+    
+    // Given time constraints and that k <= number of prime factors of b (at most 4 for b<=36),
+    // we can compute the CRT solutions using modular arithmetic with big integers
+    
+    // We'll represent numbers as vectors of digits (least significant first)
+    
+    // Function to compute x mod m where x is represented as big integer and m is a long long
+    auto bigMod = [](const vector<int>& x, long long m) -> long long {
+        long long res = 0;
+        for (int i = (int)x.size() - 1; i >= 0; --i) {
+            res = (res * b + x[i]) % m;
+        }
+        return res;
+    };
+    
+    // Function to compute big integer from long long
+    auto longToBig = [b](long long x) -> vector<int> {
+        if (x == 0) return {0};
+        vector<int> res;
+        while (x > 0) {
+            res.push_back(x % b);
+            x /= b;
+        }
+        reverse(res.begin(), res.end());
+        return res;
+    };
+    
+    // But again, for large n, b^n is huge (up to 36^2000), which has about 3000 digits in decimal
+    // So we need to work with big integers
+    
+    // Let's go back to the iterative lifting approach, which is more practical
+    
+    // We'll maintain solutions as vectors of digits (most significant first)
+    
+    // Start with n=1
+    vector<vector<int>> currentSolutions;
+    for (int x = 0; x < b; ++x) {
+        if ((x * x) % b == x % b) {
+            currentSolutions.push_back({x});
+        }
+    }
+    
+    // For each digit position from 2 to n
+    for (int len = 2; len <= n; ++len) {
+        vector<vector<int>> nextSolutions;
+        
+        for (auto& sol : currentSolutions) {
+            // Try all possible next digits (0 to b-1)
+            for (int digit = 0; digit < b; ++digit) {
+                // New number: [digit] + sol (most significant first)
+                vector<int> newSol = sol;
+                newSol.insert(newSol.begin(), digit);
+                
+                // Check if newSol^2 ends with newSol
+                // Compute square of newSol (as big integer)
+                vector<int> square = multiplyBaseB(newSol, newSol, b);
+                
+                // Take last len digits of square
+                if ((int)square.size() >= len) {
+                    bool matches = true;
+                    for (int i = 0; i < len; ++i) {
+                        // square is in LSB first, so last len digits are at indices [0, len-1]
+                        if (square[i] != newSol[len - 1 - i]) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    if (matches) {
+                        // But we need to ensure it's exactly len digits (no leading zeros)
+                        if (digit != 0) {
+                            nextSolutions.push_back(newSol);
+                        }
+                    }
+                } else {
+                    // Pad square with leading zeros to make it len digits
+                    vector<int> paddedSquare(len, 0);
+                    for (int i = 0; i < (int)square.size(); ++i) {
+                        paddedSquare[i] = square[i];
+                    }
+                    bool matches = true;
+                    for (int i = 0; i < len; ++i) {
+                        if (paddedSquare[i] != newSol[len - 1 - i]) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    if (matches) {
+                        if (digit != 0) {
+                            nextSolutions.push_back(newSol);
+                        }
+                    }
+                }
+            }
+        }
+        
+        currentSolutions = nextSolutions;
+    }
+    
+    // Output
+    cout << currentSolutions.size() << endl;
+    for (auto& sol : currentSolutions) {
+        // sol is most significant first, already no leading zeros (digit != 0 for the first digit)
+        for (int d : sol) {
+            cout << digitToChar(d);
+        }
+        cout << endl;
+    }
+    
+    return 0;
+}

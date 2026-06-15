@@ -1,0 +1,298 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using Mask = unsigned __int128;
+
+struct Placement {
+    Mask mask;
+    vector<int> cells;
+    int len;
+};
+
+struct Hash128 {
+    size_t operator()(const Mask& x) const {
+        uint64_t lo = (uint64_t)x;
+        uint64_t hi = (uint64_t)(x >> 64);
+        return lo ^ (hi + 0x9e3779b97f4a7c15ULL + (lo << 6) + (lo >> 2));
+    }
+};
+
+int N, M, K, A;
+vector<int> lens;
+vector<Placement> placements;
+vector<vector<int>> byCell;
+vector<int> answer;
+Mask fullMask;
+unordered_set<Mask, Hash128> bad;
+vector<char> canSize;
+
+static inline bool hasBit(Mask x, int p) {
+    return (x >> p) & 1;
+}
+
+bool componentPrune(Mask occ) {
+    vector<char> vis(A, 0);
+
+    for (int s = 0; s < A; s++) {
+        if (hasBit(occ, s) || vis[s]) continue;
+
+        int cnt = 0;
+        queue<int> q;
+        q.push(s);
+        vis[s] = 1;
+
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+            cnt++;
+
+            int r = v / M, c = v % M;
+            const int dr[4] = {-1, 1, 0, 0};
+            const int dc[4] = {0, 0, -1, 1};
+
+            for (int d = 0; d < 4; d++) {
+                int nr = r + dr[d], nc = c + dc[d];
+                if (nr < 0 || nr >= N || nc < 0 || nc >= M) continue;
+                int to = nr * M + nc;
+                if (!vis[to] && !hasBit(occ, to)) {
+                    vis[to] = 1;
+                    q.push(to);
+                }
+            }
+        }
+
+        if (!canSize[cnt]) return false;
+    }
+
+    return true;
+}
+
+bool dfs(Mask occ) {
+    if (occ == fullMask) return true;
+    if (bad.count(occ)) return false;
+
+    if (!componentPrune(occ)) {
+        bad.insert(occ);
+        return false;
+    }
+
+    int bestCell = -1;
+    vector<int> candidates;
+    int bestCnt = INT_MAX;
+
+    for (int i = 0; i < A; i++) {
+        if (hasBit(occ, i)) continue;
+
+        vector<int> cur;
+        for (int id : byCell[i]) {
+            if ((placements[id].mask & occ) == 0) cur.push_back(id);
+        }
+
+        if ((int)cur.size() < bestCnt) {
+            bestCnt = (int)cur.size();
+            bestCell = i;
+            candidates.swap(cur);
+            if (bestCnt == 0) break;
+        }
+    }
+
+    if (bestCell == -1) return true;
+    if (bestCnt == 0) {
+        bad.insert(occ);
+        return false;
+    }
+
+    sort(candidates.begin(), candidates.end(), [&](int a, int b) {
+        return placements[a].len > placements[b].len;
+    });
+
+    for (int id : candidates) {
+        answer.push_back(id);
+        if (dfs(occ | placements[id].mask)) return true;
+        answer.pop_back();
+    }
+
+    bad.insert(occ);
+    return false;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> N >> M >> K;
+
+    vector<int> raw(K);
+    for (int i = 0; i < K; i++) cin >> raw[i];
+
+    sort(raw.begin(), raw.end());
+    raw.erase(unique(raw.begin(), raw.end()), raw.end());
+
+    for (int x : raw) {
+        if (x <= max(N, M)) lens.push_back(x);
+    }
+
+    A = N * M;
+
+    canSize.assign(A + 1, 0);
+    canSize[0] = 1;
+    for (int s = 0; s <= A; s++) {
+        if (!canSize[s]) continue;
+        for (int l : lens) {
+            if (s + l <= A) canSize[s + l] = 1;
+        }
+    }
+
+    if (!canSize[A]) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    byCell.assign(A, {});
+
+    for (int l : lens) {
+        if (l == 1) {
+            for (int r = 0; r < N; r++) {
+                for (int c = 0; c < M; c++) {
+                    int pos = r * M + c;
+                    Placement p;
+                    p.len = 1;
+                    p.mask = ((Mask)1 << pos);
+                    p.cells.push_back(pos);
+                    int id = (int)placements.size();
+                    placements.push_back(p);
+                    byCell[pos].push_back(id);
+                }
+            }
+            continue;
+        }
+
+        if (l <= M) {
+            for (int r = 0; r < N; r++) {
+                for (int c = 0; c + l <= M; c++) {
+                    Placement p;
+                    p.len = l;
+                    p.mask = 0;
+                    for (int t = 0; t < l; t++) {
+                        int pos = r * M + c + t;
+                        p.mask |= ((Mask)1 << pos);
+                        p.cells.push_back(pos);
+                    }
+                    int id = (int)placements.size();
+                    placements.push_back(p);
+                    for (int cell : p.cells) byCell[cell].push_back(id);
+                }
+            }
+        }
+
+        if (l <= N) {
+            for (int r = 0; r + l <= N; r++) {
+                for (int c = 0; c < M; c++) {
+                    Placement p;
+                    p.len = l;
+                    p.mask = 0;
+                    for (int t = 0; t < l; t++) {
+                        int pos = (r + t) * M + c;
+                        p.mask |= ((Mask)1 << pos);
+                        p.cells.push_back(pos);
+                    }
+                    int id = (int)placements.size();
+                    placements.push_back(p);
+                    for (int cell : p.cells) byCell[cell].push_back(id);
+                }
+            }
+        }
+    }
+
+    if (A == 128) fullMask = ~((Mask)0);
+    else fullMask = (((Mask)1 << A) - 1);
+
+    if (!dfs(0)) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    int B = (int)answer.size();
+    vector<int> brickOfCell(A, -1);
+
+    for (int i = 0; i < B; i++) {
+        int id = answer[i];
+        for (int cell : placements[id].cells) {
+            brickOfCell[cell] = i;
+        }
+    }
+
+    vector<set<int>> adj(B);
+
+    for (int r = 0; r < N; r++) {
+        for (int c = 0; c < M; c++) {
+            int v = r * M + c;
+            if (r + 1 < N) {
+                int u = (r + 1) * M + c;
+                int a = brickOfCell[v], b = brickOfCell[u];
+                if (a != b) {
+                    adj[a].insert(b);
+                    adj[b].insert(a);
+                }
+            }
+            if (c + 1 < M) {
+                int u = r * M + c + 1;
+                int a = brickOfCell[v], b = brickOfCell[u];
+                if (a != b) {
+                    adj[a].insert(b);
+                    adj[b].insert(a);
+                }
+            }
+        }
+    }
+
+    vector<set<int>> tmp = adj;
+    vector<int> order;
+    vector<char> removed(B, 0);
+
+    for (int it = 0; it < B; it++) {
+        int v = -1;
+        for (int i = 0; i < B; i++) {
+            if (!removed[i] && (v == -1 || tmp[i].size() < tmp[v].size())) v = i;
+        }
+
+        removed[v] = 1;
+        order.push_back(v);
+
+        for (int u : tmp[v]) tmp[u].erase(v);
+        tmp[v].clear();
+    }
+
+    vector<int> color(B, -1);
+
+    for (int idx = B - 1; idx >= 0; idx--) {
+        int v = order[idx];
+        bool used[26] = {};
+
+        for (int u : adj[v]) {
+            if (color[u] != -1) used[color[u]] = true;
+        }
+
+        for (int c = 0; c < 26; c++) {
+            if (!used[c]) {
+                color[v] = c;
+                break;
+            }
+        }
+
+        if (color[v] == -1) color[v] = 0;
+    }
+
+    cout << "YES\n";
+
+    for (int r = 0; r < N; r++) {
+        string line;
+        for (int c = 0; c < M; c++) {
+            int b = brickOfCell[r * M + c];
+            line.push_back(char('a' + color[b]));
+        }
+        cout << line << '\n';
+    }
+
+    return 0;
+}

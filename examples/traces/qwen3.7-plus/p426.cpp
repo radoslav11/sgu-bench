@@ -1,0 +1,164 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+int lg_sa[400005];
+int st[20][400005];
+
+void precompute_lcp(int n_sa, const vector<int>& lcp) {
+    lg_sa[1] = 0;
+    for (int i = 2; i <= n_sa; i++) lg_sa[i] = lg_sa[i / 2] + 1;
+    for (int i = 0; i < n_sa - 1; i++) st[0][i] = lcp[i];
+    for (int j = 1; (1 << j) <= n_sa; j++) {
+        for (int i = 0; i + (1 << j) <= n_sa - 1; i++) {
+            st[j][i] = min(st[j - 1][i], st[j - 1][i + (1 << (j - 1))]);
+        }
+    }
+}
+
+int get_lcp(int i, int j, int n, int n_sa, const vector<int>& rank) {
+    if (i == j) return n;
+    int r1 = rank[i], r2 = rank[j];
+    if (r1 > r2) swap(r1, r2);
+    int j_idx = lg_sa[r2 - r1];
+    return min(st[j_idx][r1], st[j_idx][r2 - (1 << j_idx)]);
+}
+
+vector<int> sort_cyclic_shifts(vector<int> const& s, int alphabet) {
+    int n = s.size();
+    vector<int> p(n), c(n), cnt(max(alphabet, n) + 1, 0);
+    for (int i = 0; i < n; i++) cnt[s[i]]++;
+    for (int i = 1; i < cnt.size(); i++) cnt[i] += cnt[i - 1];
+    for (int i = 0; i < n; i++) p[--cnt[s[i]]] = i;
+    c[p[0]] = 0;
+    int classes = 1;
+    for (int i = 1; i < n; i++) {
+        if (s[p[i]] != s[p[i - 1]]) classes++;
+        c[p[i]] = classes - 1;
+    }
+    vector<int> pn(n), cn(n);
+    for (int h = 0; (1 << h) < n; ++h) {
+        for (int i = 0; i < n; i++) {
+            pn[i] = p[i] - (1 << h);
+            if (pn[i] < 0) pn[i] += n;
+        }
+        fill(cnt.begin(), cnt.begin() + classes, 0);
+        for (int i = 0; i < n; i++) cnt[c[pn[i]]]++;
+        for (int i = 1; i < classes; i++) cnt[i] += cnt[i - 1];
+        for (int i = n - 1; i >= 0; i--) p[--cnt[c[pn[i]]]] = pn[i];
+        cn[p[0]] = 0;
+        classes = 1;
+        for (int i = 1; i < n; i++) {
+            pair<int, int> cur = {c[p[i]], c[(p[i] + (1 << h)) % n]};
+            pair<int, int> prev = {c[p[i - 1]], c[(p[i - 1] + (1 << h)) % n]};
+            if (cur != prev) ++classes;
+            cn[p[i]] = classes - 1;
+        }
+        c.swap(cn);
+    }
+    return p;
+}
+
+vector<int> lcp_construction(vector<int> const& s, vector<int> const& p) {
+    int n = s.size();
+    vector<int> rank(n, 0);
+    for (int i = 0; i < n; i++) rank[p[i]] = i;
+    int k = 0;
+    vector<int> lcp(n - 1, 0);
+    for (int i = 0; i < n; i++) {
+        if (rank[i] == n - 1) {
+            k = 0;
+            continue;
+        }
+        int j = p[rank[i] + 1];
+        while (i + k < n && j + k < n && s[i + k] == s[j + k]) k++;
+        lcp[rank[i]] = k;
+        if (k) k--;
+    }
+    return lcp;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, m, k;
+    if (!(cin >> n >> m >> k)) return 0;
+    
+    vector<int> A(n);
+    int max_val = 2 * m;
+    for (int i = 0; i < n; i++) {
+        cin >> A[i];
+    }
+    
+    vector<int> S = A;
+    S.insert(S.end(), A.begin(), A.end());
+    int n_sa = S.size();
+    
+    vector<int> p = sort_cyclic_shifts(S, max_val + 1);
+    vector<int> lcp = lcp_construction(S, p);
+    
+    precompute_lcp(n_sa, lcp);
+    
+    vector<int> rank(n_sa, 0);
+    for (int i = 0; i < n_sa; i++) rank[p[i]] = i;
+    
+    vector<int> valid_C;
+    valid_C.push_back(1);
+    valid_C.push_back(m + 1);
+    for (int i = 0; i < n; i++) {
+        valid_C.push_back(A[i]);
+        valid_C.push_back(A[i] + 1);
+    }
+    sort(valid_C.begin(), valid_C.end());
+    valid_C.erase(unique(valid_C.begin(), valid_C.end()), valid_C.end());
+    
+    vector<int> filtered_C;
+    for (int c : valid_C) {
+        if (c >= 1 && c <= m + 1) {
+            filtered_C.push_back(c);
+        }
+    }
+    
+    auto get_min_rot = [&](int c) {
+        int i = 0, j = 1;
+        while (i < n && j < n) {
+            int l = get_lcp(i, j, n, n_sa, rank);
+            if (l >= n) {
+                break;
+            }
+            int p_idx = (i + l) % n;
+            int q_idx = (j + l) % n;
+            int u = A[p_idx];
+            int v = A[q_idx];
+            int val_u = (u >= c) ? u : m + u;
+            int val_v = (v >= c) ? v : m + v;
+            
+            if (val_u < val_v) {
+                j = max(j + l + 1, i + 1);
+            } else {
+                i = max(i + l + 1, j + 1);
+            }
+        }
+        return min(i, j);
+    };
+    
+    vector<int> best_rot(filtered_C.size());
+    for (size_t idx = 0; idx < filtered_C.size(); idx++) {
+        best_rot[idx] = get_min_rot(filtered_C[idx]);
+    }
+    
+    for (int j = 0; j < m; j++) {
+        int c = m - j;
+        auto it = lower_bound(filtered_C.begin(), filtered_C.end(), c);
+        int idx = distance(filtered_C.begin(), it);
+        int start = best_rot[idx];
+        int ans = (A[(start + k - 1) % n] + j) % m;
+        cout << ans << "\n";
+    }
+    
+    return 0;
+}

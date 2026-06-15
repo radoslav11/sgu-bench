@@ -1,0 +1,61 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+
+    vector<vector<int>> g(n + 1);
+    for (int i = 0; i < m; ++i) {
+        int a, b;
+        cin >> a >> b;
+        g[a].push_back(b);
+        g[b].push_back(a);
+    }
+
+    vector<int> dist(n + 1, -1);
+    queue<int> q;
+    dist[1] = 0;
+    q.push(1);
+
+    while (!q.empty()) {
+        int v = q.front();
+        q.pop();
+
+        for (int to : g[v]) {
+            if (dist[to] == -1) {
+                dist[to] = dist[v] + 1;
+                q.push(to);
+            }
+        }
+    }
+
+    int maxDist = 0;
+    for (int i = 1; i <= n; ++i) {
+        maxDist = max(maxDist, dist[i]);
+    }
+
+    vector<vector<bool>> win(maxDist + 2, vector<bool>(n + 1, false));
+
+    for (int day = maxDist; day >= 1; --day) {
+        for (int v = 1; v <= n; ++v) {
+            for (int to : g[v]) {
+                if (dist[to] >= day && !win[day + 1][to]) {
+                    win[day][v] = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (win[1][1]) {
+        cout << "Vladimir\n";
+    } else {
+        cout << "Nikolay\n";
+    }
+
+    return 0;
+}

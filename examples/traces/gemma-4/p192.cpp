@@ -1,0 +1,147 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * N segments, N <= 300, coordinates up to 32000.
+ * Segments are colored R, G, or B.
+ * For each x on OX, the color at x is the color of the segment whose point
+ * (x, y) is closest to OX (i.e., minimizes |y|).
+ * Total lengths SR, SG, SB on the OX axis are required.
+ * 
+ * The color of the projection at x can change only at:
+ * 1. Endpoints of segments (x1 or x2).
+ * 2. Points where two segments intersect (y_i(x) = y_j(x)).
+ * 3. Points where a segment intersects the OX axis (y_i(x) = 0).
+ * 4. Points where two segments are equidistant from OX (y_i(x) = -y_j(x)).
+ * 
+ * Approach:
+ * 1. Collect all critical x-coordinates.
+ * 2. Sort them and process intervals (x_k, x_{k+1}).
+ * 3. For each interval, pick its midpoint and find which segment has the minimum |y|.
+ * 4. Add the interval's length to the corresponding color.
+ */
+
+struct Segment {
+    double x1, y1, x2, y2;
+    double a, b;
+    int color; // 0: R, 1: G, 2: B
+    double min_x, max_x;
+    bool vertical;
+};
+
+int main() {
+    // Optimized I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<Segment> segments;
+    vector<double> crit_x;
+
+    for (int i = 0; i < N; ++i) {
+        double x1, y1, x2, y2;
+        string col_str;
+        cin >> x1 >> y1 >> x2 >> y2 >> col_str;
+
+        int col;
+        if (col_str == "R") col = 0;
+        else if (col_str == "G") col = 1;
+        else col = 2;
+
+        Segment s;
+        s.x1 = x1; s.y1 = y1; s.x2 = x2; s.y2 = y2;
+        s.color = col;
+        s.min_x = min(x1, x2);
+        s.max_x = max(x1, x2);
+        s.vertical = (abs(x1 - x2) < 1e-9);
+
+        if (!s.vertical) {
+            s.a = (y2 - y1) / (x2 - x1);
+            s.b = y1 - s.a * x1;
+            crit_x.push_back(x1);
+            crit_x.push_back(x2);
+            // Intersection with y = 0
+            if (abs(s.a) > 1e-10) {
+                crit_x.push_back(-s.b / s.a);
+            }
+        } else {
+            crit_x.push_back(x1);
+        }
+        segments.push_back(s);
+    }
+
+    // Add intersection and equidistant points as critical x-coordinates
+    for (int i = 0; i < N; ++i) {
+        if (segments[i].vertical) continue;
+        for (int j = i + 1; j < N; ++j) {
+            if (segments[j].vertical) continue;
+
+            // Intersection: y_i = y_j
+            // a_i*x + b_i = a_j*x + b_j => x = (b_j - b_i) / (a_i - a_j)
+            if (abs(segments[i].a - segments[j].a) > 1e-10) {
+                crit_x.push_back((segments[j].b - segments[i].b) / (segments[i].a - segments[j].a));
+            }
+            // Equidistant from OX: y_i = -y_j
+            // a_i*x + b_i = -(a_j*x + b_j) => (a_i + a_j)*x = -b_i - b_j
+            if (abs(segments[i].a + segments[j].a) > 1e-10) {
+                crit_x.push_back(-(segments[i].b + segments[j].b) / (segments[i].a + segments[j].a));
+            }
+        }
+    }
+
+    // Sort and unique the critical x-coordinates
+    sort(crit_x.begin(), crit_x.end());
+    vector<double> unique_x;
+    if (!crit_x.empty()) {
+        unique_x.push_back(crit_x[0]);
+        for (size_t i = 1; i < crit_x.size(); ++i) {
+            if (crit_x[i] - unique_x.back() > 1e-9) {
+                unique_x.push_back(crit_x[i]);
+            }
+        }
+    }
+
+    double SR = 0, SG = 0, SB = 0;
+
+    // Process each interval
+    for (size_t i = 0; i + 1 < unique_x.size(); ++i) {
+        double x_mid = (unique_x[i] + unique_x[i+1]) / 2.0;
+        double min_dist = 1e18;
+        int best_color = -1;
+
+        for (int j = 0; j < N; ++j) {
+            if (segments[j].vertical) continue;
+            // Check if the segment covers the interval
+            if (x_mid >= segments[j].min_x - 1e-9 && x_mid <= segments[j].max_x + 1e-9) {
+                double y = segments[j].a * x_mid + segments[j].b;
+                double dist = abs(y);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    best_color = segments[j].color;
+                }
+            }
+        }
+
+        // Aggregate length based on color
+        if (best_color == 0) SR += (unique_x[i+1] - unique_x[i]);
+        else if (best_color == 1) SG += (unique_x[i+1] - unique_x[i]);
+        else if (best_color == 2) SB += (unique_x[i+1] - unique_x[i]);
+    }
+
+    // Print results
+    cout << "R " << SR << "\n";
+    cout << "G " << SG << "\n";
+    cout << "B " << SB << "\n";
+
+    return 0;
+}
+

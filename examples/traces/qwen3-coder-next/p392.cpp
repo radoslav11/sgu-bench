@@ -1,0 +1,116 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+// Parse the compressed string and return the decompressed string
+string decompress(const string& s) {
+    string result;
+    int i = 0;
+    while (i < (int)s.size()) {
+        if (s[i] == '(') {
+            // Find matching ')'
+            int j = i + 1;
+            int cnt = 1;
+            while (j < (int)s.size() && cnt > 0) {
+                if (s[j] == '(') cnt++;
+                else if (s[j] == ')') cnt--;
+                j++;
+            }
+            string inner = s.substr(i + 1, j - i - 2);
+            i = j;
+            // Parse number after ')'
+            int k = i;
+            while (k < (int)s.size() && isdigit(s[k])) k++;
+            int repeat = stoi(s.substr(i, k - i));
+            i = k;
+            for (int rep = 0; rep < repeat; rep++) {
+                result += inner;
+            }
+        } else {
+            result += s[i];
+            i++;
+        }
+    }
+    return result;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int R, C;
+    cin >> R >> C;
+
+    vector<string> dirs(R);
+    for (int i = 0; i < R; i++) {
+        cin >> dirs[i];
+    }
+
+    vector<string> letters(R);
+    for (int i = 0; i < R; i++) {
+        cin >> letters[i];
+    }
+
+    // Precompute next position from each cell
+    vector<vector<pair<int, int>>> nextPos(R, vector<pair<int, int>>(C));
+    for (int i = 0; i < R; i++) {
+        for (int j = 0; j < C; j++) {
+            char d = dirs[i][j];
+            int ni = i, nj = j;
+            if (d == 'L') nj--;
+            else if (d == 'R') nj++;
+            else if (d == 'U') ni--;
+            else if (d == 'D') ni++;
+            nextPos[i][j] = {ni, nj};
+        }
+    }
+
+    int Q;
+    cin >> Q;
+
+    for (int q = 0; q < Q; q++) {
+        string compressed;
+        cin >> compressed;
+        string word = decompress(compressed);
+
+        // Try all starting positions, in order of increasing row, then column
+        bool found = false;
+        pair<int, int> start = {-1, -1};
+
+        for (int i = 0; i < R && !found; i++) {
+            for (int j = 0; j < C && !found; j++) {
+                // Simulate the path starting at (i, j)
+                int pos = 0;
+                int cur_i = i, cur_j = j;
+
+                while (pos < (int)word.size()) {
+                    // Check if current cell has the right letter
+                    if (cur_i < 0 || cur_i >= R || cur_j < 0 || cur_j >= C) {
+                        break;
+                    }
+                    if (letters[cur_i][cur_j] != word[pos]) {
+                        break;
+                    }
+                    pos++;
+
+                    // Move to next cell
+                    auto [ni, nj] = nextPos[cur_i][cur_j];
+                    cur_i = ni;
+                    cur_j = nj;
+                }
+
+                if (pos == (int)word.size()) {
+                    found = true;
+                    start = {i, j};
+                }
+            }
+        }
+
+        if (found) {
+            cout << "YES (" << start.first + 1 << "," << start.second + 1 << ")\n";
+        } else {
+            cout << "NO\n";
+        }
+    }
+
+    return 0;
+}

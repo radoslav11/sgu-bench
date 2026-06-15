@@ -1,0 +1,75 @@
+#include <iostream>
+
+using namespace std;
+
+int N;
+int B[9];
+int A[9];
+bool found = false;
+
+bool check(int cell_idx) {
+    for (int i = 0; i <= cell_idx; ++i) {
+        int r = i / N, c = i % N;
+        int assigned_greater = 0;
+        int max_possible = 0;
+        int dr[] = {-1, 1, 0, 0};
+        int dc[] = {0, 0, -1, 1};
+        for (int k = 0; k < 4; ++k) {
+            int nr = r + dr[k];
+            int nc = c + dc[k];
+            if (nr >= 0 && nr < N && nc >= 0 && nc < N) {
+                int n_idx = nr * N + nc;
+                if (n_idx <= cell_idx) {
+                    if (A[n_idx] > A[i]) {
+                        assigned_greater++;
+                    }
+                } else {
+                    if (A[i] < 9) {
+                        max_possible++;
+                    }
+                }
+            }
+        }
+        if (assigned_greater > B[i]) return false;
+        if (max_possible < B[i]) return false;
+    }
+    return true;
+}
+
+void dfs(int cell_idx) {
+    if (found) return;
+    if (cell_idx == N * N) {
+        found = true;
+        return;
+    }
+
+    for (int v = 0; v <= 9; ++v) {
+        A[cell_idx] = v;
+        if (check(cell_idx)) {
+            dfs(cell_idx + 1);
+            if (found) return;
+        }
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    if (!(cin >> N)) return 0;
+    for (int i = 0; i < N * N; ++i) {
+        cin >> B[i];
+    }
+
+    dfs(0);
+
+    if (found) {
+        for (int i = 0; i < N * N; ++i) {
+            cout << A[i] << (i % N == N - 1 ? "" : " ");
+            if (i % N == N - 1) cout << "\n";
+        }
+    } else {
+        cout << "NO SOLUTION\n";
+    }
+
+    return 0;
+}

@@ -1,0 +1,130 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Excursion
+ * We are given:
+ * - a (total boys), b (total girls).
+ * - Initially, 0 boys and b girls are with the teacher.
+ * - Girls can only leave the teacher's group (number of girls decreases or stays the same).
+ * - Boys can only join the teacher's group (number of boys increases or stays the same).
+ * - x_i is the number of students (boys + girls) in the teacher's group at time i.
+ * 
+ * Let b_i be the number of boys with the teacher at time i.
+ * Let g_i be the number of girls with the teacher at time i.
+ * Conditions:
+ * 1. b_i + g_i = x_i
+ * 2. 0 <= b_i <= a
+ * 3. 0 <= g_i <= b
+ * 4. b_1 <= b_2 <= ... <= b_n
+ * 5. g_1 >= g_2 >= ... >= g_n
+ * 
+ * From g_i = x_i - b_i, condition (5) becomes:
+ * x_{i-1} - b_{i-1} >= x_i - b_i  =>  b_i >= b_{i-1} + x_i - x_{i-1}
+ * Combined with b_i >= b_{i-1}, this is:
+ * b_i >= b_{i-1} + max(0, x_i - x_{i-1})
+ * 
+ * Also, 0 <= x_i - b_i <= b implies:
+ * x_i - b <= b_i <= x_i
+ * 
+ * So for each step i:
+ * max(0, x_i - b) <= b_i <= min(a, x_i)
+ * b_i >= b_{i-1} + max(0, x_i - x_{i-1})
+ * 
+ * We can use DP to find a valid sequence of b_i.
+ * dp[i][j] = true if there's a valid sequence b_1, ..., b_i such that b_i = j.
+ */
+
+int main() {
+    // Optimizing I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int a, b;
+    if (!(cin >> a >> b)) return 0;
+    int n;
+    if (!(cin >> n)) return 0;
+    vector<int> x(n + 1);
+    for (int i = 1; i <= n; ++i) {
+        cin >> x[i];
+    }
+
+    // dp[i][j] = 1 if it's possible to have b_i = j
+    // i: 1..n, j: 0..a
+    vector<vector<int>> dp(n + 1, vector<int>(a + 1, 0));
+    vector<vector<int>> parent(n + 1, vector<int>(a + 1, -1));
+
+    // Base case: i = 1
+    // For i=1, b_0 = 0 and g_0 = b.
+    // b_1 >= 0 and g_1 <= b => b_1 >= x_1 - b
+    // So max(0, x_1 - b) <= b_1 <= min(a, x_1)
+    int L1 = max(0, x[1] - b);
+    int R1 = min(a, x[1]);
+    for (int j = L1; j <= R1; ++j) {
+        dp[1][j] = 1;
+    }
+
+    // DP for i = 2 to n
+    for (int i = 2; i <= n; ++i) {
+        int Li = max(0, x[i] - b);
+        int Ri = min(a, x[i]);
+        int diff = max(0, x[i] - x[i - 1]);
+        
+        // Precompute prefix sums for dp[i-1] to optimize finding a valid k
+        vector<int> S(a + 1, 0);
+        for (int k = 0; k <= a; ++k) {
+            S[k] = dp[i - 1][k] + (k > 0 ? S[k - 1] : 0);
+        }
+
+        for (int j = Li; j <= Ri; ++j) {
+            // Condition: exists k such that k <= j - diff and dp[i-1][k] == 1
+            int max_k = j - diff;
+            if (max_k >= 0) {
+                int k_to_check = min(max_k, a);
+                if (S[k_to_check] > 0) {
+                    dp[i][j] = 1;
+                    // Find which k was used to reconstruct the path
+                    for (int k = 0; k <= k_to_check; ++k) {
+                        if (dp[i - 1][k]) {
+                            parent[i][j] = k;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Find if any solution exists at step n
+    int last_j = -1;
+    for (int j = 0; j <= a; ++j) {
+        if (dp[n][j]) {
+            last_j = j;
+            break;
+        }
+    }
+
+    if (last_j == -1) {
+        cout << "ERROR" << endl;
+    } else {
+        vector<int> b_res(n + 1);
+        int curr_j = last_j;
+        // Backtrack to find all b_i
+        for (int i = n; i >= 1; --i) {
+            b_res[i] = curr_j;
+            if (i > 1) {
+                curr_j = parent[i][curr_j];
+            }
+        }
+        // Output result
+        for (int i = 1; i <= n; ++i) {
+            cout << b_res[i] << " " << (x[i] - b_res[i]) << "\n";
+        }
+    }
+
+    return 0;
+}
+

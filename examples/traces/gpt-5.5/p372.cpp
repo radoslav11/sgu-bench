@@ -1,0 +1,130 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int K, N;
+    if (!(cin >> K >> N)) return 0;
+
+    vector<pair<long long,int>> tea[2]; // {cost, index}
+    for (int i = 1; i <= N; ++i) {
+        long long c;
+        int s;
+        cin >> c >> s;
+        tea[s].push_back({c, i});
+    }
+
+    sort(tea[0].begin(), tea[0].end());
+    sort(tea[1].begin(), tea[1].end());
+
+    const long long INF = (1LL << 62);
+
+    // state:
+    // 0 = last green, run length 1
+    // 1 = last green, run length 2
+    // 2 = last black, run length 1
+    // 3 = last black, run length 2
+    // 4 = start / no previous tea
+    vector<vector<long long>> dp(K + 1, vector<long long>(5, INF));
+    vector<vector<long long>> ndp(K + 1, vector<long long>(5, INF));
+
+    vector<vector<array<unsigned char, 5>>> parent(K + 1, vector<array<unsigned char, 5>>(K + 1));
+
+    dp[0][4] = 0;
+
+    for (int pos = 0; pos < K; ++pos) {
+        for (int g = 0; g <= K; ++g) {
+            for (int st = 0; st < 5; ++st) {
+                ndp[g][st] = INF;
+            }
+        }
+
+        for (int g = 0; g <= pos; ++g) {
+            int b = pos - g;
+
+            for (int st = 0; st < 5; ++st) {
+                if (dp[g][st] == INF) continue;
+
+                for (int color = 0; color <= 1; ++color) {
+                    int used = (color == 0 ? g : b);
+                    if (used >= (int)tea[color].size()) continue;
+
+                    int ng = g + (color == 0);
+
+                    int nst;
+                    if (st == 4) {
+                        nst = color * 2;
+                    } else {
+                        int lastColor = st / 2;
+                        int runLen = st % 2 + 1;
+
+                        if (lastColor == color) {
+                            if (runLen == 2) continue;
+                            nst = color * 2 + 1;
+                        } else {
+                            nst = color * 2;
+                        }
+                    }
+
+                    long long weight = K - pos;
+                    long long val = dp[g][st] + tea[color][used].first * weight;
+
+                    if (val < ndp[ng][nst]) {
+                        ndp[ng][nst] = val;
+                        parent[pos + 1][ng][nst] = (unsigned char)st;
+                    }
+                }
+            }
+        }
+
+        dp.swap(ndp);
+    }
+
+    long long best = INF;
+    int bestG = -1, bestSt = -1;
+
+    for (int g = 0; g <= K; ++g) {
+        for (int st = 0; st < 4; ++st) {
+            if (dp[g][st] < best) {
+                best = dp[g][st];
+                bestG = g;
+                bestSt = st;
+            }
+        }
+    }
+
+    if (best == INF) {
+        cout << "Impossible\n";
+        return 0;
+    }
+
+    vector<int> colors(K + 1);
+
+    int pos = K;
+    int g = bestG;
+    int st = bestSt;
+
+    while (pos > 0) {
+        int color = st / 2;
+        colors[pos] = color;
+
+        int prev = parent[pos][g][st];
+
+        if (color == 0) --g;
+        --pos;
+        st = prev;
+    }
+
+    int ptr[2] = {0, 0};
+
+    for (int i = 1; i <= K; ++i) {
+        int color = colors[i];
+        if (i > 1) cout << ' ';
+        cout << tea[color][ptr[color]++].second;
+    }
+    cout << '\n';
+
+    return 0;
+}

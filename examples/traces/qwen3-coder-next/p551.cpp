@@ -1,0 +1,507 @@
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+int main() {
+    long long n, t1, t2;
+    cin >> n >> t1 >> t2;
+
+    // Binary search for the earliest time T such that at least n solutions are completed by time T
+    // Number of solutions by Petya by time T: floor(T / t1)
+    // Number of solutions by Vasya by time T: floor(T / t2)
+    // Total solutions by time T: floor(T / t1) + floor(T / t2)
+
+    long long low = 0;
+    long long high = max(t1, t2) * n; // Upper bound: worst case one person does all n solutions
+
+    // Find minimal time T such that total solutions >= n
+    while (low < high) {
+        long long mid = (low + high) / 2;
+        if (mid / t1 + mid / t2 >= n) {
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+
+    long long T = low;
+
+    // At time T, we have exactly n or more solutions.
+    // But we need to check if they actually stopped at T or earlier due to the stopping condition.
+
+    // The key insight: they stop only when at some finish time, the total count >= n.
+    // So we need to find the earliest time when the total count becomes >= n AND that time is a finish time of at least one person.
+
+    // Actually, the algorithm: each time someone finishes, they check if total >= n. If yes, both stop (but note: if both finish at same time, they both see the same count).
+
+    // So the final time is the minimal time T such that:
+    // 1. T is a multiple of t1 or t2 (i.e., T = k1*t1 or T = k2*t2 for some integers k1,k2)
+    // 2. floor(T/t1) + floor(T/t2) >= n
+
+    // However, it's possible that at time T (the binary search result), neither person finishes exactly at T, but the condition holds. 
+    // But in reality, they only check at their finish times. So the actual stopping time is the minimum finish time >= T.
+
+    // Actually, let's think: the binary search finds the minimal time T such that by time T (inclusive), there are at least n solutions.
+    // But since they only check at their finish times, the real stopping time is the minimum time t >= T such that t is a multiple of t1 or t2.
+
+    // However, note from the examples:
+    // Example 1: n=5, t1=2, t2=3.
+    //   Binary search: 
+    //     T=5: 5/2 + 5/3 = 2 + 1 = 3 < 5
+    //     T=6: 6/2 + 6/3 = 3 + 2 = 5 >= 5 -> so T=6.
+    //   And 6 is a multiple of both 2 and 3.
+
+    // Example 2: n=5, t1=2, t2=4.
+    //   T=7: 7/2 + 7/4 = 3 + 1 = 4 < 5
+    //   T=8: 8/2 + 8/4 = 4 + 2 = 6 >= 5 -> T=8.
+    //   And 8 is a multiple of both 2 and 4.
+
+    // But consider: n=3, t1=30, t2=50.
+    //   T=99: 99/30=3, 99/50=1 -> 4 >=3? Actually 3+1=4>=3 -> so minimal T would be <=99.
+    //   Let's check T=60: 60/30=2, 60/50=1 -> 3>=3 -> so T=60.
+    //   But the sample output is 4 100, meaning 4 solutions and last finish at 100.
+
+    // Why? Let's simulate:
+    //   Petya: 30, 60, 90, 120...
+    //   Vasya: 50, 100, 150...
+    //   At time 30: Petya finishes 1st -> total=1 < 3 -> continues.
+    //   At time 50: Vasya finishes 1st -> total=2 (Petya has 1 at 30, and still writing 2nd which finishes at 60, so at 50: only 2 solutions) -> 2<3 -> continues.
+    //   At time 60: Petya finishes 2nd -> total=3 (Petya: 2, Vasya: 1 at 50) -> 3>=3 -> so Petya stops. But what about Vasya? 
+    //      The problem says: "each time Petya (Vasya) finishes writing a solution, he checks... If the number of such solutions is strictly less than n, then ... starts next."
+    //   So at time 60, Petya finishes and sees total=3 (>=3) so he stops. 
+    //   But Vasya is still writing his first solution (which he started at time 0 and will finish at 50? Wait, no: at time 50 he finished the first, then started the second?).
+    //   Actually, at time 50, Vasya finished first solution and checked: total solutions = Petya: 1 (at 30) and Vasya: 1 (at 50) -> total=2 < 3, so he started the second.
+    //   Then at time 60, Petya finishes and sees: 
+    //        Petya: 2 (30,60), Vasya: 1 (50) -> total=3 -> so Petya stops.
+    //   But Vasya is still writing his second solution (started at 50, takes 50 units, so finishes at 100). 
+    //   He doesn't stop at 60 because he hasn't finished yet. He will finish at 100. 
+    //   At time 100, Vasya finishes his second solution and checks: total solutions = Petya: 2, Vasya: 2 -> 4 >=3 -> so he stops.
+
+    // Therefore, the total solutions written is 4, and the last finish time is 100.
+
+    // So the binary search giving T=60 is not the stopping time because Vasya doesn't stop at 60 (he didn't finish at 60). He only stops when he finishes and then checks and sees 4 solutions.
+
+    // How to model this?
+    // We need to simulate the finish events. But note n, t1, t2 up to 5000, so the total solutions m might be up to about 2*n (in worst case, one person does n and the other does n, but actually less because they stop early? but worst-case m can be up to about 2*n? but n<=5000 so 10000 events is acceptable? but we want O(1) or O(log n)).
+
+    // Alternate approach:
+    // Let k1 = number of solutions by Petya, k2 = number by Vasya.
+    // Conditions:
+    //   k1 * t1 >= (k2-1)*t2   [if Vasya wrote k2 solutions, then at the time Vasya finished his (k2-1)-th, Petya might have written some, but actually we need the condition at the last event]
+    // Instead, we know that the process stops at a time T which is the maximum of the last finish times of the two, and at that time, the total solutions m = k1 + k2 >= n, and at any finish time before T, the total was < n.
+
+    // How about: 
+    //   Let k1 be the number of solutions by Petya, k2 by Vasya.
+    //   The finishing time of Petya's last solution: k1 * t1
+    //   The finishing time of Vasya's last solution: k2 * t2
+    //   The overall finishing time: max(k1*t1, k2*t2)
+    //   Conditions:
+    //      k1 + k2 >= n
+    //      At the time when Petya finished his (k1-1)-th solution (if k1>=1), the total solutions at that time was < n. Similarly for Vasya.
+    //   But note: if k1>=1, then at time (k1-1)*t1 (if k1>=1), the total solutions = (k1-1) + floor((k1-1)*t1 / t2) < n.
+    //   Similarly, at time (k2-1)*t2, total = floor((k2-1)*t2 / t1) + (k2-1) < n.
+
+    // However, the stopping condition is triggered at the first finish time when the total count >= n. So the actual stopping time is the minimum finish time T such that floor(T/t1) + floor(T/t2) >= n.
+
+    // But note: T must be a finish time, i.e., T = i*t1 for some i or T = j*t2 for some j.
+
+    // Therefore, we can consider two candidates:
+    //   Candidate 1: the minimal i such that i + floor(i*t1 / t2) >= n. Then T1 = i*t1.
+    //   Candidate 2: the minimal j such that floor(j*t2 / t1) + j >= n. Then T2 = j*t2.
+    //   Then the actual stopping time T = min(T1, T2) ??? 
+    //   But wait: they stop at the first finish time when the condition is met. So we need the minimal finish time T (over all finish events) such that the total solutions at T is >= n.
+
+    // How to compute minimal finish time? 
+    //   We can iterate over possible i (number of Petya's solutions) from 0 to n (or a bit more) and for each i, compute the minimal j such that i + j >= n and j*t2 <= i*t1? Not exactly.
+
+    // Actually, we can do:
+    //   Let i be the number of solutions by Petya. Then the time when Petya finishes his i-th solution is T = i * t1.
+    //   At time T, the number of solutions by Vasya is j = floor(T / t2) = floor(i * t1 / t2).
+    //   So total = i + j.
+    //   We require i + j >= n.
+    //   Similarly, for Vasya: j solutions, time = j * t2, then i = floor(j * t2 / t1), total = i + j >= n.
+
+    // So we can find:
+    //   candidate1: minimal i such that i + floor(i * t1 / t2) >= n. Then T1 = i * t1.
+    //   candidate2: minimal j such that j + floor(j * t2 / t1) >= n. Then T2 = j * t2.
+    //   Then the stopping time T = min(T1, T2) ? 
+    //   But note: it's possible that at time T1, Vasya hasn't finished his j-th solution? Actually j = floor(T1/t2) is the exact count at time T1.
+
+    // However, the problem is: they stop at the first finish time when the condition is met. So T = min { t : t is a finish time (i.e., t = i*t1 or t = j*t2) and floor(t/t1)+floor(t/t2) >= n }.
+
+    // Since the set of finish times is the union of {i*t1} and {j*t2}, we can consider all finish times up to (n+1)*min(t1,t2) but that might be too many.
+
+    // Alternate efficient approach:
+    //   Let i be the number of solutions by Petya. Then the time when the i-th solution by Petya is finished is t = i * t1.
+    //   At that time, the total solutions = i + floor(i * t1 / t2).
+    //   We want the minimal i such that i + floor(i * t1 / t2) >= n. Call this i0, and T1 = i0 * t1.
+    //   Similarly, j0 = minimal j such that j + floor(j * t2 / t1) >= n, T2 = j0 * t2.
+    //   Then T = min(T1, T2) is the stopping time? 
+    //   But wait: what if at time T1, Vasya finished a solution earlier? Actually, T1 is the time of Petya's finish, but there might be a Vasya finish at time j*t2 < T1 that also satisfies the condition. So we should take the minimal finish time (over both sequences) that satisfies the condition.
+
+    // Therefore, T = min( min_{i: i + floor(i*t1/t2) >= n} {i*t1}, min_{j: j + floor(j*t2/t1) >= n} {j*t2} )
+
+    // However, note: it's possible that a Vasya finish time j*t2 is less than i*t1 and also satisfies j + floor(j*t2/t1) >= n, so we take the minimum.
+
+    // But how to compute i0? 
+    //   i0 = ceil( (n * t2) / (t1 + t2) )? Not exactly because of floor.
+
+    // Instead, we can do binary search for i in [0, n] (but note: i might be up to n, but worst-case i could be n if t2 is huge, so i in [0, n] is safe? Actually, worst-case i might be n, but also if t1 is very small, i might be larger? Actually, worst-case i can be up to n, because even if t1 is 1, then i = n would give total = n + floor(n*1/t2) which is >= n. So i in [0, n] is enough? But consider t2=1, then i might be 0? Actually, if t2 is 1, then Vasya is faster, so Petya might not write any? But no: they both start. Actually, the minimal i such that i + floor(i*t1/t2) >= n: if t2 is 1 and t1 is large, then floor(i*t1/t2) = i*t1 (if t1 is integer) but wait t1 and t2 are integers. So floor(i*t1/t2) = i*t1 / t2 if divisible? Actually, it's integer division.
+
+    // Since n, t1, t2 up to 5000, we can iterate i from 0 to n (or n+1) and also j from 0 to n.
+
+    // Steps:
+    //   Let T_candidate = a big number.
+    //   For i from 0 to n (or n+1, to be safe) [but note: worst-case i might be n, but if t2=1, then even i=0: 0 + floor(0/t2)=0, i=1: 1+floor(t1) which might be >=n? so i up to n is safe because if i=n, then total = n + floor(n*t1/t2) >= n]
+    //      total = i + (i * t1) / t2;   (using integer division)
+    //      if total >= n:
+    //          T1 = i * t1;
+    //          T_candidate = min(T_candidate, T1);
+    //   Similarly for j from 0 to n:
+    //      total = j + (j * t2) / t1;
+    //      if total >= n:
+    //          T2 = j * t2;
+    //          T_candidate = min(T_candidate, T2);
+
+    // But note: it's possible that the minimal finish time is not covered by i<=n? Actually, the number of solutions by one person might exceed n? But if one person writes more than n solutions, then total solutions >= n+1, but we are looking for the minimal time when total>=n, so the minimal time must occur when the total is exactly n or n+? but the minimal time will be when the total first becomes >=n, so the number of solutions by one person is at most n (because if one person writes n solutions, total is at least n). So i in [0, n] is sufficient? However, consider: if t1 is very large and t2 is 1, then Vasya writes n solutions at time n, and Petya writes 0 or 1? So i (for Petya) might be 0 or 1, which is <=n.
+
+    // But wait: in the example n=3, t1=30, t2=50: 
+    //   For i (Petya's solutions): 
+    //      i=0: 0 + 0 = 0 < 3
+    //      i=1: 1 + floor(30/50)=1+0=1 <3
+    //      i=2: 2 + floor(60/50)=2+1=3 >=3 -> T1=60.
+    //   For j (Vasya's solutions):
+    //      j=0:0
+    //      j=1:1 + floor(50/30)=1+1=2 <3
+    //      j=2:2 + floor(100/30)=2+3=5>=3 -> T2=100.
+    //   Then T_candidate = min(60,100)=60.
+    //   But the actual stopping time is 100, not 60.
+
+    // Why? Because at time 60, Petya finishes and checks: total solutions = 2 (Petya) + 1 (Vasya) = 3 -> so he stops. However, Vasya is still writing his first solution? 
+    //   Wait: Vasya started at time 0, and his first solution takes 50 units, so he finishes at 50. Then at time 50, he checks: 
+    //        Petya: finished 1 at 30, Vasya: finished 1 at 50 -> total=2 < 3 -> so he starts the second solution.
+    //   The second solution takes 50 units, so finishes at 100.
+    //   At time 60, Petya finishes his second solution and checks: 
+    //        Petya: 2 solutions (30,60), Vasya: 1 solution (50) -> total=3 -> so he stops.
+    //   But Vasya doesn't stop at 60 because he hasn't finished (he's still writing the second solution, which started at 50 and ends at 100). 
+    //   So the process doesn't stop at 60 for Vasya, but Petya stops. However, the problem says: "If a member of the jury began working on a problem, he doesn't stop working under any circumstances, and he will surely finish it." 
+    //   So Vasya continues and finishes at 100. 
+    //   Then at time 100, Vasya finishes and checks: total solutions = 2 (Petya) + 2 (Vasya) = 4 >=3 -> so he stops.
+
+    // Therefore, the total solutions written is 4, and the last finish time is 100.
+
+    // So the stopping time is 100, not 60.
+
+    // What went wrong in our candidate? 
+    //   Our candidate T=60 is a finish time for Petya, and at that time the total solutions is 3, so Petya stops. But the algorithm continues for Vasya because he is still working on a solution he started earlier. 
+    //   However, the problem states: "If a member of the jury began working on a problem, he doesn't stop working under any circumstances, and he will surely finish it." 
+    //   So they don't stop mid-solution. Therefore, Vasya must finish his current solution (which he started at time 50) and that finishes at 100.
+
+    // Therefore, the total solutions written is not necessarily the total at the first finish time where the condition is met, but the total at the time when the last started solution is finished.
+
+    // How to model?
+    //   Let k1 = number of solutions by Petya, k2 = number by Vasya.
+    //   Conditions:
+    //      k1 + k2 >= n
+    //      At the time when Petya finishes his (k1-1)-th solution (if k1>=1), the total solutions at that time was < n. 
+    //      Similarly, at the time when Vasya finishes his (k2-1)-th solution, the total was < n.
+    //   But note: it's possible that one of them finishes and then the total becomes >=n, so that person stops, but the other continues until his current solution is done.
+
+    // Actually, the process:
+    //   They both start at 0.
+    //   Events: 
+    //        time t = min(t1, t2): first finish.
+    //        at that time, the person who finished checks: if total < n, starts next; else, stops (but the other continues until his current solution is done).
+    //   However, if both finish at the same time, they both check and both stop if condition is met.
+
+    // So the stopping happens in two phases:
+    //   Phase 1: while the total solutions at the finish time is < n, both continue.
+    //   Phase 2: at the first finish time T where the total solutions >= n, the person(s) who finished at T will stop, but the other person (if not finished at T) continues until his current solution is done.
+
+    // Therefore, the total solutions written = k1 + k2, where:
+    //   k1 = number of solutions by Petya = the smallest integer such that at time k1*t1, the total solutions (k1 + floor(k1*t1/t2)) >= n OR ... wait no.
+
+    // Actually, k1 is the number of solutions Petya writes, which is the number of solutions he completes before he stops. He stops after finishing a solution at time k1*t1 only if at that time the total solutions >= n. But if he stops, then k1 is the count. However, if he doesn't stop (because the total was still < n), then he writes k1 solutions and continues.
+
+    // How to compute k1 and k2?
+    //   We know that the last solution written is the maximum of the last finish times of the two. 
+    //   Let T_stop be the time when the last solution is finished. Then:
+    //        k1 = ceil(T_stop / t1)
+    //        k2 = ceil(T_stop / t2)
+    //   But we don't know T_stop.
+
+    // Alternate insight from known solutions to this problem (it's a known problem):
+    //   The answer is:
+    //        m = n + (n * t1 % (t1+t2) != 0 ? 1 : 0)   -> no, not exactly.
+
+    // Known solution approach:
+    //   Let L = 0, R = (n+1) * max(t1, t2)
+    //   Find minimal T such that floor(T/t1) + floor(T/t2) >= n.
+    //   Then, we need to check: 
+    //        If at time T, both Petya and Vasya finish at T, then they both stop and m = floor(T/t1) + floor(T/t2).
+    //        Otherwise, one of them finished earlier and the other is still working. But note: the one who finished later is the one who sets T. Actually, T is the minimal time with total>=n, but it might not be a finish time? 
+    //        However, in reality, T must be a finish time? Because the total count only changes at finish times.
+
+    //   Actually, the minimal T such that floor(T/t1)+floor(T/t2) >= n is a finish time? Not necessarily: 
+    //        Example: t1=2, t2=3, n=3: 
+    //           T=4: 4/2=2, 4/3=1 -> 3>=3 -> so T=4 is the minimal time? 
+    //           But at time 4: 
+    //                Petya: finished at 2 and 4 -> 2 solutions.
+    //                Vasya: finished at 3 -> 1 solution.
+    //           Total=3.
+    //           However, the finish events: 
+    //                time2: total=1 (Petya:1, Vasya:0) -> <3 -> Petya continues.
+    //                time3: total=2 (Petya:1 at time2, Vasya:1 at time3) -> <3 -> Vasya continues.
+    //                time4: total=3 -> Petya stops. But Vasya is still writing (he started at 3, will finish at 6). 
+    //           So the total solutions written is 3 (Petya) + 2 (Vasya) = 5? No, wait: Vasya only writes 2 solutions? 
+    //                Vasya: first at 3, then starts at 3 and finishes at 6 -> so he writes 2 solutions.
+    //           Therefore, total=2 (Petya) + 2 (Vasya) = 4? But at time4, total count (ready solutions) is 3, but Vasya hasn't finished his second solution yet. So at time4, ready solutions are 3, but Vasya is still working on the second solution which will be ready at 6.
+    //           So the total solutions written (by the end) is 4.
+
+    //   Therefore, the total solutions written is not floor(T/t1)+floor(T/t2) at the minimal T, because Vasya writes an extra solution.
+
+    // How to compute the total solutions written?
+    //   Let T_min = minimal time such that floor(T_min/t1) + floor(T_min/t2) >= n.
+    //   But T_min might not be a finish time. However, we know that the total count only changes at finish times, so we can let T be the minimal finish time such that floor(T/t1)+floor(T/t2) >= n.
+    //   How to get the minimal finish time? 
+    //        candidate1 = the minimal i such that i + floor(i*t1/t2) >= n -> T1 = i*t1
+    //        candidate2 = the minimal j such that j + floor(j*t2/t1) >= n -> T2 = j*t2
+    //        T = min(T1, T2)
+
+    //   But as in the example n=3, t1=30, t2=50: T1=60, T2=100, so T=60. 
+    //   However, at time 60, Vasya is still working on his second solution (started at 50, finishes at 100), so he will write one more solution.
+
+    //   So the total solutions = (number by Petya) + (number by Vasya) = (60/30) + ceil(100/50) ??? 
+    //        Petya: 2 solutions (30,60)
+    //        Vasya: 2 solutions (50,100) -> total=4.
+
+    //   How to compute the number of solutions by Vasya? 
+    //        Vasya starts at 0, then at 50, then at 100. He stops after finishing the second solution at 100 because at that time total becomes 4>=3.
+    //        So k2 = 2.
+    //        How to get 2? 
+    //            k2 = floor((T + t2 - 1) / t2) ? -> ceil(T / t2) but T=60: ceil(60/50)=2, which is correct.
+
+    //   Actually, Vasya writes floor((last_finish_time)/t2) solutions, but the last_finish_time is not T (which is 60) but the time when he finishes his last solution, which is k2*t2, and k2 is the smallest integer such that k2*t2 >= the time when he started his last solution? 
+
+    //   Alternate: 
+    //        k1 = number of solutions by Petya = the number of multiples of t1 that are <= the stopping time of Petya.
+    //        But Petya stops at T1 (if T1 is the finish time that triggered his stop), but if T1 < T2, then Petya stops at T1, but Vasya continues until T2. However, the total solutions written by Vasya is the number of multiples of t2 that are <= the time when Vasya finishes his last solution, which is k2*t2 where k2 is the smallest integer such that k2*t2 >= (k1-1)*t1? Not exactly.
+
+    //   Known solution from Codeforces for problem "551A" (but this is 551B? actually the problem code is 551B) -> wait, the problem says 551, but in Codeforces it's problem 551B? Actually, I recall a similar problem.
+
+    //   Insight from known solutions to "Preparing Problem" (Codeforces Round #306 (Div. 2), problem B):
+    //        Let x = n * t1;
+    //        Let y = n * t2;
+    //        Let L = max(x, y);
+    //        But that doesn't match.
+
+    //   After checking known solutions (in mind): 
+    //        The answer is:
+    //            m = n + (n * t1 % (t1 + t2) != 0 ? 1 : 0) -> no.
+
+    //   Another known approach:
+    //        Let T = 0;
+    //        Let p = 0, v = 0;
+    //        while (p + v < n) {
+    //            if (T % t1 == 0) p++;
+    //            if (T % t2 == 0) v++;
+    //            if (p + v >= n) break;
+    //            T++;
+    //        }
+    //        But n up to 5000, and T might be up to 5000*5000=25e6 which is 25 million, which in C++ might pass in 1 second? But worst-case 25e6 iterations is acceptable in C++ (about 0.1-0.3 seconds). However, the problem says t1,t2,n up to 5000, so worst-case T might be about n * min(t1,t2) = 5000*5000=25e6, which is acceptable.
+
+    //   But the problem says time limit 1 second, and 25e6 iterations might be borderline in Python but in C++ it's acceptable.
+
+    //   However, the problem might expect an O(1) solution.
+
+    //   Let's think differently:
+    //        The process stops after both have finished their current solution, and the last solution finished is the maximum of the last finish times.
+    //        Let k1 = number of solutions by Petya, k2 by Vasya.
+    //        Conditions:
+    //            k1 + k2 >= n
+    //            (k1-1)*t1 < T and (k2-1)*t2 < T, where T = max(k1*t1, k2*t2)
+    //            and at time T, the total solutions = k1 + k2 >= n, and for any time T' < T, the total solutions < n at the last finish event before T'.
+    //        But the minimal T for which k1 + k2 >= n and T = max(k1*t1, k2*t2) is minimized? 
+    //        Actually, we want the minimal T such that there exists k1, k2 with:
+    //            k1 >= ceil(T/t1) ??? -> no.
+
+    //   Actually, k1 = floor(T/t1) only if T is not a finish time for Petya? But if T is the last finish time, then k1 = T/t1 if T is a multiple of t1.
+
+    //   We can try to iterate over the number of solutions by one person. Since n<=5000, we can let k1 from 0 to n (or n+10) and compute k2.
+
+    //   Specifically:
+    //        For a given k1 (number of solutions by Petya), the time when Petya finishes his k1-th solution is T1 = k1 * t1.
+    //        At time T1, the number of solutions by Vasya is k2_temp = floor(T1 / t2).
+    //        If k1 + k2_temp >= n, then Petya would stop at T1, but Vasya might not stop: Vasya will continue until he finishes his current solution, which is k2_temp-th solution, but wait: Vasya might have started more solutions? 
+    //            No, because Vasya only writes floor(T1/t2) solutions by time T1. But after T1, if Vasya hasn't stopped (because he didn't finish at T1), he will start the next solution at time k2_temp * t2 (if k2_temp * t2 < T1? no, k2_temp = floor(T1/t2) so k2_temp * t2 <= T1 < (k2_temp+1)*t2). 
+    //            So Vasya will start his (k2_temp+1)-th solution at time k2_temp * t2 (which is <= T1) and will finish at (k2_temp+1)*t2.
+    //        Therefore, if k1 + k2_temp >= n, then Petya stops at T1, but Vasya will write one more solution (if he hasn't already written k2_temp+1 solutions? but he writes k2_temp solutions by T1, and then starts the next, so total by Vasya will be k2_temp+1, unless he also stops at T1? but he didn't finish at T1, so he doesn't check at T1).
+
+    //        So total solutions in this scenario = k1 + (k2_temp + 1) = k1 + floor(T1/t2) + 1.
+    //        And the last finish time = max(T1, (k2_temp+1)*t2) = (k2_temp+1)*t2 (since T1 < (k2_temp+1)*t2).
+
+    //        But wait: what if at time T1, Vasya also finishes? then k2_temp = T1/t2 (exactly), so (k2_temp+1)*t2 = T1 + t2 > T1, but Vasya would have checked at T1 and if total>=n, he stops too. So in that case, total = k1 + k2_temp = k1 + T1/t2, and last finish time = T1.
+
+    //        Therefore, we have two cases:
+    //            Case 1: T1 is also a multiple of t2, i.e., T1 % t2 == 0.
+    //                Then at time T1, both finish. Total solutions = k1 + k2_temp = k1 + T1/t2.
+    //                Last finish time = T1.
+    //            Case 2: T1 is not a multiple of t2.
+    //                Then at time T1, only Petya finishes and stops. Vasya finishes his next solution at (k2_temp+1)*t2, and at that time he checks and stops.
+    //                Total solutions = k1 + (k2_temp+1)
+    //                Last finish time = (k2_temp+1)*t2.
+
+    //        Similarly, we consider scenarios where Vasya's finish triggers the stop.
+
+    //   So algorithm:
+    //        candidate_m = a big number, candidate_f = a big number.
+    //        For k1 from 0 to n (or n+1, to be safe):
+    //            T1 = k1 * t1;
+    //            k2_temp = T1 / t2;   // integer division, floor
+    //            total1 = k1 + k2_temp;
+    //            if (total1 >= n) {
+    //                if (T1 % t2 == 0) {
+    //                    m_candidate = total1;
+    //                    f_candidate = T1;
+    //                } else {
+    //                    m_candidate = total1 + 1;
+    //                    f_candidate = (k2_temp+1) * t2;
+    //                }
+    //                if (m_candidate < candidate_m || (m_candidate == candidate_m && f_candidate < candidate_f)) {
+    //                    // But we want minimal last finish time? Actually, we want the actual process, and the process will stop at the first trigger, so we should take the minimal f_candidate? 
+    //                    // However, the process is deterministic: it will trigger at the earliest finish time that satisfies the condition. So we should find the minimal f_candidate over k1.
+    //                }
+    //                // update the best (minimal f_candidate, and among those minimal m_candidate? but m_candidate might vary)
+    //                // Actually, the process has a unique outcome, so we need to find the minimal f_candidate among all possible triggers.
+    //            }
+    //        }
+    //        Similarly for k2.
+
+    //   But note: the process will trigger at the earliest finish time where the condition is met, so we want the minimal f_candidate.
+
+    //   However, there might be two triggers at the same time? then we take that.
+
+    //   Steps:
+    //        Let best_f = a big number, best_m = a big number.
+    //        For k1 in [0, n+1]:
+    //            T1 = k1 * t1;
+    //            k2_temp = T1 / t2;
+    //            if (k1 + k2_temp >= n) {
+    //                if (T1 % t2 == 0) {
+    //                    m_candidate = k1 + k2_temp;
+    //                    f_candidate = T1;
+    //                } else {
+    //                    m_candidate = k1 + k2_temp + 1;
+    //                    f_candidate = (k2_temp+1) * t2;
+    //                }
+    //                if (f_candidate < best_f || (f_candidate == best_f && m_candidate < best_m)) {
+    //                    best_f = f_candidate;
+    //                    best_m = m_candidate;
+    //                }
+    //            }
+    //        }
+    //        For k2 in [0, n+1]:
+    //            T2 = k2 * t2;
+    //            k1_temp = T2 / t1;
+    //            if (k1_temp + k2 >= n) {
+    //                if (T2 % t1 == 0) {
+    //                    m_candidate = k1_temp + k2;
+    //                    f_candidate = T2;
+    //                } else {
+    //                    m_candidate = k1_temp + k2 + 1;
+    //                    f_candidate = (k1_temp+1) * t1;
+    //                }
+    //                if (f_candidate < best_f || (f_candidate == best_f && m_candidate < best_m)) {
+    //                    best_f = f_candidate;
+    //                    best_m = m_candidate;
+    //                }
+    //            }
+    //        }
+    //        Print best_m, best_f.
+
+    //   Let's test with examples.
+
+    //   Example 1: n=5, t1=2, t2=3.
+    //        k1=0: T1=0, k2_temp=0, total=0<5 -> skip.
+    //        k1=1: T1=2, k2_temp=0, total=1<5.
+    //        k1=2: T1=4, k2_temp=1 (4/3=1), total=3<5.
+    //        k1=3: T1=6, k2_temp=2 (6/3=2), total=5>=5. And 6%3==0 -> m=5, f=6.
+    //        k1=4: T1=8, k2_temp=2, total=6>=5 -> but 8%3!=0, so m=6+1=7, f= (2+1)*3=9 -> not better than (5,6).
+    //        Now k2 loop:
+    //        k2=0,1,2,3,4,5,6: 
+    //        k2=2: T2=6, k1_temp=3, total=5>=5, and 6%2==0 -> m=5, f=6 -> same as above.
+    //        So best is (5,6).
+
+    //   Example 2: n=5, t1=2, t2=4.
+    //        k1=0..4: 
+    //        k1=5: T1=10, k2_temp=10/4=2, total=7>=5, and 10%4=2!=0 -> m=8, f= (2+1)*4=12.
+    //        But let's find earlier:
+    //        k1=3: T1=6, k2_temp=6/4=1, total=4<5.
+    //        k1=4: T1=8, k2_temp=8/4=2, total=6>=5, and 8%4==0 -> m=6, f=8.
+    //        k2 loop:
+    //        k2=2: T2=8, k1_temp=8/2=4, total=6>=5, and 8%2==0 -> m=6, f=8.
+    //        k2=3: T2=12, ... but we have (6,8) so it's better.
+    //        So output (6,8) -> matches.
+
+    //   Example 3: n=3, t1=30, t2=50.
+    //        k1=0,1: skip.
+    //        k1=2: T1=60, k2_temp=60/50=1, total=3>=5? no, 3>=3 -> yes. And 60%50=10!=0, so m=3+1=4, f= (1+1)*50=100.
+    //        k1=3: T1=90, k2_temp=90/50=1, total=4>=3 -> m=5, f=100 (since 90%50!=0 -> f=100) -> but 100 is not better than 100, and m=5>4, so (4,100) is better.
+    //        k2=0,1: 
+    //        k2=1: T2=50, k1_temp=50/30=1, total=2<3.
+    //        k2=2: T2=100, k1_temp=100/30=3, total=5>=3, and 100%30=10!=0 -> m=5+1=6, f= (3+1)*30=120.
+    //        So the best is (4,100) from k1=2.
+
+    //   Therefore, we can implement with two loops (each up to n+1, which is 5001, so total 10002 iterations).
+
+    //   Let's code accordingly.
+
+    //   Note: k1 should go from 0 to at least n (but to be safe, n+1 is enough because worst-case one person writes n solutions and the other writes 0 or 1).
+
+    long long best_m = 1e18;
+    long long best_f = 1e18;
+
+    // Consider Petya's finish events
+    for (long long k1 = 0; k1 <= n + 1; k1++) {
+        long long T1 = k1 * t1;
+        long long k2_temp = T1 / t2; // Vasya's solutions by time T1
+        if (k1 + k2_temp >= n) {
+            long long m_candidate, f_candidate;
+            if (T1 % t2 == 0) {
+                m_candidate = k1 + k2_temp;
+                f_candidate = T1;
+            } else {
+                m_candidate = k1 + k2_temp + 1;
+                f_candidate = (k2_temp + 1) * t2;
+            }
+            if (f_candidate < best_f || (f_candidate == best_f && m_candidate < best_m)) {
+                best_f = f_candidate;
+                best_m = m_candidate;
+            }
+        }
+    }
+
+    // Consider Vasya's finish events
+    for (long long k2 = 0; k2 <= n + 1; k2++) {
+        long long T2 = k2 * t2;
+        long long k1_temp = T2 / t1;
+        if (k1_temp + k2 >= n) {
+            long long m_candidate, f_candidate;
+            if (T2 % t1 == 0) {
+                m_candidate = k1_temp + k2;
+                f_candidate = T2;
+            } else {
+                m_candidate = k1_temp + k2 + 1;
+                f_candidate = (k1_temp + 1) * t1;
+            }
+            if (f_candidate < best_f || (f_candidate == best_f && m_candidate < best_m)) {
+                best_f = f_candidate;
+                best_m = m_candidate;
+            }
+        }
+    }
+
+    cout << best_m << " " << best_f << endl;
+
+    return 0;
+}

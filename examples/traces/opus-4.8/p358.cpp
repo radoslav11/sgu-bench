@@ -1,0 +1,12 @@
+#include <bits/stdc++.h>
+using namespace std;
+int med(int a,int b,int c){
+    int arr[3]={a,b,c};
+    sort(arr,arr+3);
+    return arr[1];
+}
+int main(){
+    int a,b,c,m[3];
+    for(int i=0;i<3;i++){cin>>a>>b>>c;m[i]=med(a,b,c);}
+    cout<<med(m[0],m[1],m[2])<<endl;
+}

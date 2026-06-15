@@ -1,0 +1,21 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    int n;
+    scanf("%d",&n);
+    int maxv=0;
+    vector<int> a(n);
+    for(int i=0;i<n;i++){scanf("%d",&a[i]); maxv=max(maxv,a[i]);}
+    vector<int> cnt(maxv+1,0);
+    for(int i=0;i<n;i++) cnt[a[i]]++;
+    int ans=1;
+    for(int d=1;d<=maxv;d++){
+        int c=0;
+        for(int m=d;m<=maxv;m+=d){
+            c+=cnt[m];
+            if(c>=2){ans=max(ans,d);break;}
+        }
+    }
+    printf("%d\n",ans);
+    return 0;
+}

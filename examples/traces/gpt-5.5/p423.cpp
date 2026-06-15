@@ -1,0 +1,135 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ll = long long;
+
+int n, s, t;
+int Nmask, Ncode;
+vector<int> adjMask;
+vector<ll> popMask;
+vector<int> pow3v, addA, addB;
+vector<array<ll, 2>> memo;
+vector<array<char, 2>> vis;
+
+bool hasMove(int own, int other) {
+    int freeMask = ((1 << n) - 1) ^ (own | other);
+    int avail = adjMask[own] & freeMask;
+    ll ownPop = popMask[own];
+
+    for (int x = avail; x; x &= x - 1) {
+        int bit = x & -x;
+        if (popMask[bit] < ownPop) return true;
+    }
+    return false;
+}
+
+ll dfs(int A, int B, int code, int turn) {
+    if (vis[code][turn]) return memo[code][turn];
+    vis[code][turn] = 1;
+
+    int full = (1 << n) - 1;
+
+    if (turn == 0) {
+        int freeMask = full ^ (A | B);
+        int avail = adjMask[A] & freeMask;
+        ll ownPop = popMask[A];
+
+        ll best = LLONG_MIN;
+        for (int sub = avail; sub; sub = (sub - 1) & avail) {
+            if (popMask[sub] < ownPop) {
+                best = max(best, dfs(A | sub, B, code + addA[sub], 1));
+            }
+        }
+
+        if (best == LLONG_MIN) {
+            if (hasMove(B, A)) best = dfs(A, B, code, 1);
+            else best = popMask[A] - popMask[B];
+        }
+
+        memo[code][turn] = best;
+    } else {
+        int freeMask = full ^ (A | B);
+        int avail = adjMask[B] & freeMask;
+        ll ownPop = popMask[B];
+
+        ll best = LLONG_MAX;
+        for (int sub = avail; sub; sub = (sub - 1) & avail) {
+            if (popMask[sub] < ownPop) {
+                best = min(best, dfs(A, B | sub, code + addB[sub], 0));
+            }
+        }
+
+        if (best == LLONG_MAX) {
+            if (hasMove(A, B)) best = dfs(A, B, code, 0);
+            else best = popMask[A] - popMask[B];
+        }
+
+        memo[code][turn] = best;
+    }
+
+    return memo[code][turn];
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> n >> s >> t;
+    --s;
+    --t;
+
+    Nmask = 1 << n;
+    adjMask.assign(Nmask, 0);
+
+    vector<int> cityAdj(n, 0);
+    for (int i = 0; i < n; ++i) {
+        string row;
+        cin >> row;
+        for (int j = 0; j < n; ++j) {
+            if (row[j] == '1') cityAdj[i] |= 1 << j;
+        }
+    }
+
+    vector<ll> popCity(n);
+    for (int i = 0; i < n; ++i) cin >> popCity[i];
+
+    popMask.assign(Nmask, 0);
+    for (int mask = 1; mask < Nmask; ++mask) {
+        int bit = mask & -mask;
+        int v = __builtin_ctz(bit);
+        popMask[mask] = popMask[mask ^ bit] + popCity[v];
+    }
+
+    for (int mask = 1; mask < Nmask; ++mask) {
+        int bit = mask & -mask;
+        int v = __builtin_ctz(bit);
+        adjMask[mask] = adjMask[mask ^ bit] | cityAdj[v];
+    }
+    for (int mask = 0; mask < Nmask; ++mask) {
+        adjMask[mask] &= ~mask;
+    }
+
+    pow3v.assign(n, 1);
+    for (int i = 1; i < n; ++i) pow3v[i] = pow3v[i - 1] * 3;
+    Ncode = pow3v[n - 1] * 3;
+
+    addA.assign(Nmask, 0);
+    addB.assign(Nmask, 0);
+    for (int mask = 1; mask < Nmask; ++mask) {
+        int bit = mask & -mask;
+        int v = __builtin_ctz(bit);
+        addA[mask] = addA[mask ^ bit] + pow3v[v];
+        addB[mask] = addB[mask ^ bit] + 2 * pow3v[v];
+    }
+
+    memo.assign(Ncode, {0, 0});
+    vis.assign(Ncode, {0, 0});
+
+    int A = 1 << s;
+    int B = 1 << t;
+    int code = pow3v[s] + 2 * pow3v[t];
+
+    cout << dfs(A, B, code, 0) << '\n';
+
+    return 0;
+}

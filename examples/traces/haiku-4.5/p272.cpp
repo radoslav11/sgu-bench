@@ -1,0 +1,132 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+const int INF = 1e9;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int N, M;
+    cin >> N >> M;
+    
+    vector<vector<int>> adj(N+1);
+    for(int i = 0; i < M; i++){
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+    
+    int N1;
+    cin >> N1;
+    vector<int> A(N1);
+    for(int i = 0; i < N1; i++){
+        cin >> A[i];
+    }
+    
+    int N2;
+    cin >> N2;
+    vector<int> B(N2);
+    for(int i = 0; i < N2; i++){
+        cin >> B[i];
+    }
+    
+    // BFS from B to find distance to closest exit
+    vector<int> distB(N+1, INF);
+    queue<int> q;
+    for(int b : B){
+        distB[b] = 0;
+        q.push(b);
+    }
+    while(!q.empty()){
+        int u = q.front();
+        q.pop();
+        for(int v : adj[u]){
+            if(distB[v] == INF){
+                distB[v] = distB[u] + 1;
+                q.push(v);
+            }
+        }
+    }
+    
+    // Find minimum distance
+    int minDist = INF;
+    for(int a : A){
+        minDist = min(minDist, distB[a]);
+    }
+    
+    // Build graph with only edges on shortest paths
+    vector<vector<pair<int,int>>> graph(N+1);
+    int edgeId = 0;
+    for(int u = 1; u <= N; u++){
+        for(int v : adj[u]){
+            if(u < v && distB[u] == distB[v] + 1){
+                graph[v].push_back({u, edgeId});
+                graph[u].push_back({v, edgeId});
+                edgeId++;
+            }
+        }
+    }
+    
+    // Find vertex-disjoint paths using modified BFS
+    vector<int> path;
+    vector<vector<int>> paths;
+    set<int> usedVertices;
+    
+    for(int a : A){
+        if(distB[a] != minDist || usedVertices.count(a)) continue;
+        
+        // BFS to find path from a to B
+        vector<int> parent(N+1, -1);
+        vector<int> parentEdge(N+1, -1);
+        queue<int> bfs;
+        bfs.push(a);
+        parent[a] = a;
+        
+        int endNode = -1;
+        while(!bfs.empty() && endNode == -1){
+            int u = bfs.front();
+            bfs.pop();
+            
+            if(distB[u] == 0){
+                endNode = u;
+                break;
+            }
+            
+            for(auto [v, eid] : graph[u]){
+                if(parent[v] == -1 && !usedVertices.count(v) && distB[v] < distB[u]){
+                    parent[v] = u;
+                    parentEdge[v] = eid;
+                    bfs.push(v);
+                }
+            }
+        }
+        
+        if(endNode != -1){
+            // Reconstruct path
+            vector<int> curPath;
+            int curr = endNode;
+            while(curr != a){
+                curPath.push_back(curr);
+                usedVertices.insert(curr);
+                curr = parent[curr];
+            }
+            curPath.push_back(a);
+            usedVertices.insert(a);
+            reverse(curPath.begin(), curPath.end());
+            paths.push_back(curPath);
+        }
+    }
+    
+    cout << paths.size() << " " << minDist << "\n";
+    for(auto& p : paths){
+        for(int i = 0; i < p.size(); i++){
+            if(i > 0) cout << " ";
+            cout << p[i];
+        }
+        cout << "\n";
+    }
+    
+    return 0;
+}

@@ -1,0 +1,51 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+int get_sg(int L, int left, int right) {
+    if (L == 0) return 0;
+    if (left == right) {
+        if (left == 0) return L % 2;
+        else return 1;
+    } else {
+        if (left == 0 || right == 0) return L;
+        else return 0;
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    if (!(cin >> n)) return 0;
+    string s;
+    cin >> s;
+    
+    int total_sg = 0;
+    int i = 0;
+    while (i < n) {
+        if (s[i] == '0') {
+            int j = i;
+            while (j < n && s[j] == '0') {
+                j++;
+            }
+            int L = j - i;
+            int left = (i == 0) ? 0 : (s[i-1] - '0');
+            int right = (j == n) ? 0 : (s[j] - '0');
+            total_sg ^= get_sg(L, left, right);
+            i = j;
+        } else {
+            i++;
+        }
+    }
+    
+    if (total_sg > 0) {
+        cout << "FIRST\n";
+    } else {
+        cout << "SECOND\n";
+    }
+    
+    return 0;
+}

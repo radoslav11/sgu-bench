@@ -1,0 +1,116 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int n, s, t;
+vector<vector<int>> adj;
+vector<int> popul;
+map<tuple<int,int,int>, int> memo;
+
+// Get neighbors of a set (represented as bitmask)
+int getNeighbors(int mask) {
+    int neigh = 0;
+    for(int i = 0; i < n; i++) {
+        if(mask & (1 << i)) {
+            for(int j = 0; j < n; j++) {
+                if(!(mask & (1 << j)) && adj[i][j]) {
+                    neigh |= (1 << j);
+                }
+            }
+        }
+    }
+    return neigh;
+}
+
+int getPopul(int mask) {
+    int sum = 0;
+    for(int i = 0; i < n; i++) {
+        if(mask & (1 << i)) sum += popul[i];
+    }
+    return sum;
+}
+
+// turn: 0 = A's turn (maximize), 1 = B's turn (minimize)
+// A = cities of country A, B = cities of country B
+int solve(int A, int B, int turn) {
+    int independent = ((1 << n) - 1) ^ A ^ B;
+    
+    // If no independent cities left, game ends
+    if(independent == 0) {
+        return getPopul(A) - getPopul(B);
+    }
+    
+    auto key = make_tuple(A, B, turn);
+    if(memo.count(key)) return memo[key];
+    
+    int result;
+    
+    if(turn == 0) {
+        // Country A's turn - maximize
+        result = getPopul(A) - getPopul(B); // worst case: conquer nothing
+        
+        int neighA = getNeighbors(A);
+        int neighPopul = getPopul(neighA);
+        
+        // Try all subsets of independent cities that are neighbors of A
+        int possibleCities = neighA & independent;
+        
+        for(int subset = possibleCities; ; subset = (subset - 1) & possibleCities) {
+            int subsetPopul = getPopul(subset);
+            if(subsetPopul <= neighPopul) {
+                int newA = A | subset;
+                result = max(result, solve(newA, B, 1));
+            }
+            if(subset == 0) break;
+        }
+    } else {
+        // Country B's turn - minimize
+        result = getPopul(A) - getPopul(B); // worst case for B: conquer nothing
+        
+        int neighB = getNeighbors(B);
+        int neighPopul = getPopul(neighB);
+        
+        // Try all subsets of independent cities that are neighbors of B
+        int possibleCities = neighB & independent;
+        
+        for(int subset = possibleCities; ; subset = (subset - 1) & possibleCities) {
+            int subsetPopul = getPopul(subset);
+            if(subsetPopul <= neighPopul) {
+                int newB = B | subset;
+                result = min(result, solve(A, newB, 0));
+            }
+            if(subset == 0) break;
+        }
+    }
+    
+    return memo[key] = result;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cin >> n >> s >> t;
+    s--; t--;
+    
+    adj.resize(n, vector<int>(n));
+    popul.resize(n);
+    
+    for(int i = 0; i < n; i++) {
+        string line;
+        cin >> line;
+        for(int j = 0; j < n; j++) {
+            adj[i][j] = line[j] - '0';
+        }
+    }
+    
+    for(int i = 0; i < n; i++) {
+        cin >> popul[i];
+    }
+    
+    int initialA = 1 << s;
+    int initialB = 1 << t;
+    
+    cout << solve(initialA, initialB, 0) << endl;
+    
+    return 0;
+}

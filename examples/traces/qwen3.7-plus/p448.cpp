@@ -1,0 +1,68 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+long long dp[1 << 16][16];
+int R[16][16];
+int beats[16];
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            cin >> R[i][j];
+            if (R[i][j]) {
+                beats[i] |= (1 << j);
+            }
+        }
+    }
+
+    for (int i = 0; i < N; ++i) {
+        dp[1 << i][i] = 1;
+    }
+
+    for (int mask = 1; mask < (1 << N); ++mask) {
+        int k = __builtin_popcount(mask);
+        if (k == 1) continue;
+
+        int H = 32 - __builtin_clz(k - 1);
+        int max_size = 1 << (H - 1);
+        int low = __builtin_ctz(mask);
+
+        for (int S1 = mask; S1 > 0; S1 = (S1 - 1) & mask) {
+            if (!(S1 & (1 << low))) continue;
+            int S2 = mask ^ S1;
+            int k1 = __builtin_popcount(S1);
+            int k2 = k - k1;
+            
+            if (k1 > max_size || k2 > max_size) continue;
+
+            for (int w1 = 0; w1 < N; ++w1) {
+                long long ways1 = dp[S1][w1];
+                if (!ways1) continue;
+
+                int bw = beats[w1];
+                for (int w2 = 0; w2 < N; ++w2) {
+                    long long ways2 = dp[S2][w2];
+                    if (!ways2) continue;
+
+                    if ((bw >> w2) & 1) {
+                        dp[mask][w1] += ways1 * ways2;
+                    } else {
+                        dp[mask][w2] += ways1 * ways2;
+                    }
+                }
+            }
+        }
+    }
+
+    cout << dp[(1 << N) - 1][M - 1] << "\n";
+
+    return 0;
+}

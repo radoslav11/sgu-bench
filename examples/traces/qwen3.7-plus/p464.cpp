@@ -1,0 +1,139 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+double get_W1(double p1, double p2, double V11, double V12, double V13, double k1) {
+    if (p1 < 1e-12 && p2 < 1e-12) return 0.0;
+    double S = p1 + p2 - p1 * p2;
+    if (S < 1e-12) {
+        if (p1 < 1e-12) return V13;
+        return V12 - (log(0.99) - log(1.0 - p1)) / (k1 * p1);
+    }
+    double b1 = (log(0.99) - log(1.0 - p1)) / k1;
+    return (-b1 + p1 * p2 * V11 + p1 * (1.0 - p2) * V12 + (1.0 - p1) * p2 * V13) / S;
+}
+
+double get_W2(double p1, double p2, double V21, double V22, double V23, double k2) {
+    if (p1 < 1e-12 && p2 < 1e-12) return 0.0;
+    double S = p1 + p2 - p1 * p2;
+    if (S < 1e-12) {
+        if (p2 < 1e-12) return V22;
+        return V23 - (log(0.99) - log(1.0 - p2)) / (k2 * p2);
+    }
+    double b2 = (log(0.99) - log(1.0 - p2)) / k2;
+    return (-b2 + p1 * p2 * V21 + p1 * (1.0 - p2) * V22 + (1.0 - p1) * p2 * V23) / S;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    double F1, F2, V;
+    if (!(cin >> N >> F1 >> F2 >> V)) return 0;
+
+    double k1 = -log(1.0 - F1);
+    double k2 = -log(1.0 - F2);
+
+    vector<vector<double>> W1_val(N + 1, vector<double>(N + 1, 0.0));
+    vector<vector<double>> W2_val(N + 1, vector<double>(N + 1, 0.0));
+    vector<vector<double>> p1_val(N + 1, vector<double>(N + 1, 0.0));
+    vector<vector<double>> p2_val(N + 1, vector<double>(N + 1, 0.0));
+
+    for (int n1 = 0; n1 <= N; ++n1) {
+        for (int n2 = 0; n2 <= N; ++n2) {
+            if (n1 == N && n2 == N) {
+                W1_val[n1][n2] = V / 2.0;
+                W2_val[n1][n2] = V / 2.0;
+            } else if (n1 == N) {
+                W1_val[n1][n2] = V;
+                W2_val[n1][n2] = 0.0;
+            } else if (n2 == N) {
+                W1_val[n1][n2] = 0.0;
+                W2_val[n1][n2] = V;
+            }
+        }
+    }
+
+    for (int s = 2 * N - 1; s >= 0; --s) {
+        for (int n1 = 0; n1 <= N; ++n1) {
+            int n2 = s - n1;
+            if (n2 < 0 || n2 > N) continue;
+            if (n1 == N || n2 == N) continue;
+
+            double V11 = W1_val[n1+1][n2+1];
+            double V12 = W1_val[n1+1][n2];
+            double V13 = W1_val[n1][n2+1];
+
+            double V21 = W2_val[n1+1][n2+1];
+            double V22 = W2_val[n1+1][n2];
+            double V23 = W2_val[n1][n2+1];
+
+            double p1 = 0.1, p2 = 0.1;
+            for (int iter = 0; iter < 10000; ++iter) {
+                double W1 = get_W1(p1, p2, V11, V12, V13, k1);
+                double M1 = (1.0 - p2) * (V12 - W1) + p2 * (V11 - V13);
+                double np1 = (k1 * M1 > 1.0) ? (1.0 - 1.0 / (k1 * M1)) : 0.0;
+
+                double W2 = get_W2(p1, p2, V21, V22, V23, k2);
+                double M2 = (1.0 - p1) * (V23 - W2) + p1 * (V21 - V22);
+                double np2 = (k2 * M2 > 1.0) ? (1.0 - 1.0 / (k2 * M2)) : 0.0;
+
+                if (abs(p1 - np1) < 1e-13 && abs(p2 - np2) < 1e-13) {
+                    p1 = np1;
+                    p2 = np2;
+                    break;
+                }
+                p1 = np1;
+                p2 = np2;
+            }
+            p1_val[n1][n2] = p1;
+            p2_val[n1][n2] = p2;
+            W1_val[n1][n2] = get_W1(p1, p2, V11, V12, V13, k1);
+            W2_val[n1][n2] = get_W2(p1, p2, V21, V22, V23, k2);
+        }
+    }
+
+    vector<vector<double>> P1(N + 1, vector<double>(N + 1, 0.0));
+    for (int n1 = 0; n1 <= N; ++n1) {
+        for (int n2 = 0; n2 <= N; ++n2) {
+            if (n1 == N && n2 == N) {
+                P1[n1][n2] = 0.5;
+            } else if (n1 == N) {
+                P1[n1][n2] = 1.0;
+            } else if (n2 == N) {
+                P1[n1][n2] = 0.0;
+            }
+        }
+    }
+
+    for (int s = 2 * N - 1; s >= 0; --s) {
+        for (int n1 = 0; n1 <= N; ++n1) {
+            int n2 = s - n1;
+            if (n2 < 0 || n2 > N) continue;
+            if (n1 == N || n2 == N) continue;
+
+            double p1 = p1_val[n1][n2];
+            double p2 = p2_val[n1][n2];
+            double S = p1 + p2 - p1 * p2;
+            
+            if (S < 1e-12) {
+                P1[n1][n2] = 0.0;
+            } else {
+                P1[n1][n2] = (p1 * p2 * P1[n1+1][n2+1] + 
+                              p1 * (1.0 - p2) * P1[n1+1][n2] + 
+                              (1.0 - p1) * p2 * P1[n1][n2+1]) / S;
+            }
+        }
+    }
+
+    double prob1 = P1[0][0];
+    double prob2 = 1.0 - prob1;
+
+    cout << fixed << setprecision(9) << prob1 << " " << prob2 << "\n";
+
+    return 0;
+}

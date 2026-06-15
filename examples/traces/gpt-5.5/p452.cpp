@@ -1,0 +1,248 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const double L = 50.0;
+const double EPS = 1e-9;
+
+struct V3 {
+    int x, y, z;
+    bool operator<(const V3& o) const {
+        if (x != o.x) return x < o.x;
+        if (y != o.y) return y < o.y;
+        return z < o.z;
+    }
+    bool operator==(const V3& o) const { return x == o.x && y == o.y && z == o.z; }
+};
+
+struct P2 {
+    double x, y;
+    P2() {}
+    P2(double x, double y) : x(x), y(y) {}
+    P2 operator+(const P2& o) const { return P2(x + o.x, y + o.y); }
+    P2 operator-(const P2& o) const { return P2(x - o.x, y - o.y); }
+    P2 operator*(double k) const { return P2(x * k, y * k); }
+};
+
+double dot2(P2 a, P2 b) { return a.x * b.x + a.y * b.y; }
+double norm2(P2 a) { return sqrt(dot2(a, a)); }
+
+int coord(const V3& p, int a) {
+    if (a == 0) return p.x;
+    if (a == 1) return p.y;
+    return p.z;
+}
+
+V3 addAxis(V3 p, int a, int d) {
+    if (a == 0) p.x += d;
+    if (a == 1) p.y += d;
+    if (a == 2) p.z += d;
+    return p;
+}
+
+struct Face {
+    V3 c3;
+    int axis, sign;
+    int uax, vax;
+    vector<V3> corners;
+};
+
+struct EdgeAdj {
+    int to;
+    V3 e1, e2;
+};
+
+struct State {
+    int f;
+    P2 C, U, V;
+    double key;
+    bool operator<(const State& o) const { return key > o.key; }
+};
+
+long long rndkey(double x) {
+    return llround(x * 1000000.0);
+}
+
+string stateKey(const State& s) {
+    long long a[] = {
+        s.f,
+        rndkey(s.C.x), rndkey(s.C.y),
+        rndkey(s.U.x), rndkey(s.U.y),
+        rndkey(s.V.x), rndkey(s.V.y)
+    };
+    string r;
+    for (long long v : a) r += to_string(v) + ",";
+    return r;
+}
+
+P2 mapPoint(const Face& face, const State& st, const V3& p) {
+    double du = coord(p, face.uax) - coord(face.c3, face.uax);
+    double dv = coord(p, face.vax) - coord(face.c3, face.vax);
+    return st.C + st.U * du + st.V * dv;
+}
+
+double pointToSquareDist(P2 S, const State& st) {
+    P2 d = S - st.C;
+    double a = dot2(d, st.U);
+    double b = dot2(d, st.V);
+    double ca = max(-L, min(L, a));
+    double cb = max(-L, min(L, b));
+    P2 q = st.C + st.U * ca + st.V * cb;
+    return norm2(S - q);
+}
+
+bool pointOnFace(const Face& f, const V3& p) {
+    if (coord(p, f.axis) != coord(f.c3, f.axis) + f.sign * 50) return false;
+    if (abs(coord(p, f.uax) - coord(f.c3, f.uax)) > 50) return false;
+    if (abs(coord(p, f.vax) - coord(f.c3, f.vax)) > 50) return false;
+    return true;
+}
+
+vector<V3> faceCorners(V3 c, int ax, int sg, int u, int v) {
+    vector<V3> res;
+    for (int su : {-50, 50}) for (int sv : {-50, 50}) {
+        V3 p = c;
+        if (ax == 0) p.x += sg * 50;
+        if (ax == 1) p.y += sg * 50;
+        if (ax == 2) p.z += sg * 50;
+        if (u == 0) p.x += su;
+        if (u == 1) p.y += su;
+        if (u == 2) p.z += su;
+        if (v == 0) p.x += sv;
+        if (v == 1) p.y += sv;
+        if (v == 2) p.z += sv;
+        res.push_back(p);
+    }
+    return res;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<V3> cubes(n);
+    set<V3> occ;
+    for (int i = 0; i < n; i++) {
+        cin >> cubes[i].x >> cubes[i].y >> cubes[i].z;
+        occ.insert(cubes[i]);
+    }
+
+    V3 S3, D3;
+    cin >> S3.x >> S3.y >> S3.z >> D3.x >> D3.y >> D3.z;
+
+    vector<Face> faces;
+    for (auto c : cubes) {
+        for (int ax = 0; ax < 3; ax++) for (int sg : {-1, 1}) {
+            V3 nb = addAxis(c, ax, sg * 100);
+            if (occ.count(nb)) continue;
+
+            Face f;
+            f.c3 = c;
+            f.axis = ax;
+            f.sign = sg;
+            vector<int> oth;
+            for (int a = 0; a < 3; a++) if (a != ax) oth.push_back(a);
+            f.uax = oth[0];
+            f.vax = oth[1];
+            f.corners = faceCorners(c, ax, sg, f.uax, f.vax);
+            faces.push_back(f);
+        }
+    }
+
+    int F = faces.size();
+    vector<vector<EdgeAdj>> adj(F);
+
+    for (int i = 0; i < F; i++) {
+        for (int j = i + 1; j < F; j++) {
+            vector<V3> common;
+            for (auto a : faces[i].corners)
+                for (auto b : faces[j].corners)
+                    if (a == b) common.push_back(a);
+
+            sort(common.begin(), common.end());
+            common.erase(unique(common.begin(), common.end(), [](const V3& a, const V3& b){ return a == b; }), common.end());
+
+            if (common.size() == 2) {
+                adj[i].push_back({j, common[0], common[1]});
+                adj[j].push_back({i, common[0], common[1]});
+            }
+        }
+    }
+
+    int sf = -1, df = -1;
+    for (int i = 0; i < F; i++) {
+        if (pointOnFace(faces[i], S3)) sf = i;
+        if (pointOnFace(faces[i], D3)) df = i;
+    }
+
+    State start;
+    start.f = sf;
+    start.C = P2(0, 0);
+    start.U = P2(1, 0);
+    start.V = P2(0, 1);
+
+    P2 S2 = mapPoint(faces[sf], start, S3);
+
+    priority_queue<State> pq;
+    start.key = pointToSquareDist(S2, start);
+    pq.push(start);
+
+    unordered_set<string> vis;
+    double ans = 1e100;
+
+    while (!pq.empty()) {
+        State cur = pq.top();
+        pq.pop();
+
+        if (cur.key + EPS >= ans) break;
+
+        string k = stateKey(cur);
+        if (vis.count(k)) continue;
+        vis.insert(k);
+
+        if (cur.f == df) {
+            P2 d2 = mapPoint(faces[df], cur, D3);
+            ans = min(ans, norm2(d2 - S2));
+            continue;
+        }
+
+        for (auto e : adj[cur.f]) {
+            Face &cf = faces[cur.f], &nf = faces[e.to];
+
+            P2 A = mapPoint(cf, cur, e.e1);
+            P2 B = mapPoint(cf, cur, e.e2);
+            P2 M = (A + B) * 0.5;
+
+            P2 newC = M * 2.0 - cur.C;
+
+            double a1 = coord(e.e1, nf.uax) - coord(nf.c3, nf.uax);
+            double b1 = coord(e.e1, nf.vax) - coord(nf.c3, nf.vax);
+            double a2 = coord(e.e2, nf.uax) - coord(nf.c3, nf.uax);
+            double b2 = coord(e.e2, nf.vax) - coord(nf.c3, nf.vax);
+
+            P2 p1 = A - newC;
+            P2 p2 = B - newC;
+
+            double det = a1 * b2 - a2 * b1;
+            if (fabs(det) < EPS) continue;
+
+            P2 newU = (p1 * b2 - p2 * b1) * (1.0 / det);
+            P2 newV = (p2 * a1 - p1 * a2) * (1.0 / det);
+
+            State nxt;
+            nxt.f = e.to;
+            nxt.C = newC;
+            nxt.U = newU;
+            nxt.V = newV;
+            nxt.key = pointToSquareDist(S2, nxt);
+
+            if (nxt.key + EPS < ans) pq.push(nxt);
+        }
+    }
+
+    cout.setf(ios::fixed);
+    cout << setprecision(12) << ans << "\n";
+    return 0;
+}

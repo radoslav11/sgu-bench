@@ -1,0 +1,124 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <cstring>
+
+using namespace std;
+
+int state_id[1024][1024];
+
+struct Transition {
+    int nxt;
+    int cnt;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, k;
+    if (!(cin >> n >> k)) return 0;
+
+    int max_k = (n == 1) ? 1 : ((n == 2) ? 4 : (n * n + 1) / 2);
+    if (k > max_k) {
+        cout << 0 << "\n";
+        return 0;
+    }
+
+    int limit = 1 << n;
+    int mask_limit = limit - 1;
+
+    auto adj_valid = [&](int m1, int m2) {
+        return ((m1 & ((m2 << 2) & mask_limit)) == 0) && ((m1 & (m2 >> 2)) == 0);
+    };
+    auto dist2_valid = [&](int m1, int m2) {
+        return ((m1 & ((m2 << 1) & mask_limit)) == 0) && ((m1 & (m2 >> 1)) == 0);
+    };
+
+    memset(state_id, -1, sizeof(state_id));
+
+    vector<pair<int, int>> states;
+    queue<pair<int, int>> q;
+
+    q.push({0, 0});
+    state_id[0][0] = 0;
+    states.push_back({0, 0});
+
+    while (!q.empty()) {
+        auto p = q.front();
+        q.pop();
+        int m2 = p.first;
+        int m1 = p.second;
+
+        for (int m0 = 0; m0 < limit; ++m0) {
+            if (adj_valid(m1, m0) && dist2_valid(m2, m0)) {
+                if (state_id[m1][m0] == -1) {
+                    state_id[m1][m0] = states.size();
+                    states.push_back({m1, m0});
+                    q.push({m1, m0});
+                }
+            }
+        }
+    }
+
+    int num_states = states.size();
+    vector<int> trans_offset(num_states + 1, 0);
+    vector<Transition> trans_data;
+
+    for (size_t i = 0; i < num_states; ++i) {
+        int m2 = states[i].first;
+        int m1 = states[i].second;
+        int count = 0;
+        for (int m0 = 0; m0 < limit; ++m0) {
+            if (adj_valid(m1, m0) && dist2_valid(m2, m0)) {
+                count++;
+            }
+        }
+        trans_offset[i + 1] = trans_offset[i] + count;
+    }
+
+    trans_data.reserve(trans_offset.back());
+
+    for (size_t i = 0; i < num_states; ++i) {
+        int m2 = states[i].first;
+        int m1 = states[i].second;
+        for (int m0 = 0; m0 < limit; ++m0) {
+            if (adj_valid(m1, m0) && dist2_valid(m2, m0)) {
+                trans_data.push_back({state_id[m1][m0], __builtin_popcount(m0)});
+            }
+        }
+    }
+
+    vector<long long> dp(num_states * (k + 1), 0);
+    vector<long long> next_dp(num_states * (k + 1), 0);
+    dp[0 * (k + 1) + 0] = 1;
+
+    for (int row = 0; row < n; ++row) {
+        fill(next_dp.begin(), next_dp.end(), 0);
+        for (size_t i = 0; i < num_states; ++i) {
+            long long* dp_ptr = &dp[i * (k + 1)];
+            int start = trans_offset[i];
+            int end = trans_offset[i + 1];
+            for (int cur_k = 0; cur_k <= k; ++cur_k) {
+                long long val = dp_ptr[cur_k];
+                if (!val) continue;
+                for (int j = start; j < end; ++j) {
+                    const Transition& tr = trans_data[j];
+                    if (cur_k + tr.cnt <= k) {
+                        next_dp[tr.nxt * (k + 1) + cur_k + tr.cnt] += val;
+                    }
+                }
+            }
+        }
+        swap(dp, next_dp);
+    }
+
+    long long total_ways = 0;
+    for (size_t i = 0; i < num_states; ++i) {
+        total_ways += dp[i * (k + 1) + k];
+    }
+
+    cout << total_ways << "\n";
+
+    return 0;
+}

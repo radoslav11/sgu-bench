@@ -1,0 +1,58 @@
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+long long memo[25][2][2];
+string S;
+
+long long dp(int i, int less, int prev_is_1) {
+    if (i == (int)S.length()) return 1;
+    if (memo[i][less][prev_is_1] != -1) return memo[i][less][prev_is_1];
+    
+    int limit = less ? 9 : S[i] - '0';
+    long long ans = 0;
+    for (int d = 0; d <= limit; ++d) {
+        if (prev_is_1 && d == 3) continue;
+        ans += dp(i + 1, less || (d < limit), d == 1);
+    }
+    return memo[i][less][prev_is_1] = ans;
+}
+
+long long count_valid(long long X) {
+    if (X < 0) return 0;
+    S = to_string(X);
+    for (int i = 0; i < (int)S.length(); ++i) {
+        memo[i][0][0] = memo[i][0][1] = memo[i][1][0] = memo[i][1][1] = -1;
+    }
+    return dp(0, 0, 0);
+}
+
+void solve() {
+    long long N;
+    cin >> N;
+    long long low = 1, high = 5000000000000000000LL;
+    long long ans = high;
+    while (low <= high) {
+        long long mid = low + (high - low) / 2;
+        if (count_valid(mid) >= N + 1) {
+            ans = mid;
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
+    }
+    cout << ans << "\n";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int T;
+    if (cin >> T) {
+        while (T--) {
+            solve();
+        }
+    }
+    return 0;
+}

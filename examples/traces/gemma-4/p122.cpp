@@ -1,0 +1,182 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The problem asks for a Hamiltonian cycle in a graph where each vertex has a degree
+ * of at least floor((N+1)/2). According to Dirac's Theorem, if every vertex in a 
+ * graph with N >= 3 has degree at least N/2, then the graph contains a Hamiltonian cycle.
+ * Our condition floor((N+1)/2) is always >= N/2 for all N. For N=2, the condition
+ * floor((2+1)/2) = 1 ensures a simple edge between the two people, making a cycle 1-2-1.
+ * 
+ * Algorithm:
+ * We use an O(N^2) algorithm to find a Hamiltonian cycle:
+ * 1. Start with an arbitrary vertex and build a path greedily.
+ * 2. If the path can be extended from either end, extend it.
+ * 3. If not, and the path has length < N, we use the degree condition to form a cycle
+ *    using the existing path vertices, and then extend the cycle by picking an 
+ *    unvisited neighbor of a vertex in the cycle.
+ * 4. If the path includes all N vertices, we either have a cycle or we can rearrange 
+ *    the path into a cycle.
+ * 
+ * Time complexity: O(N^2)
+ * Space complexity: O(N^2) for the adjacency matrix.
+ */
+
+const int MAXN = 1005;
+bool adj[MAXN][MAXN];
+bool in_path[MAXN];
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    string line;
+    getline(cin, line); // Consume the newline after N
+
+    for (int i = 1; i <= N; ++i) {
+        if (!getline(cin, line)) break;
+        stringstream ss(line);
+        int friend_id;
+        while (ss >> friend_id) {
+            adj[i][friend_id] = adj[friend_id][i] = true;
+        }
+    }
+
+    if (N == 0) return 0;
+    if (N == 1) {
+        cout << "1 1" << endl;
+        return 0;
+    }
+
+    vector<int> path;
+    path.push_back(1);
+    in_path[1] = true;
+
+    while (path.size() < (size_t)N) {
+        // Try to extend from the back
+        int back = path.back();
+        int next_u = -1;
+        for (int v = 1; v <= N; ++v) {
+            if (adj[back][v] && !in_path[v]) {
+                next_u = v;
+                break;
+            }
+        }
+
+        if (next_u != -1) {
+            path.push_back(next_u);
+            in_path[next_u] = true;
+            continue;
+        }
+
+        // Try to extend from the front
+        int front = path.front();
+        int next_f = -1;
+        for (int v = 1; v <= N; ++v) {
+            if (adj[front][v] && !in_path[v]) {
+                next_f = v;
+                break;
+            }
+        }
+
+        if (next_f != -1) {
+            path.insert(path.begin(), next_f);
+            in_path[next_f] = true;
+            continue;
+        }
+
+        // Cannot extend from both ends, form a cycle and then a new path
+        int k = path.size();
+        int idx = -1;
+        for (int i = 0; i < k - 1; ++i) {
+            if (adj[path[0]][path[i + 1]] && adj[path[k - 1]][path[i]]) {
+                idx = i;
+                break;
+            }
+        }
+
+        if (idx != -1) {
+            // Create cycle from path using idx
+            vector<int> cycle;
+            cycle.push_back(path[0]);
+            for (int m = idx + 1; m < k; ++m) cycle.push_back(path[m]);
+            for (int m = idx; m >= 1; --m) cycle.push_back(path[m]);
+
+            // Find an unvisited vertex u adjacent to some vertex in the cycle
+            int u = -1, j = -1;
+            for (int v = 1; v <= N; ++v) {
+                if (!in_path[v]) {
+                    for (int m = 0; m < (int)cycle.size(); ++m) {
+                        if (adj[v][cycle[m]]) {
+                            u = v;
+                            j = m;
+                            break;
+                        }
+                    }
+                }
+                if (u != -1) break;
+            }
+
+            if (u != -1) {
+                // New path starting from u and going through the cycle
+                vector<int> next_path;
+                next_path.push_back(u);
+                for (int m = j; m < (int)cycle.size(); ++m) next_path.push_back(cycle[m]);
+                for (int m = 0; m < j; ++m) next_path.push_back(cycle[m]);
+                
+                // Update in_path for the new path
+                for (int v = 1; v <= N; ++v) in_path[v] = false;
+                path = next_path;
+                for (int v : path) in_path[v] = true;
+            } else {
+                // This should not happen if Dirac's condition is satisfied
+                cout << "No solution" << endl;
+                return 0;
+            }
+        } else {
+            cout << "No solution" << endl;
+            return 0;
+        }
+    }
+
+    // Once N vertices are in the path, ensure it's a cycle
+    if (adj[path.front()][path.back()]) {
+        // Already a Hamiltonian cycle
+    } else {
+        int idx = -1;
+        for (int i = 0; i < N - 1; ++i) {
+            if (adj[path[0]][path[i + 1]] && adj[path[N - 1]][path[i]]) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx != -1) {
+            vector<int> cycle;
+            cycle.push_back(path[0]);
+            for (int m = idx + 1; m < N; ++m) cycle.push_back(path[m]);
+            for (int m = idx; m >= 1; --m) cycle.push_back(path[m]);
+            path = cycle;
+        } else {
+            cout << "No solution" << endl;
+            return 0;
+        }
+    }
+
+    // Output the cycle
+    for (int i = 0; i < N; ++i) {
+        cout << path[i] << " ";
+    }
+    cout << path[0] << endl;
+
+    return 0;
+}
+

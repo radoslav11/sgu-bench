@@ -1,0 +1,9 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    double X,Y,Z;
+    cin>>X>>Y>>Z;
+    double T=(Y-X)*60.0;
+    double prob=1.0-pow((T-Z)/T,2);
+    printf("%.7f\n",prob);
+}

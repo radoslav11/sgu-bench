@@ -1,0 +1,182 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Find the longest common palindromic substring of two strings.
+ * Constraints: Length of each string <= 2000. Time limit: 0.25s.
+ * 
+ * Approach:
+ * 1. Use a Palindromic Tree (Eertree) to find all distinct palindromic substrings of the first string.
+ *    The number of distinct palindromic substrings is at most the length of the string (N).
+ * 2. For each distinct palindromic substring, check if it is a substring of the second string.
+ *    The number of checks is at most N, and each check can take up to O(M) using a Suffix Automaton.
+ * 3. To optimize the substring checking, build a Suffix Automaton of the second string.
+ *    Checking if a palindrome is in the second string will take O(|palindrome|).
+ * 4. The total time complexity will be O(N^2 + M) or more precisely O(\sum |distinct_palindromes| + M).
+ *    For a string of length N, the sum of lengths of all distinct palindromes is at most O(N^2).
+ *    With N, M = 2000, N^2 = 4,000,000, which fits within the 0.25s time limit.
+ */
+
+const int MAXN = 2005;
+
+// Palindromic Tree (Eertree) structure to find distinct palindromes in S1
+struct Node {
+    int len, link, last_pos;
+    int next[26];
+};
+
+Node tree[MAXN];
+int pt_sz, pt_last;
+string s1;
+
+void pt_init() {
+    for (int i = 0; i < MAXN; i++) {
+        tree[i].len = 0;
+        tree[i].link = 0;
+        tree[i].last_pos = 0;
+        memset(tree[i].next, 0, sizeof(tree[i].next));
+    }
+    // Node 0: root for even length palindromes (len = 0)
+    // Node 1: root for odd length palindromes (len = -1)
+    tree[0].len = 0; tree[0].link = 1;
+    tree[1].len = -1; tree[1].link = 1;
+    pt_sz = 2;
+    pt_last = 0;
+}
+
+int get_link(int v, int pos) {
+    while (pos - 1 - tree[v].len < 0 || s1[pos - 1 - tree[v].len] != s1[pos]) {
+        v = tree[v].link;
+    }
+    return v;
+}
+
+void pt_add_char(int pos) {
+    int p = get_link(pt_last, pos);
+    int ch = s1[pos] - 'a';
+    if (!tree[p].next[ch]) {
+        int v = pt_sz++;
+        tree[v].len = tree[p].len + 2;
+        tree[v].last_pos = pos;
+        if (tree[v].len == 1) {
+            tree[v].link = 0;
+        } else {
+            tree[v].link = tree[get_link(tree[p].link, pos)].next[ch];
+        }
+        tree[p].next[ch] = v;
+    }
+    pt_last = tree[p].next[ch];
+}
+
+// Suffix Automaton (SAM) structure for checking if a string is a substring of S2
+struct SAMNode {
+    int len, link;
+    int next[26];
+};
+
+SAMNode sam[MAXN * 2];
+int sam_sz, sam_last;
+
+void sam_init() {
+    sam[0].len = 0;
+    sam[0].link = -1;
+    memset(sam[0].next, 0, sizeof(sam[0].next));
+    sam_sz = 1;
+    sam_last = 0;
+}
+
+void sam_extend(int c) {
+    int cur = sam_sz++;
+    sam[cur].len = sam[sam_last].len + 1;
+    memset(sam[cur].next, 0, sizeof(sam[cur].next));
+    int p = sam_last;
+    while (p != -1 && !sam[p].next[c]) {
+        sam[p].next[c] = cur;
+        p = sam[p].link;
+    }
+    if (p == -1) {
+        sam[cur].link = 0;
+    } else {
+        int q = sam[p].next[c];
+        if (sam[p].len + 1 == sam[q].len) {
+            sam[cur].link = q;
+        } else {
+            int clone = sam_sz++;
+            sam[clone].len = sam[p].len + 1;
+            memcpy(sam[clone].next, sam[q].next, sizeof(sam[q].next));
+            sam[clone].link = sam[q].link;
+            while (p != -1 && sam[p].next[c] == q) {
+                sam[p].next[c] = clone;
+                p = sam[p].link;
+            }
+            sam[q].link = sam[cur].link = clone;
+        }
+    }
+    sam_last = cur;
+}
+
+bool sam_check(const string& sub) {
+    int curr = 0;
+    for (char c : sub) {
+        int ch = c - 'a';
+        if (sam[curr].next[ch]) {
+            curr = sam[curr].next[ch];
+        } else {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct PalInfo {
+    int len, last_pos;
+};
+
+bool comparePal(const PalInfo& a, const PalInfo& b) {
+    return a.len > b.len;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string s2;
+    if (!(cin >> s1 >> s2)) return 0;
+
+    // Build Palindromic Tree for s1
+    pt_init();
+    for (int i = 0; i < (int)s1.length(); i++) {
+        pt_add_char(i);
+    }
+
+    // Build SAM for s2
+    sam_init();
+    for (char c : s2) {
+        sam_extend(c - 'a');
+    }
+
+    // Collect all distinct palindromes from s1
+    vector<PalInfo> pals;
+    for (int i = 2; i < pt_sz; i++) {
+        pals.push_back({tree[i].len, tree[i].last_pos});
+    }
+    // Sort palindromes by length in descending order to find the longest one first
+    sort(pals.begin(), pals.end(), comparePal);
+
+    // Check each palindrome in SAM of s2
+    for (const auto& p : pals) {
+        string sub = s1.substr(p.last_pos - p.len + 1, p.len);
+        if (sam_check(sub)) {
+            cout << sub << endl;
+            return 0;
+        }
+    }
+
+    return 0;
+}
+

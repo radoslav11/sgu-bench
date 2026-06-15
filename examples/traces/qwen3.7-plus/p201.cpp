@@ -1,0 +1,153 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+struct BigInt {
+    uint32_t digits[12];
+    int size;
+
+    BigInt() : size(0) {
+        for (int i = 0; i < 12; ++i) digits[i] = 0;
+    }
+    BigInt(uint64_t v) : size(0) {
+        for (int i = 0; i < 12; ++i) digits[i] = 0;
+        if (v == 0) {
+            digits[0] = 0;
+            size = 1;
+        } else {
+            while (v > 0) {
+                digits[size++] = v % 1000000000;
+                v /= 1000000000;
+            }
+        }
+    }
+    void add(const BigInt& other) {
+        uint32_t carry = 0;
+        int n = max(size, other.size);
+        for (int i = 0; i < n; ++i) {
+            uint64_t sum = (uint64_t)digits[i] + other.digits[i] + carry;
+            digits[i] = sum % 1000000000;
+            carry = sum / 1000000000;
+        }
+        if (carry > 0) {
+            digits[n] = carry;
+            size = n + 1;
+        } else {
+            size = n;
+        }
+    }
+    void print() {
+        if (size == 0) {
+            cout << 0 << "\n";
+            return;
+        }
+        cout << digits[size - 1];
+        for (int i = size - 2; i >= 0; --i) {
+            cout << setfill('0') << setw(9) << digits[i];
+        }
+        cout << "\n";
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string alphabet;
+    if (!(cin >> alphabet)) return 0;
+
+    int K;
+    cin >> K;
+
+    int S, L;
+    cin >> S >> L;
+    vector<bool> is_terminal(K + 1, false);
+    for (int i = 0; i < L; ++i) {
+        int t;
+        cin >> t;
+        is_terminal[t] = true;
+    }
+
+    int sigma_size = alphabet.size();
+    vector<vector<int>> phi(K + 1, vector<int>(sigma_size));
+    for (int i = 1; i <= K; ++i) {
+        for (int j = 0; j < sigma_size; ++j) {
+            cin >> phi[i][j];
+        }
+    }
+
+    vector<vector<int>> chi(K + 1, vector<int>(sigma_size));
+    for (int i = 1; i <= K; ++i) {
+        for (int j = 0; j < sigma_size; ++j) {
+            cin >> chi[i][j];
+        }
+    }
+
+    int N;
+    cin >> N;
+
+    vector<vector<int>> resolve(K + 1, vector<int>(sigma_size, -2));
+    for (int c = 0; c < sigma_size; ++c) {
+        vector<int> memo(K + 1, -2);
+        for (int i = 1; i <= K; ++i) {
+            if (memo[i] != -2) continue;
+            int curr = i;
+            vector<int> path;
+            while (true) {
+                if (memo[curr] >= 1) {
+                    for (int p : path) memo[p] = memo[curr];
+                    break;
+                } else if (memo[curr] == -1) {
+                    for (int p : path) memo[p] = -1;
+                    break;
+                } else if (memo[curr] == -3) {
+                    for (int p : path) memo[p] = -1;
+                    break;
+                } else {
+                    memo[curr] = -3;
+                    path.push_back(curr);
+                    if (chi[curr][c] == 0) {
+                        int valid_state = phi[curr][c];
+                        for (int p : path) memo[p] = valid_state;
+                        break;
+                    } else {
+                        curr = phi[curr][c];
+                    }
+                }
+            }
+        }
+        for (int i = 1; i <= K; ++i) {
+            resolve[i][c] = memo[i];
+        }
+    }
+
+    vector<BigInt> dp(K + 1);
+    for (int i = 1; i <= K; ++i) {
+        if (is_terminal[i]) {
+            dp[i] = BigInt(1);
+        } else {
+            dp[i] = BigInt(0);
+        }
+    }
+
+    for (int len = 1; len <= N; ++len) {
+        vector<BigInt> next_dp(K + 1);
+        for (int i = 1; i <= K; ++i) {
+            for (int c = 0; c < sigma_size; ++c) {
+                int nxt = resolve[i][c];
+                if (nxt >= 1) {
+                    next_dp[i].add(dp[nxt]);
+                }
+            }
+        }
+        dp = move(next_dp);
+    }
+
+    dp[S].print();
+
+    return 0;
+}

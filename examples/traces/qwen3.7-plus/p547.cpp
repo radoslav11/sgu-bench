@@ -1,0 +1,386 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <tuple>
+
+using namespace std;
+
+const int INF = 1e9;
+
+struct Choice {
+    int s_w;
+    int kw;
+    int qw;
+    int prev_ku;
+    int prev_qu;
+};
+
+int n, D1, C1, D2, C2;
+vector<int> W;
+vector<pair<int, int>> edges;
+vector<vector<int>> orig_adj;
+
+int n_nodes;
+vector<int> current_W;
+vector<vector<int>> current_adj;
+
+int R1, R2;
+vector<int> depth_arr, dist_d_arr;
+vector<bool> is_anc;
+vector<int> path_child;
+
+int mk_arr[205];
+int mq_arr[205];
+int* dp_ptr[205][5];
+Choice choice_w[205][5][205][205];
+
+struct Modified {
+    int w, s_u, nk, nq;
+};
+vector<Modified> modified_list;
+
+void init_dp() {
+    for (int i = 0; i <= n_nodes; ++i) {
+        for (int s = 0; s < 5; ++s) {
+            if (dp_ptr[i][s]) {
+                delete[] dp_ptr[i][s];
+                dp_ptr[i][s] = nullptr;
+            }
+        }
+    }
+    for (auto& m : modified_list) {
+        choice_w[m.w][m.s_u][m.nk][m.nq].s_w = -1;
+    }
+    modified_list.clear();
+}
+
+int& get_dp(int u, int s, int k, int q) {
+    return dp_ptr[u][s][k * (mq_arr[u] + 1) + q];
+}
+
+void remove_edge(vector<vector<int>>& adj, int u, int v) {
+    adj[u].erase(remove(adj[u].begin(), adj[u].end(), v), adj[u].end());
+    adj[v].erase(remove(adj[v].begin(), adj[v].end(), u), adj[v].end());
+}
+
+void compute_dfs(int u, int p, int d, const vector<int>& target_dist, int& dist_to_target) {
+    depth_arr[u] = d;
+    if (u == target_dist[0]) {
+        dist_to_target = d;
+    }
+    for (int w : current_adj[u]) {
+        if (w != p) {
+            compute_dfs(w, u, d + 1, target_dist, dist_to_target);
+        }
+    }
+}
+
+void compute_limits(int u, int p) {
+    mk_arr[u] = (depth_arr[u] == R1) ? 1 : 0;
+    mq_arr[u] = (dist_d_arr[u] == R2) ? 1 : 0;
+    for (int w : current_adj[u]) {
+        if (w == p) continue;
+        compute_limits(w, u);
+        mk_arr[u] += mk_arr[w];
+        mq_arr[u] += mq_arr[w];
+    }
+    if (mk_arr[u] > C1) mk_arr[u] = C1;
+    if (mq_arr[u] > C2) mq_arr[u] = C2;
+}
+
+void compute_anc_and_path(int u, int p, int CQ) {
+    is_anc[u] = false;
+    path_child[u] = 0;
+    
+    bool is_anc_sub = (u == CQ);
+    int found_child = 0;
+    for (int w : current_adj[u]) {
+        if (w == p) continue;
+        compute_anc_and_path(w, u, CQ);
+        if (is_anc[w]) {
+            is_anc_sub = true;
+            found_child = w;
+        }
+    }
+    is_anc[u] = is_anc_sub;
+    path_child[u] = found_child;
+}
+
+vector<int> get_valid_states(int u, int CK) {
+    vector<int> states;
+    if (depth_arr[u] <= R1) states.push_back(0);
+    if (u != CK && is_anc[u]) states.push_back(1);
+    states.push_back(2);
+    if (is_anc[u] && dist_d_arr[u] <= R2) states.push_back(3);
+    if (dist_d_arr[u] <= R2) states.push_back(4);
+    return states;
+}
+
+bool is_compatible(int s_u, int s_w, int u, int w) {
+    if (s_u == 0) {
+        if (w == path_child[u]) return s_w == 0 || s_w == 1 || s_w == 2;
+        else return s_w == 0 || s_w == 2;
+    }
+    if (s_u == 1) {
+        if (w == path_child[u]) return s_w == 3;
+        else return s_w == 2;
+    }
+    if (s_u == 2) {
+        return s_w == 2;
+    }
+    if (s_u == 3) {
+        if (w == path_child[u]) return s_w == 3;
+        else return s_w == 2 || s_w == 4;
+    }
+    if (s_u == 4) {
+        return s_w == 2 || s_w == 4;
+    }
+    return false;
+}
+
+void dfs(int u, int p, int CK) {
+    int mk = mk_arr[u];
+    int mq = mq_arr[u];
+    int add_k = (depth_arr[u] == R1) ? 1 : 0;
+    int add_q = (dist_d_arr[u] == R2) ? 1 : 0;
+    
+    vector<int> valid_states = get_valid_states(u, CK);
+    
+    int* cur = new int[5 * (mk + 1) * (mq + 1)];
+    fill(cur, cur + 5 * (mk + 1) * (mq + 1), -1);
+    
+    for (int s : valid_states) {
+        if (u == CK && s != 0) continue;
+        int w_val = (s == 1 || s == 2) ? 0 : current_W[u];
+        if (add_k <= mk && add_q <= mq) {
+            cur[s * (mk + 1) * (mq + 1) + add_k * (mq + 1) + add_q] = w_val;
+        }
+    }
+    
+    for (int w_node : current_adj[u]) {
+        if (w_node == p) continue;
+        dfs(w_node, u, CK);
+        
+        int* nxt = new int[5 * (mk + 1) * (mq + 1)];
+        fill(nxt, nxt + 5 * (mk + 1) * (mq + 1), -1);
+        
+        for (int s_u : valid_states) {
+            if (u == CK && s_u != 0) continue;
+            vector<int> valid_w = get_valid_states(w_node, CK);
+            for (int s_w : valid_w) {
+                if (!is_compatible(s_u, s_w, u, w_node)) continue;
+                
+                for (int ku = 0; ku <= mk; ++ku) {
+                    for (int qu = 0; qu <= mq; ++qu) {
+                        int cur_idx = s_u * (mk + 1) * (mq + 1) + ku * (mq + 1) + qu;
+                        if (cur[cur_idx] == -1) continue;
+                        
+                        for (int kw = 0; kw <= mk_arr[w_node]; ++kw) {
+                            for (int qw = 0; qw <= mq_arr[w_node]; ++qw) {
+                                int w_dp = get_dp(w_node, s_w, kw, qw);
+                                if (w_dp == -1) continue;
+                                
+                                int nk = ku + kw;
+                                int nq = qu + qw;
+                                if (nk <= C1 && nq <= C2) {
+                                    int& nxt_ref = nxt[s_u * (mk + 1) * (mq + 1) + nk * (mq + 1) + nq];
+                                    if (nxt_ref < cur[cur_idx] + w_dp) {
+                                        if (choice_w[w_node][s_u][nk][nq].s_w == -1) {
+                                            modified_list.push_back({w_node, s_u, nk, nq});
+                                        }
+                                        nxt_ref = cur[cur_idx] + w_dp;
+                                        choice_w[w_node][s_u][nk][nq] = {s_w, kw, qw, ku, qu};
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        delete[] cur;
+        cur = nxt;
+    }
+    
+    for (int s = 0; s < 5; ++s) {
+        dp_ptr[u][s] = new int[(mk + 1) * (mq + 1)];
+        for (int k = 0; k <= mk; ++k) {
+            for (int q = 0; q <= mq; ++q) {
+                dp_ptr[u][s][k * (mq + 1) + q] = cur[s * (mk + 1) * (mq + 1) + k * (mq + 1) + q];
+            }
+        }
+    }
+    delete[] cur;
+}
+
+vector<int> best_destroyed;
+int global_best_weight = -1;
+
+void reconstruct(int u, int p, int s_u, int ku, int qu, vector<int>& destroyed) {
+    if ((s_u == 1 || s_u == 2) && u <= n) {
+        destroyed.push_back(u);
+    }
+    for (int i = (int)current_adj[u].size() - 1; i >= 0; --i) {
+        int w_node = current_adj[u][i];
+        if (w_node == p) continue;
+        Choice ch = choice_w[w_node][s_u][ku][qu];
+        reconstruct(w_node, u, ch.s_w, ch.kw, ch.qw, destroyed);
+        ku = ch.prev_ku;
+        qu = ch.prev_qu;
+    }
+}
+
+void solve_pair(int CK_node, int CQ_node, int ck_idx, int cq_idx) {
+    n_nodes = n;
+    current_W = W;
+    current_adj = orig_adj;
+    
+    if (ck_idx >= 0) {
+        n_nodes++;
+        current_W.push_back(0);
+        current_adj.push_back({});
+        int u = edges[ck_idx].first;
+        int v = edges[ck_idx].second;
+        remove_edge(current_adj, u, v);
+        current_adj[u].push_back(n_nodes);
+        current_adj[v].push_back(n_nodes);
+        current_adj[n_nodes].push_back(u);
+        current_adj[n_nodes].push_back(v);
+        CK_node = n_nodes;
+    }
+    
+    if (cq_idx >= 0) {
+        if (cq_idx == ck_idx) {
+            CQ_node = CK_node;
+        } else {
+            n_nodes++;
+            current_W.push_back(0);
+            current_adj.push_back({});
+            int u = edges[cq_idx].first;
+            int v = edges[cq_idx].second;
+            remove_edge(current_adj, u, v);
+            current_adj[u].push_back(n_nodes);
+            current_adj[v].push_back(n_nodes);
+            current_adj[n_nodes].push_back(u);
+            current_adj[n_nodes].push_back(v);
+            CQ_node = n_nodes;
+        }
+    }
+    
+    depth_arr.assign(n_nodes + 1, 0);
+    dist_d_arr.assign(n_nodes + 1, 0);
+    is_anc.assign(n_nodes + 1, false);
+    path_child.assign(n_nodes + 1, 0);
+    
+    int dummy_dist = 0;
+    compute_dfs(CK_node, 0, 0, {CQ_node}, dummy_dist);
+    compute_anc_and_path(CQ_node, 0, CQ_node);
+    compute_dfs(CQ_node, 0, 0, {CK_node}, dummy_dist); // to get dist_d_arr from CQ_node
+    
+    if (dist_d_arr[CK_node] <= 1) {
+        init_dp();
+        return;
+    }
+    
+    compute_limits(CK_node, 0);
+    dfs(CK_node, 0, CK_node);
+    
+    int mk = mk_arr[CK_node];
+    int mq = mq_arr[CK_node];
+    
+    bool found = false;
+    int best_local = -1;
+    int best_k = -1, best_q = -1;
+    
+    for (int k = 0; k <= mk; ++k) {
+        for (int q = 0; q <= mq; ++q) {
+            int val = get_dp(CK_node, 0, k, q);
+            if (val == -1) continue;
+            
+            if (D1 == 0 && k != 1) continue;
+            if (D1 > 0 && k < 1) continue;
+            if (D2 == 0 && q != 1) continue;
+            if (D2 > 0 && q < 1) continue;
+            
+            if (val > best_local) {
+                best_local = val;
+                best_k = k;
+                best_q = q;
+                found = true;
+            }
+        }
+    }
+    
+    if (found && best_local > global_best_weight) {
+        global_best_weight = best_local;
+        best_destroyed.clear();
+        reconstruct(CK_node, 0, 0, best_k, best_q, best_destroyed);
+        sort(best_destroyed.begin(), best_destroyed.end());
+    }
+    
+    init_dp();
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> n)) return 0;
+    cin >> D1 >> C1 >> D2 >> C2;
+    
+    W.resize(n + 1);
+    int total_W = 0;
+    for (int i = 1; i <= n; ++i) {
+        cin >> W[i];
+        total_W += W[i];
+    }
+    
+    orig_adj.resize(n + 1);
+    for (int i = 0; i < n - 1; ++i) {
+        int u, v;
+        cin >> u >> v;
+        orig_adj[u].push_back(v);
+        orig_adj[v].push_back(u);
+        edges.push_back({u, v});
+    }
+    
+    R1 = D1 / 2;
+    R2 = D2 / 2;
+    
+    for (int i = 0; i < 205; ++i) {
+        for (int s = 0; s < 5; ++s) {
+            dp_ptr[i][s] = nullptr;
+            for (int k = 0; k < 205; ++k) {
+                for (int q = 0; q < 205; ++q) {
+                    choice_w[i][s][k][q].s_w = -1;
+                }
+            }
+        }
+    }
+    
+    vector<int> centers_node;
+    for (int i = 1; i <= n; ++i) centers_node.push_back(i);
+    
+    for (int i = 0; i <= (int)centers_node.size(); ++i) {
+        for (int j = 0; j <= (int)centers_node.size(); ++j) {
+            int ck_node = (i < (int)centers_node.size()) ? centers_node[i] : 0;
+            int cq_node = (j < (int)centers_node.size()) ? centers_node[j] : 0;
+            int ck_idx = (i < (int)centers_node.size()) ? -1 : (i - centers_node.size());
+            int cq_idx = (j < (int)centers_node.size()) ? -1 : (j - centers_node.size());
+            
+            solve_pair(ck_node, cq_node, ck_idx, cq_idx);
+        }
+    }
+    
+    if (global_best_weight == -1) {
+        cout << -1 << "\n";
+    } else {
+        cout << total_W - global_best_weight << "\n";
+        for (int i = 0; i < (int)best_destroyed.size(); ++i) {
+            cout << best_destroyed[i] << (i + 1 == (int)best_destroyed.size() ? "" : " ");
+        }
+        cout << "\n";
+    }
+    
+    return 0;
+}

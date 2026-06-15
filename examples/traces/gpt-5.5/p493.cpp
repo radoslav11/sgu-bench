@@ -1,0 +1,146 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Building {
+    long double L, R, H;
+};
+
+static bool visibleToLeftSide(const vector<Building>& b, int i, int j) {
+    // source at the right top corner of building i, target is the left side of building j
+    long double x0 = b[i].R, y0 = b[i].H;
+    long double xt = b[j].L;
+
+    for (int k = i + 1; k < j; ++k) {
+        // The ray to the bottom of the target side must pass above the whole building k.
+        // Since the line is decreasing, the lowest point over building k is at R_k.
+        long double x = b[k].R;
+        long double y = y0 * (xt - x) / (xt - x0);
+        if (b[k].H > y + 1e-12) return false;
+    }
+    return true;
+}
+
+static bool visibleToRightSide(const vector<Building>& b, int i, int j) {
+    // source at the left top corner of building i, target is the right side of building j
+    long double x0 = b[i].L, y0 = b[i].H;
+    long double xt = b[j].R;
+
+    for (int k = j + 1; k < i; ++k) {
+        // The ray to the bottom of the target side must pass above the whole building k.
+        // Since the line is increasing when going left to right here, the lowest point
+        // over building k is at L_k.
+        long double x = b[k].L;
+        long double y = y0 * (x - xt) / (x0 - xt);
+        if (b[k].H > y + 1e-12) return false;
+    }
+    return true;
+}
+
+static int solveLeftSides(const vector<Building>& b) {
+    int n = (int)b.size();
+    vector<pair<int,int>> segs;
+
+    for (int i = 0; i < n; ++i) {
+        // left top corner illuminates own left side
+        segs.push_back({i, i});
+
+        // right top corner may illuminate consecutive left sides to the right
+        int far = i;
+        for (int j = i + 1; j < n; ++j) {
+            if (visibleToLeftSide(b, i, j)) far = j;
+            else break;
+        }
+        if (far >= i + 1) segs.push_back({i + 1, far});
+    }
+
+    sort(segs.begin(), segs.end());
+
+    int ans = 0;
+    int pos = 0;
+    int p = 0;
+
+    while (pos < n) {
+        int best = -1;
+        while (p < (int)segs.size() && segs[p].first <= pos) {
+            best = max(best, segs[p].second);
+            ++p;
+        }
+        if (best < pos) {
+            // should never happen because singleton intervals exist
+            ++ans;
+            ++pos;
+        } else {
+            ++ans;
+            pos = best + 1;
+        }
+    }
+
+    return ans;
+}
+
+static int solveRightSides(const vector<Building>& b) {
+    int n = (int)b.size();
+    vector<pair<int,int>> segs;
+
+    for (int i = 0; i < n; ++i) {
+        // right top corner illuminates own right side
+        segs.push_back({i, i});
+
+        // left top corner may illuminate consecutive right sides to the left
+        int far = i;
+        for (int j = i - 1; j >= 0; --j) {
+            if (visibleToRightSide(b, i, j)) far = j;
+            else break;
+        }
+        if (far <= i - 1) segs.push_back({far, i - 1});
+    }
+
+    sort(segs.begin(), segs.end());
+
+    int ans = 0;
+    int pos = 0;
+    int p = 0;
+
+    while (pos < n) {
+        int best = -1;
+        while (p < (int)segs.size() && segs[p].first <= pos) {
+            best = max(best, segs[p].second);
+            ++p;
+        }
+        if (best < pos) {
+            ++ans;
+            ++pos;
+        } else {
+            ++ans;
+            pos = best + 1;
+        }
+    }
+
+    return ans;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    while (T--) {
+        int N;
+        cin >> N;
+
+        vector<Building> b(N);
+        for (int i = 0; i < N; ++i) {
+            cin >> b[i].L >> b[i].R >> b[i].H;
+        }
+
+        sort(b.begin(), b.end(), [](const Building& a, const Building& c) {
+            return a.L < c.L;
+        });
+
+        cout << solveLeftSides(b) + solveRightSides(b) << '\n';
+    }
+
+    return 0;
+}

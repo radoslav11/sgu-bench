@@ -1,0 +1,84 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * n black and white balls are in a bag.
+ * Initially, there are k black balls among all n balls with equal probability P(K=k) = 1/(n+1) for k in {0, 1, ..., n}.
+ * Petya takes l balls at random (l = l1 + l2), and l1 are black, l2 are white.
+ * We need to find the posterior probability P(K=k | event).
+ * Let E be the event of observing l1 black balls and l2 white balls.
+ * P(E | K=k) = (C(k, l1) * C(n-k, l2)) / C(n, l1+l2).
+ * P(K=k | E) = [P(E | K=k) * P(K=k)] / P(E)
+ *             = [P(E | K=k) * 1/(n+1)] / [Sum_{i=0}^n (P(E | K=i) * 1/(n+1))]
+ *             = P(E | K=k) / [Sum_{i=0}^n P(E | K=i)]
+ *             = [C(k, l1) * C(n-k, l2)] / [Sum_{i=0}^n C(i, l1) * C(n-i, l2)]
+ * Using the identity Sum_{i=r}^{n-s} C(i, r) * C(n-i, s) = C(n+1, r+s+1),
+ * the denominator is C(n+1, l1+l2+1).
+ * We want to find a segment [a, b] such that Sum_{k=a}^b P(K=k | E) >= p/100
+ * with minimal (b-a), and then minimal a.
+ *
+ * Complexity:
+ * Precomputing combinations using Pascal's triangle: O(n^2).
+ * Finding the segment [a, b]: O(n^3).
+ * Total complexity: O(n^3), which is approximately 50^3 = 125,000.
+ * Given n <= 50, this will easily pass within 0.25s.
+ */
+
+long long C[55][55];
+
+// nCr function that handles n < r by returning 0
+long long nCr(int n, int r) {
+    if (r < 0 || r > n) return 0;
+    return C[n][r];
+}
+
+int main() {
+    // Set speed up for I/O operations
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, l1, l2, p;
+    if (!(cin >> n >> l1 >> l2 >> p)) return 0;
+
+    // Precompute combinations up to C[51][51]
+    for (int i = 0; i <= 51; ++i) {
+        C[i][0] = 1;
+        for (int j = 1; j <= i; ++j) {
+            C[i][j] = C[i - 1][j - 1] + C[i - 1][j];
+        }
+        for (int j = i + 1; j <= 51; ++j) {
+            C[i][j] = 0;
+        }
+    }
+
+    // The sum of C(i, l1) * C(n-i, l2) over i = 0 to n is C(n+1, l1+l2+1)
+    long long total_sum = nCr(n + 1, l1 + l2 + 1);
+
+    // Iterate through possible segment lengths (b-a) from 0 to n
+    for (int len = 0; len <= n; ++len) {
+        // Iterate through all possible starting positions 'a' for the current length 'len'
+        for (int a = 0; a <= n - len; ++a) {
+            int b = a + len;
+            long long segment_sum = 0;
+            // Calculate the sum of the numerator for the segment [a, b]
+            for (int k = a; k <= b; ++k) {
+                segment_sum += nCr(k, l1) * nCr(n - k, l2);
+            }
+
+            // Check if the probability (segment_sum / total_sum) >= p/100
+            // To avoid precision issues, use: 100 * segment_sum >= p * total_sum
+            // segment_sum * 100 can be up to 100 * C(51, 25) ≈ 2.47 * 10^16.
+            // This fits within a 64-bit signed integer (long long), which goes up to ~9.22 * 10^18.
+            if (100 * segment_sum >= (long long)p * total_sum) {
+                cout << a << " " << b << endl;
+                return 0;
+            }
+        }
+    }
+
+    return 0;
+}
+

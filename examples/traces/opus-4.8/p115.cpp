@@ -1,0 +1,15 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    int n,m;
+    cin>>n>>m;
+    int days[]={31,28,31,30,31,30,31,31,30,31,30,31};
+    if(m<1||m>12||n<1||n>days[m-1]){cout<<"Impossible";return 0;}
+    int total=0;
+    for(int i=0;i<m-1;i++)total+=days[i];
+    total+=n;
+    // Jan 1 2001 is Monday
+    int dow=(total-1)%7+1;
+    cout<<dow;
+    return 0;
+}

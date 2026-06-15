@@ -1,0 +1,80 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+int64 egcd(int64 a, int64 b, int64 &x, int64 &y) {
+    if (b == 0) {
+        x = 1;
+        y = 0;
+        return a;
+    }
+    int64 x1, y1;
+    int64 g = egcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+
+int64 modInv(int64 a, int64 mod) {
+    int64 x, y;
+    egcd(a, mod, x, y);
+    x %= mod;
+    if (x < 0) x += mod;
+    return x;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int64 N;
+    cin >> N;
+
+    int64 ans = 0;
+
+    for (int64 A = 1; A * 2 < N; ++A) {
+        for (int64 r = 0; r < A; ++r) {
+            int64 g = std::gcd(A, r);
+
+            if (N % g != 0) continue;
+
+            int64 mod = A / g;
+            int64 y0;
+
+            if (mod == 1) {
+                y0 = 1;
+            } else {
+                int64 rr = r / g;
+                int64 nn = N / g;
+
+                int64 inv = modInv(rr % mod, mod);
+                y0 = (nn % mod) * inv % mod;
+
+                if (y0 == 0) y0 = mod;
+            }
+
+            int64 L = (N - A) / y0;
+            if (L <= A) continue;
+
+            int64 kMin;
+            if (r == 0) {
+                kMin = A / A + 1;
+            } else {
+                kMin = (A - r) / A + 1;
+            }
+
+            if (L < r) continue;
+
+            int64 kMax = (L - r) / A;
+
+            if (kMax >= kMin) {
+                ans += kMax - kMin + 1;
+            }
+        }
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

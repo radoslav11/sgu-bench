@@ -1,0 +1,556 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
+#include <algorithm>
+
+struct Point {
+    long long x, y;
+    Point() = default;
+    Point(long long x, long long y) : x(x), y(y) {}
+};
+
+Point operator-(const Point& a, const Point& b) {
+    return Point(a.x - b.x, a.y - b.y);
+}
+
+long long cross(const Point& a, const Point& b) {
+    return a.x * b.y - a.y * b.x;
+}
+
+double distance(const Point& a, const Point& b) {
+    long long dx = a.x - b.x;
+    long long dy = a.y - b.y;
+    return std::sqrt(static_cast<double>(dx * dx + dy * dy));
+}
+
+// Distance from point p to line defined by points a and b
+double pointToLineDistance(const Point& p, const Point& a, const Point& b) {
+    Point ab = b - a;
+    Point ap = p - a;
+    double area = std::abs(static_cast<double>(cross(ab, ap)));
+    double base = distance(a, b);
+    return area / base;
+}
+
+// Distance from point p to segment ab
+double pointToSegmentDistance(const Point& p, const Point& a, const Point& b) {
+    Point ab = b - a;
+    Point ap = p - a;
+    long long dot = ab.x * ap.x + ab.y * ap.y;
+    
+    // Check if projection is outside segment (closer to a)
+    if (dot < 0) {
+        return distance(p, a);
+    }
+    
+    Point ba = a - b;
+    Point bp = p - b;
+    long long dot2 = ba.x * bp.x + ba.y * bp.y;
+    
+    // Check if projection is outside segment (closer to b)
+    if (dot2 < 0) {
+        return distance(p, b);
+    }
+    
+    // Projection is inside segment
+    return pointToLineDistance(p, a, b);
+}
+
+int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+    
+    int n;
+    std::cin >> n;
+    
+    std::vector<Point> points(n);
+    for (int i = 0; i < n; i++) {
+        std::cin >> points[i].x >> points[i].y;
+    }
+    
+    // The largest circle that fits inside a convex polygon is the incircle of the polygon
+    // For a convex polygon, the largest inscribed circle is either:
+    // 1. The incircle of a triangle formed by three consecutive vertices (if the polygon is a triangle)
+    // 2. Or determined by the minimum of:
+    //    - Distance from incenter to each side (for tangential polygons)
+    //    - Or more generally, the radius is determined by the minimum distance from some point 
+    //      inside the polygon to the polygon edges, maximized over all points.
+    //
+    // Actually, the largest circle inside a convex polygon is the Chebyshev center of the polygon,
+    // which can be found by solving a linear program, but for convex polygons there's a simpler approach:
+    // The radius is the minimum distance from the Voronoi diagram vertices (edges of the medial axis)
+    // to the polygon boundary.
+    //
+    // For convex polygons, the largest inscribed circle is either:
+    // - Tangent to three sides (if the polygon has >= 3 sides)
+    // - Or tangent to two sides and passing through a vertex
+    //
+    // However, a simpler approach: the radius of the largest inscribed circle in a convex polygon
+    // is equal to the minimum distance from the "incenter" to the sides, but only if the polygon is tangential.
+    //
+    // General approach: For a convex polygon, the largest inscribed circle is determined by either:
+    // 1. Three edges (the circle is tangent to three edges)
+    // 2. Two edges and one vertex
+    // 3. One edge and two vertices (but this case is covered by 2)
+    //
+    // Actually, the most reliable method is to compute the Voronoi diagram of the polygon edges and 
+    // vertices, then find the maximum distance to the boundary among Voronoi vertices that lie inside the polygon.
+    //
+    // But for convex polygons, we can use a simpler approach:
+    // The largest circle is determined by either:
+    // - Three consecutive vertices (the incircle of the triangle they form, if it's inside the polygon)
+    // - Or two consecutive edges (the angle bisector intersection)
+    // - Or a single edge and two vertices (but this is less common)
+    //
+    // However, the standard solution for this problem is to use binary search on the radius r and check
+    // if a circle of radius r can fit inside the polygon. But that might be too slow.
+    //
+    // Better approach: The radius of the largest inscribed circle in a convex polygon is equal to
+    // the minimum over all angles of the support function, but that's complex.
+    //
+    // Actually, for convex polygons, the largest inscribed circle is determined by the minimum width
+    // divided by 2? No, that's not correct.
+    //
+    // The correct approach is to note that the optimal circle is tangent to at least three features
+    // of the polygon (edges or vertices). So we can check all combinations of 2 or 3 edges/vertices.
+    // But with n up to 10^5, this is too slow.
+    //
+    // Wait, the problem constraints are not specified, but the time limit is 0.25s, so n is probably small.
+    // Looking at the example, n=4. The problem statement doesn't give constraints on n.
+    // But typical competitive programming problems for this task have n up to 100 or so.
+    //
+    // Actually, there's a known efficient algorithm: 
+    // The largest circle inside a convex polygon can be found by computing the Voronoi diagram 
+    // of the polygon's edges and vertices, then finding the maximum distance to the boundary 
+    // among Voronoi vertices that lie inside the polygon. For convex polygons, the Voronoi diagram 
+    // of the edges is simply the medial axis, and the Voronoi vertices are either:
+    // - Points equidistant to three edges (intersection of angle bisectors)
+    // - Points equidistant to two edges and one vertex (on the angle bisector of the two edges)
+    // - Points equidistant to one edge and two vertices (but this is rare)
+    //
+    // However, there's a simpler solution: the radius is the minimum distance from the polygon's 
+    // "incenter" to its sides, but only if the polygon is tangential. For general convex polygons, 
+    // we can use the fact that the largest inscribed circle must be tangent to at least three 
+    // features. So we can check all triples of edges (or combinations of edges and vertices).
+    //
+    // But for convex polygons, there's an efficient O(n) or O(n log n) algorithm using rotating calipers.
+    // Specifically, the width of a convex polygon in a given direction is the distance between two 
+    // parallel supporting lines. The minimum width over all directions is the minimum distance between 
+    // two parallel supporting lines. The largest inscribed circle radius is at most half the minimum width, 
+    // but it's not always equal to it.
+    //
+    // Actually, for a Reuleaux triangle (a curve of constant width), the minimum width is constant, 
+    // but the largest inscribed circle has radius less than half the width.
+    //
+    // The correct approach is to use the fact that the largest inscribed circle in a convex polygon 
+    // is the solution to the following optimization problem:
+    // maximize r
+    // subject to: distance from (x, y) to each edge >= r
+    //             (x, y) inside the polygon
+    //
+    // This is a convex optimization problem (second-order cone program), but for small n, 
+    // we can solve it by checking candidate points.
+    //
+    // Candidate points for the center of the largest inscribed circle:
+    // 1. Vertices of the Voronoi diagram of the polygon edges (within the polygon)
+    // For a convex polygon, these are:
+    //   - Points equidistant to three edges (intersection of angle bisectors of three edges)
+    //   - Points equidistant to two edges and one vertex
+    //   - Points equidistant to one edge and two vertices
+    //
+    // However, for a convex polygon, the Voronoi diagram of the edges has vertices that are 
+    // equidistant to three edges, and these are the only candidates (because the distance to 
+    // the polygon boundary is determined by the closest edge or vertex, and at the optimum, 
+    // the distance to at least three features is equal).
+    //
+    // So we can do:
+    // For each triple of edges, compute the point equidistant to all three edges (if it exists), 
+    // check if it's inside the polygon, and compute the distance.
+    // For each pair of edges and each vertex, compute the point equidistant to the two edges 
+    // and the vertex, etc.
+    //
+    // But this is O(n^3) which might be too slow for large n.
+    //
+    // However, looking at the problem constraints (time limit 0.25s, memory 64MB), and the fact 
+    // that the example has n=4, it's likely that n is small (<= 100 or so).
+    //
+    // But there's a better approach: use binary search on r and check if there exists a point 
+    // inside the polygon that is at least r away from all edges. This check can be done by 
+    // shrinking the polygon by r (offset curve) and checking if the resulting polygon is non-empty.
+    //
+    // For a convex polygon, shrinking by r means moving each edge inward by r (along its normal), 
+    // and the new polygon is the intersection of half-planes. If the intersection is non-empty, 
+    // then a circle of radius r fits.
+    //
+    // We can check if the shrunk polygon is non-empty by computing the intersection of the 
+    // half-planes. For convex polygons, the shrunk polygon is also convex, so we can compute 
+    // its vertices by intersecting consecutive offset edges.
+    //
+    // Steps for binary search:
+    // 1. Set low = 0, high = some upper bound (e.g., half the minimum width, or the distance 
+    //    from centroid to the closest edge)
+    // 2. While high - low > epsilon:
+    //    - mid = (low + high) / 2
+    //    - Compute the shrunk polygon by moving each edge inward by mid
+    //    - If the shrunk polygon is non-empty (has positive area or at least 3 vertices), 
+    //      then set low = mid, else high = mid
+    // 3. Output low
+    //
+    // How to shrink a convex polygon by r?
+    // For each edge i (from vertex i to vertex i+1), compute the unit normal vector pointing 
+    // inward. Then, the new edge is the original edge shifted by r * normal.
+    // Then, the new vertices are the intersection of consecutive offset edges.
+    //
+    // For a convex polygon given in counter-clockwise order, the inward normal for edge (i, i+1) 
+    // is obtained by rotating the edge vector 90 degrees clockwise and normalizing.
+    // Specifically, if edge vector is (dx, dy), then inward normal is (dy, -dx) normalized 
+    // (because for counter-clockwise polygon, the interior is to the left of each edge, 
+    // so inward normal is to the left, which is (-dy, dx) normalized? Let me check:
+    // Edge from A to B: vector AB = (dx, dy). The left normal is (-dy, dx), which points inward 
+    // for counter-clockwise polygon.
+    //
+    // So for edge from points[i] to points[(i+1)%n], the inward unit normal is:
+    //   dx = points[(i+1)%n].x - points[i].x
+    //   dy = points[(i+1)%n].y - points[i].y
+    //   length = sqrt(dx*dx + dy*dy)
+    //   nx = -dy / length
+    //   ny = dx / length
+    //
+    // Then, the offset edge is the line parallel to the original edge, shifted by r * (nx, ny).
+    // The new vertex i is the intersection of the offset edge i-1 and offset edge i.
+    //
+    // How to compute intersection of two lines?
+    // Line 1: defined by point p1 and normal n1 (so the line is all points x such that (x - p1) · n1 = 0)
+    // But actually, we have the offset edge as a line: for edge i, the offset line is:
+    //   (x - (points[i] + r * ni)) · ti = 0, where ti is the tangent vector (dx, dy) normalized?
+    // Better: the offset line for edge i can be represented as:
+    //   (x - points[i]) · ni = r   (because the original edge satisfies (x - points[i]) · ni = 0, 
+    //   and we shift by r in the normal direction)
+    //
+    // Actually, for a point x on the original edge i, (x - points[i]) · ni = 0.
+    // The offset line (inward) is (x - points[i]) · ni = r.
+    //
+    // So for two consecutive edges i-1 and i, we have:
+    //   (x - points[i-1]) · n_{i-1} = r
+    //   (x - points[i]) · n_i = r
+    //
+    // This is a system of two linear equations in x (2D), which we can solve.
+    //
+    // Let me denote:
+    //   A = n_{i-1}.x, B = n_{i-1}.y, C = r + points[i-1] · n_{i-1}
+    //   D = n_i.x, E = n_i.y, F = r + points[i] · n_i
+    // Then:
+    //   A*x + B*y = C
+    //   D*x + E*y = F
+    //
+    // Solution by Cramer's rule:
+    //   det = A*E - B*D
+    //   If det == 0, the lines are parallel (which shouldn't happen for convex polygon with no three collinear vertices)
+    //   x = (C*E - B*F) / det
+    //   y = (A*F - C*D) / det
+    //
+    // Steps for the shrink check for a given r:
+    // 1. Precompute inward unit normals for each edge.
+    // 2. For each edge i, define the half-plane: (x - points[i]) · n_i >= r  [but for the shrunk polygon, we want the intersection of (x - points[i]) · n_i >= r]
+    //    Actually, the shrunk polygon is the set of points x such that (x - points[i]) · n_i >= r for all i.
+    //    But note: for a point inside the original polygon, (x - points[i]) · n_i >= 0, so for the shrunk polygon, we require >= r.
+    // 3. To find the shrunk polygon, compute the vertices by intersecting consecutive offset lines.
+    // 4. Check if the computed vertices form a convex polygon (they should, if non-empty), and if the number of vertices is at least 3, or check if the polygon has positive area.
+    //
+    // However, due to floating point precision, we might get degenerate cases.
+    //
+    // Alternatively, we can check if the shrunk polygon is non-empty by verifying that for every 
+    // vertex of the shrunk polygon (computed as intersection of consecutive offset edges), 
+    // it satisfies all the half-plane constraints. But for convex polygons, if the consecutive 
+    // intersections form a closed loop, then it's non-empty.
+    //
+    // Actually, for a convex polygon, the shrunk polygon is non-empty if and only if all consecutive 
+    // offset edges intersect (and the resulting polygon is convex and simple).
+    //
+    // Steps for the check function feasible(r):
+    //   vector<Point> new_points;
+    //   for i in 0..n-1:
+    //      j = (i-1+n) % n
+    //      // Offset edge j: defined by normal n_j, and the line: (x - points[j]) · n_j = r
+    //      // Offset edge i: defined by normal n_i, and the line: (x - points[i]) · n_i = r
+    //      // Solve for intersection
+    //      double A = normals[j].x, B = normals[j].y, C = r + points[j].x * normals[j].x + points[j].y * normals[j].y;
+    //      double D = normals[i].x, E = normals[i].y, F = r + points[i].x * normals[i].x + points[i].y * normals[i].y;
+    //      double det = A*E - B*D;
+    //      if (fabs(det) < eps) {
+    //          // parallel, skip? but for convex polygon with no three collinear, consecutive edges are not parallel?
+    //          // Actually, they can be parallel (e.g., rectangle), then the offset edges are parallel, 
+    //          // and the shrunk polygon has a vertex at infinity -> so the shrunk polygon is empty.
+    //          return false;
+    //      }
+    //      double x = (C*E - B*F) / det;
+    //      double y = (A*F - C*D) / det;
+    //      Point p(x, y);
+    //      new_points.push_back(p);
+    //   }
+    //   // Now, check if new_points form a convex polygon that is non-empty.
+    //   // Actually, for convex original polygon, the shrunk polygon is convex, so if all consecutive 
+    //   // edges intersect, then the polygon is non-empty. But we need to check if it's "valid" - 
+    //   // but the only issue is when r is too large, then the offset edges don't form a closed loop 
+    //   // (i.e., the intersection points are not in the correct order or the polygon is self-intersecting).
+    //   // However, for convex polygons, if r is too large, some consecutive offset edges will not 
+    //   // intersect in the "forward" direction, but our calculation might still produce a point.
+    //   // Instead, we can check if the new polygon has positive area, or simply check if all 
+    //   // the new points satisfy the half-plane constraints for all edges (but that's O(n^2)).
+    //
+    //   // Simpler: for convex polygons, the shrunk polygon is non-empty if and only if 
+    //   // the minimum distance from the original polygon's "inradius" is sufficient. 
+    //   // But we can check the area of the new polygon: if it's positive, then non-empty.
+    //
+    //   // Compute the area of new_points. If area > 0, then non-empty.
+    //   double area = 0;
+    //   for (int i = 0; i < n; i++) {
+    //      int j = (i+1) % n;
+    //      area += new_points[i].x * new_points[j].y - new_points[j].x * new_points[i].y;
+    //   }
+    //   area = fabs(area) / 2.0;
+    //   return area > eps;
+    //
+    // However, there's a caveat: when the shrunk polygon becomes a single point or a line, 
+    // the area is zero, and we want to reject that. So we can check area > eps.
+    //
+    // But note: for a square of side 1, the largest inscribed circle has radius 0.5, and when r=0.5, 
+    // the shrunk polygon is a single point (the center), so area=0. So we need to allow area >= 0, 
+    // but then we have to be careful with floating point.
+    //
+    // Actually, we can check if the new polygon has at least 3 vertices (which it will, as long as 
+    // the intersections exist) and is convex, but the area being zero means it's degenerate.
+    //
+    // Better: check that all the new points are "valid" by ensuring that the angle between 
+    // consecutive offset edges is such that the intersection is "in the middle". But the easiest 
+    // is to check the area and allow a very small area (but for the square, area=0 at r=0.5).
+    //
+    // Alternatively, we can check if the shrunk polygon is non-empty by verifying that for each 
+    // new point (vertex of shrunk polygon), it lies on the correct side of all offset edges? 
+    // That's O(n^2) per check, which might be acceptable for n<=100 and binary search iterations.
+    //
+    // Given the time limit and likely small n, we can do:
+    //   feasible(r):
+    //      compute new_points as above (n points)
+    //      for each new point p in new_points:
+    //          for each edge i:
+    //             if (p - points[i]) · n_i < r - eps, then p is not in the shrunk polygon -> return false
+    //      return true
+    //
+    // But this is O(n^2) per check. With n<=100, and binary search iterations ~50, it's 50*100*100=500000, which is acceptable.
+    //
+    // However, there's a simpler and more efficient method: for convex polygons, the shrunk polygon 
+    // is non-empty if and only if for every i, the distance between the offset lines for edges i 
+    // and i+1 is positive, which is always true as long as the edges are not parallel, but when 
+    // r is too large, the offset lines might not form a closed loop in the sense that the 
+    // intersection points are not "inside" the original polygon's offset.
+    //
+    // Actually, the standard method is to use the fact that the shrunk polygon is non-empty 
+    // if and only if the minimum value of the "inradius" function is positive. 
+    // And the inradius for a convex polygon can be computed as the minimum over all triples 
+    // of edges of the radius of the circle tangent to those three edges, but only if the circle 
+    // is inside the polygon.
+    //
+    // Given the complexity and the fact that n is probably small (the problem doesn't specify, 
+    // but the example n=4, and time limit 0.25s), I'll assume n <= 100.
+    //
+    // Let's go with the O(n^2) per check feasible(r) method.
+    //
+    // Steps for feasible(r):
+    //   Precompute normals: for each edge i, 
+    //        dx = points[(i+1)%n].x - points[i].x
+    //        dy = points[(i+1)%n].y - points[i].y
+    //        len = sqrt(dx*dx+dy*dy)
+    //        nx = -dy / len   [inward normal for CCW polygon]
+    //        ny = dx / len
+    //   normals[i] = Point(nx, ny)
+    //
+    //   // If r is too large, the shrunk polygon might be empty. We'll compute candidate points.
+    //   vector<Point> new_pts;
+    //   for (int i = 0; i < n; i++) {
+    //        int j = (i-1+n) % n;
+    //        // Edge j and edge i
+    //        double A = normals[j].x, B = normals[j].y;
+    //        double C_val = r + points[j].x * normals[j].x + points[j].y * normals[j].y;
+    //        double D = normals[i].x, E = normals[i].y;
+    //        double F_val = r + points[i].x * normals[i].x + points[i].y * normals[i].y;
+    //        double det = A*E - B*D;
+    //        if (fabs(det) < 1e-12) {
+    //            // parallel edges: then the shrunk polygon is empty for this r
+    //            return false;
+    //        }
+    //        double x = (C_val * E - B * F_val) / det;
+    //        double y = (A * F_val - C_val * D) / det;
+    //        new_pts.push_back(Point(x, y));
+    //   }
+    //   
+    //   // Check if all new_pts are in the shrunk polygon (i.e., for each new point p, 
+    //   // and for each edge i, (p - points[i]) · normals[i] >= r - eps)
+    //   for (int i = 0; i < n; i++) {
+    //        for (int j = 0; j < n; j++) {
+    //            double dist = (new_pts[i].x - points[j].x) * normals[j].x + 
+    //                          (new_pts[i].y - points[j].y) * normals[j].y;
+    //            if (dist < r - 1e-8) {
+    //                return false;
+    //            }
+    //        }
+    //   }
+    //   return true;
+    //
+    // But note: the shrunk polygon's vertex new_pts[i] is defined by edges i-1 and i, so it 
+    // should be at distance r from edges i-1 and i, but might be farther from others. 
+    // However, due to floating point errors, we allow a small tolerance.
+    //
+    // However, there's a better way: the largest r is the minimum over all the "radii" determined 
+    // by the angles. Specifically, for each vertex of the original polygon, the largest circle 
+    // tangent to the two adjacent edges has radius = (distance from vertex to the opposite side 
+    // in the triangle formed by the two edges) ... actually, no.
+    //
+    // For a vertex with internal angle theta, the largest circle tangent to the two adjacent 
+    // edges has radius r such that the distance from the vertex to the center along the angle 
+    // bisector is r / sin(theta/2). But the circle must also be inside the polygon, so r is 
+    // limited by the distance to the opposite sides.
+    //
+    // Given the complexity, and since the problem is classic, I recall that the standard solution 
+    // is to use binary search on r and check feasibility by computing the shrunk polygon.
+    //
+    // Let's implement that, and hope n is small.
+    //
+    // Upper bound for r: the minimum distance from any point in the polygon to the boundary. 
+    // An upper bound is half the minimum width, or the inradius of the triangle formed by 
+    // three consecutive vertices (the smallest such). But we can set high = 1e9 (but better to compute).
+    // We can set high = min_{i} (distance from points[i] to the opposite edge) / 2? 
+    // Actually, a safe upper bound is the minimum distance from any vertex to any non-adjacent edge, 
+    // but that's O(n^2). Alternatively, we can set high = 1e7 (since coordinates up to 1e7, 
+    // the maximum possible radius is less than 1e7).
+    //
+    // We'll do about 100 iterations of binary search for precision (1e-12 error in r, but the problem requires 1e-3).
+    //
+    // Steps:
+    //   double low = 0, high = 1e8;
+    //   for (int iter = 0; iter < 100; iter++) {
+    //        double mid = (low + high) / 2;
+    //        if (feasible(mid, points, normals)) {
+    //            low = mid;
+    //        } else {
+    //            high = mid;
+    //        }
+    //   }
+    //   cout << fixed << setprecision(10) << low << endl;
+    //
+    // But note: the feasible function must be robust.
+    //
+    // However, there's a special case: when n=3 (triangle), the largest inscribed circle is the incircle.
+    // The inradius is area / semiperimeter.
+    // But our method should work for that too.
+    //
+    // Let's test with the example: square (0,0), (1,0), (1,1), (0,1)
+    // For r=0.5, the shrunk polygon should be a single point (0.5,0.5). 
+    // Let's compute:
+    //   Edges:
+    //     edge0: (0,0)->(1,0): vector (1,0), inward normal (0,1) [because (-0, 1) = (0,1)? 
+    //             Actually: dx=1, dy=0, inward normal = (-dy, dx) = (0,1) -> normalized (0,1)
+    //     edge1: (1,0)->(1,1): vector (0,1), inward normal = (-1,0)
+    //     edge2: (1,1)->(0,1): vector (-1,0), inward normal = (0,-1)
+    //     edge3: (0,1)->(0,0): vector (0,-1), inward normal = (1,0)
+    //
+    //   For r=0.5:
+    //     new_pts[0] (intersection of edge3 and edge0):
+    //        edge3: (x-0)*1 + (y-1)*0 = 0.5  => x = 0.5
+    //        edge0: (x-0)*0 + (y-0)*1 = 0.5  => y = 0.5
+    //        so (0.5,0.5)
+    //     Similarly, all new_pts will be (0.5,0.5)
+    //   Then, check: for point (0.5,0.5), distance to each edge is 0.5, so >=0.5 -> valid.
+    //   But when we compute the new_pts, we get 4 points all at (0.5,0.5). 
+    //   Then in the double loop, for each new point (which is (0.5,0.5)), and for each edge, 
+    //   the distance is 0.5, so it's valid.
+    //   So feasible(0.5) returns true.
+    //   For r=0.5+eps, it will be false.
+    //
+    // So it should work.
+    //
+    // Implementation details:
+    //   - We'll precompute the normals once outside the feasible function? 
+    //     But the feasible function takes r, so we can precompute the normals and points once.
+    //   - We'll write a helper function feasible(r, points, normals)
+    //
+    // However, to avoid recomputing normals every time, we'll compute them once in main and pass to feasible.
+    //
+    // Let's code accordingly.
+    //
+    // But note: the problem says "No three vertices lie on the same line", so consecutive edges are not collinear, 
+    // but non-consecutive edges might be parallel. In that case, for parallel edges, the offset lines 
+    // are parallel, so the intersection doesn't exist -> we return false.
+    //
+    // We'll use an epsilon for floating point comparisons.
+    
+    const double eps = 1e-8;
+    
+    // Precompute normals
+    std::vector<Point> normals(n);
+    for (int i = 0; i < n; i++) {
+        int j = (i+1) % n;
+        long long dx = points[j].x - points[i].x;
+        long long dy = points[j].y - points[i].y;
+        double len = std::sqrt(static_cast<double>(dx*dx + dy*dy));
+        // Inward normal for CCW polygon: (-dy, dx) normalized
+        normals[i] = Point(-dy / len, dx / len);
+    }
+    
+    // Binary search for the maximum r
+    double low = 0.0, high = 1e8;
+    // We'll do 100 iterations for precision
+    for (int iter = 0; iter < 100; iter++) {
+        double mid = (low + high) / 2.0;
+        // Check if a circle of radius mid can be placed
+        bool valid = true;
+        
+        // If mid is 0, it's always valid, but we skip that check.
+        // Compute the shrunk polygon vertices
+        std::vector<Point> new_pts;
+        bool parallel_found = false;
+        for (int i = 0; i < n; i++) {
+            int j = (i-1+n) % n;
+            double A = normals[j].x, B = normals[j].y;
+            double C_val = mid + points[j].x * normals[j].x + points[j].y * normals[j].y;
+            double D = normals[i].x, E = normals[i].y;
+            double F_val = mid + points[i].x * normals[i].x + points[i].y * normals[i].y;
+            double det = A * E - B * D;
+            if (std::fabs(det) < eps) {
+                parallel_found = true;
+                break;
+            }
+            double x = (C_val * E - B * F_val) / det;
+            double y = (A * F_val - C_val * D) / det;
+            new_pts.push_back(Point(x, y));
+        }
+        
+        if (parallel_found) {
+            valid = false;
+        } else {
+            // Check if all new_pts are in the shrunk polygon (i.e., for each new point p, 
+            // distance to each edge i is at least mid - eps)
+            for (int i = 0; i < n && valid; i++) {
+                for (int j = 0; j < n; j++) {
+                    double dist = (new_pts[i].x - points[j].x) * normals[j].x + 
+                                  (new_pts[i].y - points[j].y) * normals[j].y;
+                    if (dist < mid - eps) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (valid) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    
+    std::cout << std::fixed << std::setprecision(10) << low << std::endl;
+    
+    return 0;
+}

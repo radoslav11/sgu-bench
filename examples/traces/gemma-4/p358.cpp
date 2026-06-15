@@ -1,0 +1,64 @@
+#include <iostream>
+#include <algorithm>
+
+/**
+ * Problem: Median of Medians
+ * Task: Find the median of three medians, where each median is the middle element 
+ * of a triple of numbers.
+ * 
+ * Input format: Three lines, each containing three integers.
+ * Output: The median of the three medians.
+ */
+
+using namespace std;
+
+/**
+ * Function to calculate the median of three integers.
+ * The median of three numbers is the value that appears in the middle 
+ * when the numbers are sorted in non-descending order.
+ * 
+ * @param a First integer
+ * @param b Second integer
+ * @param c Third integer
+ * @return The median value
+ */
+int find_median(int a, int b, int c) {
+    int arr[3] = {a, b, c};
+    // Sort the three numbers to find the one in the middle.
+    // For only three elements, sort is extremely fast.
+    sort(arr, arr + 3);
+    return arr[1];
+}
+
+int main() {
+    // Optimize input and output performance.
+    // Although the problem's input size is small, fast I/O is a good practice.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int medians[3];
+
+    // The input consists of three triples, each on a new line.
+    // We store the median of each triple in the 'medians' array.
+    for (int i = 0; i < 3; ++i) {
+        int x, y, z;
+        // Using standard input to read three integers.
+        // cin automatically skips whitespace and line breaks.
+        if (cin >> x >> y >> z) {
+            medians[i] = find_median(x, y, z);
+        } else {
+            // This handles cases where input might not meet expectations.
+            return 0;
+        }
+    }
+
+    // After calculating the median for each of the three triples,
+    // we calculate the median of those three results.
+    int result = find_median(medians[0], medians[1], medians[2]);
+
+    // Output the final median result to standard output.
+    cout << result << endl;
+
+    return 0;
+}
+

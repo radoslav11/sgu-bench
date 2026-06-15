@@ -1,0 +1,137 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+
+struct Edge {
+    int to;
+    int cap;
+    int flow;
+    int rev;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int n, k;
+    if (!(cin >> n >> k)) return 0;
+    
+    int S = 0;
+    int T = n + k + 1;
+    int S_prime = n + k + 2;
+    int T_prime = n + k + 3;
+    int num_nodes = n + k + 4;
+    
+    vector<vector<Edge>> adj(num_nodes);
+    vector<int> D(num_nodes, 0);
+    
+    auto add_edge = [&](int from, int to, int cap) {
+        adj[from].push_back({to, cap, 0, (int)adj[to].size()});
+        adj[to].push_back({from, 0, 0, (int)adj[from].size() - 1});
+    };
+    
+    for (int i = 1; i <= n; ++i) {
+        int count;
+        cin >> count;
+        for (int j = 0; j < count; ++j) {
+            int u;
+            cin >> u;
+            if (u >= 1 && u <= k) {
+                add_edge(i, n + u, 1);
+            }
+        }
+    }
+    
+    for (int i = 1; i <= n; ++i) {
+        add_edge(S, i, 1);
+    }
+    
+    for (int j = 1; j <= k; ++j) {
+        add_edge(n + j, T, INF);
+        D[T] += 2;
+        D[n + j] -= 2;
+    }
+    
+    add_edge(T, S, INF);
+    
+    int required_flow = 0;
+    for (int i = 0; i < num_nodes; ++i) {
+        if (D[i] > 0) {
+            add_edge(S_prime, i, D[i]);
+            required_flow += D[i];
+        } else if (D[i] < 0) {
+            add_edge(i, T_prime, -D[i]);
+        }
+    }
+    
+    vector<int> level(num_nodes);
+    vector<int> ptr(num_nodes);
+    
+    auto bfs = [&]() {
+        fill(level.begin(), level.end(), -1);
+        level[S_prime] = 0;
+        queue<int> q;
+        q.push(S_prime);
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+            for (auto& edge : adj[v]) {
+                if (edge.cap - edge.flow > 0 && level[edge.to] == -1) {
+                    level[edge.to] = level[v] + 1;
+                    q.push(edge.to);
+                }
+            }
+        }
+        return level[T_prime] != -1;
+    };
+    
+    auto dfs = [&](auto& self, int v, int pushed) -> int {
+        if (pushed == 0) return 0;
+        if (v == T_prime) return pushed;
+        for (int& cid = ptr[v]; cid < (int)adj[v].size(); ++cid) {
+            auto& edge = adj[v][cid];
+            int tr = edge.to;
+            if (level[v] + 1 != level[tr] || edge.cap - edge.flow == 0) continue;
+            int push = self(self, tr, min(pushed, edge.cap - edge.flow));
+            if (push == 0) continue;
+            edge.flow += push;
+            adj[tr][edge.rev].flow -= push;
+            return push;
+        }
+        return 0;
+    };
+    
+    int flow = 0;
+    while (bfs()) {
+        fill(ptr.begin(), ptr.end(), 0);
+        while (int pushed = dfs(dfs, S_prime, INF)) {
+            flow += pushed;
+        }
+    }
+    
+    if (flow == required_flow) {
+        cout << "YES\n";
+        for (int j = 1; j <= k; ++j) {
+            vector<int> students;
+            for (int i = 1; i <= n; ++i) {
+                for (auto& edge : adj[i]) {
+                    if (edge.to == n + j && edge.flow == 1) {
+                        students.push_back(i);
+                    }
+                }
+            }
+            cout << students.size();
+            for (int s : students) {
+                cout << " " << s;
+            }
+            cout << "\n";
+        }
+    } else {
+        cout << "NO\n";
+    }
+    return 0;
+}

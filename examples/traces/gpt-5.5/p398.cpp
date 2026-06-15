@@ -1,0 +1,49 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, x;
+    cin >> N >> x;
+
+    vector<vector<bool>> friends(N + 1, vector<bool>(N + 1, false));
+
+    for (int i = 1; i <= N; ++i) {
+        int d;
+        cin >> d;
+        for (int j = 0; j < d; ++j) {
+            int f;
+            cin >> f;
+            friends[i][f] = true;
+        }
+    }
+
+    vector<int> result;
+
+    for (int c = 1; c <= N; ++c) {
+        if (c == x || friends[x][c]) continue;
+
+        bool isFriendOfFriend = false;
+        for (int b = 1; b <= N; ++b) {
+            if (friends[x][b] && friends[b][c]) {
+                isFriendOfFriend = true;
+                break;
+            }
+        }
+
+        if (isFriendOfFriend) {
+            result.push_back(c);
+        }
+    }
+
+    cout << result.size() << '\n';
+    for (size_t i = 0; i < result.size(); ++i) {
+        if (i) cout << ' ';
+        cout << result[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

@@ -1,0 +1,116 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The game involves adding a fourth vertex of a rectangle if the other three vertices
+ * are black. This can be modeled as a bipartite graph where the two sets of nodes
+ * are the unique x-coordinates and unique y-coordinates. An edge exists between
+ * x_i and y_j if the cell (x_i, y_j) is black.
+ * The process of adding the fourth vertex is equivalent to completing each 
+ * connected component of the bipartite graph into a complete bipartite graph.
+ * Thus, for each connected component C, if X_C is the set of x-coordinates 
+ * and Y_C is the set of y-coordinates in C, the final number of black cells
+ * in that component will be |X_C| * |Y_C|.
+ * The total number of black cells is the sum of these values across all components.
+ */
+
+struct DSU {
+    vector<int> parent;
+    vector<int> rank;
+    DSU(int n) {
+        parent.resize(n);
+        rank.assign(n, 0);
+        for (int i = 0; i < n; ++i) {
+            parent[i] = i;
+        }
+    }
+    int find(int i) {
+        if (parent[i] == i) return i;
+        return parent[i] = find(parent[i]);
+    }
+    void unite(int i, int j) {
+        int root_i = find(i);
+        int root_j = find(j);
+        if (root_i != root_j) {
+            if (rank[root_i] < rank[root_j]) {
+                parent[root_i] = root_j;
+            } else if (rank[root_i] > rank[root_j]) {
+                parent[root_j] = root_i;
+            } else {
+                parent[root_i] = root_j;
+                rank[root_j]++;
+            }
+        }
+    }
+};
+
+int main() {
+    // Fast I/O is essential given the 0.75s time limit
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int K;
+    if (!(cin >> K)) return 0;
+    if (K == 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    vector<pair<int, int>> edges(K);
+    vector<int> vx, vy;
+    vx.reserve(K);
+    vy.reserve(K);
+
+    for (int i = 0; i < K; ++i) {
+        cin >> edges[i].first >> edges[i].second;
+        vx.push_back(edges[i].first);
+        vy.push_back(edges[i].second);
+    }
+
+    // Coordinate compression for x and y coordinates
+    sort(vx.begin(), vx.end());
+    vx.erase(unique(vx.begin(), vx.end()), vx.end());
+    sort(vy.begin(), vy.end());
+    vy.erase(unique(vy.begin(), vy.end()), vy.end());
+
+    int Nx = vx.size();
+    int Ny = vy.size();
+    
+    // DSU to manage connected components of the bipartite graph
+    DSU dsu(Nx + Ny);
+
+    for (int i = 0; i < K; ++i) {
+        int x_idx = lower_bound(vx.begin(), vx.end(), edges[i].first) - vx.begin();
+        int y_idx = lower_bound(vy.begin(), vy.end(), edges[i].second) - vy.begin();
+        // Node x_idx is in the range [0, Nx-1], Node y_idx is in [Nx, Nx+Ny-1]
+        dsu.unite(x_idx, Nx + y_idx);
+    }
+
+    // Arrays to count number of X and Y nodes in each component
+    vector<int> compX(Nx + Ny, 0);
+    vector<int> compY(Nx + Ny, 0);
+
+    for (int i = 0; i < Nx; ++i) {
+        compX[dsu.find(i)]++;
+    }
+    for (int i = 0; i < Ny; ++i) {
+        compY[dsu.find(Nx + i)]++;
+    }
+
+    long long total_black_cells = 0;
+    for (int i = 0; i < Nx + Ny; ++i) {
+        // If i is a root of a component, calculate |X_C| * |Y_C|
+        if (dsu.parent[i] == i) {
+            total_black_cells += (long long)compX[i] * compY[i];
+        }
+    }
+
+    cout << total_black_cells << endl;
+
+    return 0;
+}
+

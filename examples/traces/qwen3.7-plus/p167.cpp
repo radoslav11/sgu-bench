@@ -1,0 +1,211 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstring>
+
+using namespace std;
+
+int N, M, K;
+int oil[15][16][16];
+int dp[2][226][6][16][16];
+int parent_arr[15][226][6][16][16];
+
+vector<int> valid_trans[4] = {
+    {0, 1, 2, 3},
+    {1, 3},
+    {2, 3},
+    {3}
+};
+
+int pack(int k, int s, int L, int R) {
+    return (k << 14) | (s << 11) | (L << 6) | R;
+}
+
+void unpack(int p, int &k, int &s, int &L, int &R) {
+    R = p & 63;
+    L = (p >> 6) & 31;
+    s = (p >> 11) & 7;
+    k = (p >> 14) & 511;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> N >> M >> K)) return 0;
+    
+    if (K == 0) {
+        cout << "Oil : 0\n";
+        return 0;
+    }
+    
+    for (int i = 0; i < N; ++i) {
+        for (int j = 1; j <= M; ++j) {
+            int val;
+            cin >> val;
+            for (int L = 1; L <= j; ++L) {
+                oil[i][L][j] = oil[i][L][j - 1] + val;
+            }
+        }
+    }
+    
+    memset(dp, -1, sizeof(dp));
+    memset(parent_arr, -1, sizeof(parent_arr));
+    
+    dp[0][0][4][0][0] = 0;
+    
+    for (int row = 0; row < N; ++row) {
+        int curr = row & 1;
+        int nxt = curr ^ 1;
+        memset(dp[nxt], -1, sizeof(dp[nxt]));
+        
+        if (row > 0) {
+            for (int k = 0; k <= K; ++k) {
+                if (dp[curr][k][4][0][0] != -1) {
+                    dp[nxt][k][4][0][0] = dp[curr][k][4][0][0];
+                    parent_arr[row][k][4][0][0] = pack(k, 4, 0, 0);
+                }
+                if (dp[curr][k][5][0][0] != -1) {
+                    dp[nxt][k][5][0][0] = dp[curr][k][5][0][0];
+                    parent_arr[row][k][5][0][0] = pack(k, 5, 0, 0);
+                }
+            }
+        }
+        
+        for (int k = 0; k <= K; ++k) {
+            for (int s = 0; s < 6; ++s) {
+                int min_L = 0, max_L = 0, min_R = 0, max_R = 0;
+                if (s == 4 || s == 5) {
+                    min_L = max_L = min_R = max_R = 0;
+                } else {
+                    min_L = 1; max_L = M;
+                }
+                
+                for (int L = min_L; L <= max_L; ++L) {
+                    int start_R = (s == 4 || s == 5) ? 0 : max(1, L);
+                    int end_R = (s == 4 || s == 5) ? 0 : M;
+                    for (int R = start_R; R <= end_R; ++R) {
+                        if (s != 4 && s != 5 && L > R) continue;
+                        
+                        int val = dp[curr][k][s][L][R];
+                        if (val == -1) continue;
+                        
+                        if (s == 4) {
+                            if (val > dp[nxt][k][4][0][0]) {
+                                dp[nxt][k][4][0][0] = val;
+                                parent_arr[row][k][4][0][0] = pack(k, 4, 0, 0);
+                            }
+                            for (int nxt_s = 0; nxt_s < 4; ++nxt_s) {
+                                for (int nL = 1; nL <= M; ++nL) {
+                                    for (int nR = nL; nR <= M; ++nR) {
+                                        int len = nR - nL + 1;
+                                        if (k + len <= K) {
+                                            int nval = val + oil[row][nL][nR];
+                                            if (nval > dp[nxt][k + len][nxt_s][nL][nR]) {
+                                                dp[nxt][k + len][nxt_s][nL][nR] = nval;
+                                                parent_arr[row][k + len][nxt_s][nL][nR] = pack(k, 4, 0, 0);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (s == 5) {
+                            if (val > dp[nxt][k][5][0][0]) {
+                                dp[nxt][k][5][0][0] = val;
+                                parent_arr[row][k][5][0][0] = pack(k, 5, 0, 0);
+                            }
+                        } else {
+                            for (int nxt_s : valid_trans[s]) {
+                                int nmin_L = 1, nmax_L = M;
+                                int nmin_R = 1, nmax_R = M;
+                                if (nxt_s == 0) { nmax_L = L; nmin_R = R; }
+                                else if (nxt_s == 1) { nmax_L = L; nmax_R = R; }
+                                else if (nxt_s == 2) { nmin_L = L; nmin_R = R; }
+                                else if (nxt_s == 3) { nmin_L = L; nmax_R = R; }
+                                
+                                if (nmin_L > nmax_L) continue;
+                                for (int nL = nmin_L; nL <= nmax_L; ++nL) {
+                                    int start_nR = max(nL, nmin_R);
+                                    if (start_nR > nmax_R) continue;
+                                    for (int nR = start_nR; nR <= nmax_R; ++nR) {
+                                        int len = nR - nL + 1;
+                                        if (k + len <= K) {
+                                            int nval = val + oil[row][nL][nR];
+                                            if (nval > dp[nxt][k + len][nxt_s][nL][nR]) {
+                                                dp[nxt][k + len][nxt_s][nL][nR] = nval;
+                                                parent_arr[row][k + len][nxt_s][nL][nR] = pack(k, s, L, R);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (val > dp[nxt][k][5][0][0]) {
+                                dp[nxt][k][5][0][0] = val;
+                                parent_arr[row][k][5][0][0] = pack(k, s, L, R);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    int max_oil = -1;
+    int best_s = -1, best_L = -1, best_R = -1;
+    int final_idx = N & 1;
+    
+    for (int k = K; k <= K; ++k) {
+        for (int s = 0; s <= 5; ++s) {
+            int min_L = 0, max_L = 0, min_R = 0, max_R = 0;
+            if (s != 4 && s != 5) { min_L = 1; max_L = M; }
+            for (int L = min_L; L <= max_L; ++L) {
+                int start_R = (s == 4 || s == 5) ? 0 : max(1, L);
+                int end_R = (s == 4 || s == 5) ? 0 : M;
+                for (int R = start_R; R <= end_R; ++R) {
+                    if (s != 4 && s != 5 && L > R) continue;
+                    if (dp[final_idx][k][s][L][R] > max_oil) {
+                        max_oil = dp[final_idx][k][s][L][R];
+                        best_s = s; best_L = L; best_R = R;
+                    }
+                }
+            }
+        }
+    }
+    
+    if (max_oil == -1) {
+        cout << "Oil : 0\n";
+        return 0;
+    }
+    
+    cout << "Oil : " << max_oil << "\n";
+    
+    vector<pair<int, int>> result;
+    int curr_k = K;
+    int curr_s = best_s;
+    int curr_L = best_L;
+    int curr_R = best_R;
+    
+    for (int row = N - 1; row >= 0; --row) {
+        int p = parent_arr[row][curr_k][curr_s][curr_L][curr_R];
+        int pk, ps, pL, pR;
+        unpack(p, pk, ps, pL, pR);
+        
+        if (curr_s != 4 && curr_s != 5) {
+            for (int c = curr_L; c <= curr_R; ++c) {
+                result.push_back({row + 1, c});
+            }
+        }
+        
+        curr_k = pk;
+        curr_s = ps;
+        curr_L = pL;
+        curr_R = pR;
+    }
+    
+    sort(result.begin(), result.end());
+    for (auto& p : result) {
+        cout << p.first << " " << p.second << "\n";
+    }
+    
+    return 0;
+}

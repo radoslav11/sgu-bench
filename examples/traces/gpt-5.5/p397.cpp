@@ -1,0 +1,36 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string s;
+    cin >> s;
+
+    string leftPart, rightPart;
+    leftPart.reserve(s.size());
+    rightPart.reserve(s.size());
+
+    for (char c : s) {
+        if (c == 'L') {
+            if (!leftPart.empty()) {
+                rightPart.push_back(leftPart.back());
+                leftPart.pop_back();
+            }
+        } else if (c == 'R') {
+            if (!rightPart.empty()) {
+                leftPart.push_back(rightPart.back());
+                rightPart.pop_back();
+            }
+        } else {
+            leftPart.push_back(c);
+        }
+    }
+
+    cout << leftPart;
+    reverse(rightPart.begin(), rightPart.end());
+    cout << rightPart << '\n';
+
+    return 0;
+}

@@ -1,0 +1,324 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Person {
+    int gender = -1;          // -1 unknown, 0 male, 1 female
+    int par[2] = {-1, -1};    // 0 father, 1 mother
+    int spouse = -1;
+};
+
+struct State {
+    vector<Person> p;
+};
+
+struct Item {
+    State s;
+    int cur;
+};
+
+vector<string> rels;
+int ansMin = INT_MAX, ansMax = INT_MIN;
+
+bool setGender(State &s, int v, int g) {
+    if (s.p[v].gender != -1 && s.p[v].gender != g) return false;
+    s.p[v].gender = g;
+    return true;
+}
+
+bool isAncestor(const State &s, int anc, int v) {
+    if (anc == v) return true;
+    for (int k = 0; k < 2; k++) {
+        int u = s.p[v].par[k];
+        if (u != -1 && isAncestor(s, anc, u)) return true;
+    }
+    return false;
+}
+
+bool setParent(State &s, int child, int parent, int sex) {
+    if (child == parent) return false;
+    if (!setGender(s, parent, sex)) return false;
+    if (s.p[child].par[sex] != -1 && s.p[child].par[sex] != parent) return false;
+    if (isAncestor(s, child, parent)) return false;
+    s.p[child].par[sex] = parent;
+    return true;
+}
+
+bool setSpouse(State &s, int a, int b) {
+    if (a == b) return false;
+    if (s.p[a].spouse != -1 && s.p[a].spouse != b) return false;
+    if (s.p[b].spouse != -1 && s.p[b].spouse != a) return false;
+
+    State t = s;
+
+    if (t.p[a].gender == -1 && t.p[b].gender == -1) {
+        t.p[a].gender = 0;
+        t.p[b].gender = 1;
+    } else if (t.p[a].gender == -1) {
+        t.p[a].gender = 1 - t.p[b].gender;
+    } else if (t.p[b].gender == -1) {
+        t.p[b].gender = 1 - t.p[a].gender;
+    } else if (t.p[a].gender == t.p[b].gender) {
+        return false;
+    }
+
+    t.p[a].spouse = b;
+    t.p[b].spouse = a;
+    s = t;
+    return true;
+}
+
+vector<Item> goParent(const Item &it, int sex) {
+    vector<Item> res;
+    int v = it.cur;
+    int q = it.s.p[v].par[sex];
+
+    if (q != -1) {
+        res.push_back({it.s, q});
+        return res;
+    }
+
+    int n = it.s.p.size();
+
+    for (int u = 0; u < n; u++) {
+        State ns = it.s;
+        if (setParent(ns, v, u, sex))
+            res.push_back({ns, u});
+    }
+
+    State ns = it.s;
+    ns.p.push_back(Person());
+    if (setParent(ns, v, n, sex))
+        res.push_back({ns, n});
+
+    return res;
+}
+
+vector<Item> goSpouse(const Item &it, int sex) {
+    vector<Item> res;
+    int v = it.cur;
+    int q = it.s.p[v].spouse;
+
+    if (q != -1) {
+        State ns = it.s;
+        if (setGender(ns, q, sex))
+            res.push_back({ns, q});
+        return res;
+    }
+
+    int n = it.s.p.size();
+
+    for (int u = 0; u < n; u++) {
+        State ns = it.s;
+        if (setGender(ns, u, sex) && setSpouse(ns, v, u))
+            res.push_back({ns, u});
+    }
+
+    State ns = it.s;
+    ns.p.push_back(Person());
+    if (setGender(ns, n, sex) && setSpouse(ns, v, n))
+        res.push_back({ns, n});
+
+    return res;
+}
+
+vector<Item> goChild(const Item &it, int childSex, int forbid = -1) {
+    vector<Item> res;
+    int v = it.cur;
+
+    vector<int> possibleParentSex;
+    if (it.s.p[v].gender == -1) {
+        possibleParentSex = {0, 1};
+    } else {
+        possibleParentSex = {it.s.p[v].gender};
+    }
+
+    for (int parentSex : possibleParentSex) {
+        State base = it.s;
+        if (!setGender(base, v, parentSex)) continue;
+
+        int n = base.p.size();
+
+        for (int u = 0; u < n; u++) {
+            if (u == forbid) continue;
+            State ns = base;
+            if (setGender(ns, u, childSex) && setParent(ns, u, v, parentSex))
+                res.push_back({ns, u});
+        }
+
+        State ns = base;
+        ns.p.push_back(Person());
+        if (setGender(ns, n, childSex) && setParent(ns, n, v, parentSex))
+            res.push_back({ns, n});
+    }
+
+    return res;
+}
+
+vector<Item> applySeq(vector<Item> cur, const vector<pair<char,int>> &ops) {
+    for (auto [tp, val] : ops) {
+        vector<Item> nxt;
+        for (auto &it : cur) {
+            vector<Item> tmp;
+            if (tp == 'P') tmp = goParent(it, val);
+            else if (tp == 'C') tmp = goChild(it, val);
+            else tmp = goSpouse(it, val);
+
+            nxt.insert(nxt.end(), tmp.begin(), tmp.end());
+        }
+        cur.swap(nxt);
+        if (cur.empty()) break;
+    }
+    return cur;
+}
+
+vector<Item> applyRelation(const Item &it, const string &r) {
+    vector<Item> res;
+
+    auto addSeq = [&](vector<pair<char,int>> ops) {
+        vector<Item> start = {it};
+        auto v = applySeq(start, ops);
+        res.insert(res.end(), v.begin(), v.end());
+    };
+
+    if (r == "father") addSeq({{'P',0}});
+    else if (r == "mother") addSeq({{'P',1}});
+    else if (r == "son") addSeq({{'C',0}});
+    else if (r == "daughter") addSeq({{'C',1}});
+    else if (r == "husband") addSeq({{'S',0}});
+    else if (r == "wife") addSeq({{'S',1}});
+    else if (r == "grandfather") {
+        addSeq({{'P',0},{'P',0}});
+        addSeq({{'P',1},{'P',0}});
+    } else if (r == "grandmother") {
+        addSeq({{'P',0},{'P',1}});
+        addSeq({{'P',1},{'P',1}});
+    } else if (r == "grandson") {
+        addSeq({{'C',0},{'C',0}});
+        addSeq({{'C',1},{'C',0}});
+    } else if (r == "granddaughter") {
+        addSeq({{'C',0},{'C',1}});
+        addSeq({{'C',1},{'C',1}});
+    } else if (r == "brother" || r == "sister") {
+        int sx = (r == "brother" ? 0 : 1);
+        for (int ps = 0; ps < 2; ps++) {
+            auto parents = goParent(it, ps);
+            for (auto &pa : parents) {
+                auto ch = goChild(pa, sx, it.cur);
+                res.insert(res.end(), ch.begin(), ch.end());
+            }
+        }
+    } else if (r == "uncle" || r == "aunt") {
+        int sx = (r == "uncle" ? 0 : 1);
+        for (int ps = 0; ps < 2; ps++) {
+            auto parents = goParent(it, ps);
+            for (auto &pa : parents) {
+                for (int gps = 0; gps < 2; gps++) {
+                    auto gpsv = goParent(pa, gps);
+                    for (auto &gp : gpsv) {
+                        auto ch = goChild(gp, sx, pa.cur);
+                        res.insert(res.end(), ch.begin(), ch.end());
+                    }
+                }
+            }
+        }
+    } else if (r == "nephew" || r == "niece") {
+        int sx = (r == "nephew" ? 0 : 1);
+        for (int ps = 0; ps < 2; ps++) {
+            auto parents = goParent(it, ps);
+            for (auto &pa : parents) {
+                for (int sibsx = 0; sibsx < 2; sibsx++) {
+                    auto sibs = goChild(pa, sibsx, it.cur);
+                    for (auto &sib : sibs) {
+                        auto ch = goChild(sib, sx);
+                        res.insert(res.end(), ch.begin(), ch.end());
+                    }
+                }
+            }
+        }
+    }
+
+    return res;
+}
+
+int degree(const State &s, int target) {
+    int n = s.p.size();
+    vector<vector<pair<int,int>>> g(n);
+
+    for (int i = 0; i < n; i++) {
+        for (int k = 0; k < 2; k++) {
+            int p = s.p[i].par[k];
+            if (p != -1) {
+                g[i].push_back({p, 1});
+                g[p].push_back({i, 1});
+            }
+        }
+        int sp = s.p[i].spouse;
+        if (sp != -1) {
+            g[i].push_back({sp, 0});
+            g[sp].push_back({i, 0});
+        }
+    }
+
+    deque<int> dq;
+    vector<int> d(n, INT_MAX);
+    d[0] = 0;
+    dq.push_back(0);
+
+    while (!dq.empty()) {
+        int v = dq.front();
+        dq.pop_front();
+
+        for (auto [u, w] : g[v]) {
+            if (d[u] > d[v] + w) {
+                d[u] = d[v] + w;
+                if (w == 0) dq.push_front(u);
+                else dq.push_back(u);
+            }
+        }
+    }
+
+    return d[target];
+}
+
+void dfs(int idx, Item it) {
+    if (idx == (int)rels.size()) {
+        int d = degree(it.s, it.cur);
+        ansMin = min(ansMin, d);
+        ansMax = max(ansMax, d);
+        return;
+    }
+
+    auto nxt = applyRelation(it, rels[idx]);
+    for (auto &x : nxt) dfs(idx + 1, x);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string line;
+    getline(cin, line);
+
+    size_t pos = line.find("A");
+    string tail = line.substr(pos + 1);
+
+    size_t p = 0;
+    while ((p = tail.find("'s ")) != string::npos) {
+        tail = tail.substr(p + 3);
+        size_t q = tail.find("'s ");
+        if (q == string::npos) {
+            rels.push_back(tail);
+            break;
+        } else {
+            rels.push_back(tail.substr(0, q));
+        }
+    }
+
+    State init;
+    init.p.push_back(Person());
+
+    dfs(0, {init, 0});
+
+    cout << ansMax << ' ' << ansMin << '\n';
+    return 0;
+}

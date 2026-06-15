@@ -1,0 +1,145 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+uint32_t phi_func(uint32_t x) {
+    uint32_t res = x;
+    for (uint32_t i = 2; i * i <= x; ++i) {
+        if (x % i == 0) {
+            while (x % i == 0) x /= i;
+            res -= res / i;
+        }
+    }
+    if (x > 1) res -= res / x;
+    return res;
+}
+
+vector<uint32_t> get_pow2(uint32_t exp) {
+    vector<uint32_t> res;
+    if (exp == 0) {
+        res.push_back(1);
+        return res;
+    }
+    uint32_t word_idx = exp / 32;
+    uint32_t bit_idx = exp % 32;
+    res.resize(word_idx + 1, 0);
+    res[word_idx] |= (1U << bit_idx);
+    return res;
+}
+
+void mul(vector<uint32_t>& a, uint32_t C) {
+    if (C == 0) {
+        a = {0};
+        return;
+    }
+    uint64_t carry = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        uint64_t cur = (uint64_t)a[i] * C + carry;
+        a[i] = (uint32_t)(cur & 0xFFFFFFFF);
+        carry = cur >> 32;
+    }
+    while (carry) {
+        a.push_back((uint32_t)(carry & 0xFFFFFFFF));
+        carry >>= 32;
+    }
+    while (a.size() > 1 && a.back() == 0) a.pop_back();
+}
+
+void add(vector<uint32_t>& a, const vector<uint32_t>& b) {
+    if (a.size() < b.size()) a.resize(b.size(), 0);
+    uint64_t carry = 0;
+    size_t max_size = max(a.size(), b.size());
+    for (size_t i = 0; i < max_size; ++i) {
+        uint64_t cur = carry;
+        if (i < a.size()) cur += a[i];
+        if (i < b.size()) cur += b[i];
+        if (i < a.size()) {
+            a[i] = (uint32_t)(cur & 0xFFFFFFFF);
+        } else {
+            a.push_back((uint32_t)(cur & 0xFFFFFFFF));
+        }
+        carry = cur >> 32;
+    }
+    while (carry) {
+        a.push_back((uint32_t)(carry & 0xFFFFFFFF));
+        carry >>= 32;
+    }
+    while (a.size() > 1 && a.back() == 0) a.pop_back();
+}
+
+void div(vector<uint32_t>& a, uint32_t n) {
+    uint32_t rem = 0;
+    for (int i = (int)a.size() - 1; i >= 0; --i) {
+        uint64_t cur = ((uint64_t)rem << 32) | a[i];
+        a[i] = (uint32_t)(cur / n);
+        rem = (uint32_t)(cur % n);
+    }
+    while (a.size() > 1 && a.back() == 0) a.pop_back();
+}
+
+void print(const vector<uint32_t>& a) {
+    if (a.empty() || (a.size() == 1 && a[0] == 0)) {
+        cout << 0 << "\n";
+        return;
+    }
+    vector<uint32_t> temp = a;
+    vector<uint32_t> digits;
+    
+    while (!temp.empty() && !(temp.size() == 1 && temp[0] == 0)) {
+        uint32_t rem = 0;
+        for (int i = (int)temp.size() - 1; i >= 0; --i) {
+            uint64_t cur = ((uint64_t)rem << 32) | temp[i];
+            temp[i] = (uint32_t)(cur / 1000000000);
+            rem = (uint32_t)(cur % 1000000000);
+        }
+        digits.push_back(rem);
+        while (temp.size() > 1 && temp.back() == 0) temp.pop_back();
+    }
+    
+    bool first = true;
+    for (int i = (int)digits.size() - 1; i >= 0; --i) {
+        if (first) {
+            cout << digits[i];
+            first = false;
+        } else {
+            cout << setfill('0') << setw(9) << digits[i];
+        }
+    }
+    cout << "\n";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    uint32_t n;
+    if (!(cin >> n)) return 0;
+    
+    vector<uint32_t> total;
+    total.push_back(0);
+    
+    for (uint32_t d = 1; d * d <= n; ++d) {
+        if (n % d == 0) {
+            uint32_t phi_d = phi_func(d);
+            vector<uint32_t> p2 = get_pow2(n / d);
+            mul(p2, phi_d);
+            add(total, p2);
+            
+            if (d * d != n) {
+                uint32_t d2 = n / d;
+                uint32_t phi_d2 = phi_func(d2);
+                vector<uint32_t> p2_2 = get_pow2(n / d2);
+                mul(p2_2, phi_d2);
+                add(total, p2_2);
+            }
+        }
+    }
+    
+    div(total, n);
+    print(total);
+    
+    return 0;
+}

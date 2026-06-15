@@ -1,0 +1,248 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <queue>
+#include <set>
+#include <iomanip>
+
+using namespace std;
+
+typedef __int128_t int128;
+
+struct SimpleBigInt {
+    bool neg;
+    vector<long long> d; // digits in base 10^18
+    static const long long BASE = 1000000000000000000LL;
+
+    SimpleBigInt(bool n = false) : neg(n) { d.push_back(0); }
+
+    void multiply(long long v) {
+        if (v == 0) { d = {0}; neg = false; return; }
+        if (v < 0) { neg = !neg; v = -v; }
+        unsigned __int128 carry = 0;
+        for (size_t i = 0; i < d.size() || carry; ++i) {
+            if (i == d.size()) d.push_back(0);
+            unsigned __int128 cur = (unsigned __int128)d[i] * v + carry;
+            d[i] = (long long)(cur % BASE);
+            carry = cur / BASE;
+        }
+        while (d.size() > 1 && d.back() == 0) d.pop_back();
+    }
+
+    void print() {
+        if (neg && !(d.size() == 1 && d[0] == 0)) cout << "-";
+        cout << d.back();
+        for (int i = (int)d.size() - 2; i >= 0; --i) {
+            cout << setfill('0') << setw(18) << d[i];
+        }
+        cout << endl;
+    }
+};
+
+long long combinations(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    if (k == 0 || k == n) return 1;
+    if (k > n / 2) k = n - k;
+    int128 res = 1;
+    for (int i = 1; i <= k; ++i) {
+        res = res * (n - i + 1) / i;
+        if (res > 20000) return 20000;
+    }
+    return (long long)res;
+}
+
+struct State {
+    double log_val;
+    int j;
+    vector<int> neg_idx;
+    vector<int> pos_idx;
+
+    bool operator<(const State& other) const {
+        if (abs(log_val - other.log_val) > 1e-9)
+            return log_val < other.log_val;
+        if (j != other.j) return j < other.j;
+        if (neg_idx != other.neg_idx) return neg_idx < other.neg_idx;
+        return pos_idx < other.pos_idx;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    long long k;
+    if (!(cin >> n >> m >> k)) return 0;
+
+    vector<long long> pos, neg;
+    int z = 0;
+    for (int i = 0; i < n; ++i) {
+        long long a;
+        cin >> a;
+        if (a > 0) pos.push_back(a);
+        else if (a < 0) neg.push_back(a);
+        else z++;
+    }
+
+    vector<long long> pos_desc = pos;
+    sort(pos_desc.rbegin(), pos_desc.rend());
+    vector<long long> neg_abs_desc;
+    for (long long x : neg) neg_abs_desc.push_back(abs(x));
+    sort(neg_abs_desc.rbegin(), neg_abs_desc.rend());
+
+    long long count_pos = 0;
+    for (int j = 0; j <= m / 2; ++j) {
+        count_pos += combinations(neg.size(), 2 * j) * combinations(pos.size(), m - 2 * j);
+        if (count_pos > 20000) break;
+    }
+
+    long long count_zero = combinations(n, m) - combinations(n - z, m);
+
+    if (k <= count_pos) {
+        priority_queue<State> pq;
+        set<pair<vector<int>, vector<int>>> visited[14];
+        for (int j = 0; j <= m / 2; ++j) {
+            int n_cnt = 2 * j;
+            int p_cnt = m - 2 * j;
+            if (n_cnt <= neg_abs_desc.size() && p_cnt <= pos_desc.size() && p_cnt >= 0) {
+                double lv = 0;
+                vector<int> n_idx, p_idx;
+                for (int i = 0; i < n_cnt; ++i) {
+                    lv += log((double)neg_abs_desc[i]);
+                    n_idx.push_back(i);
+                }
+                for (int i = 0; i < p_cnt; ++i) {
+                    lv += log((double)pos_desc[i]);
+                    p_idx.push_back(i);
+                }
+                pq.push({lv, j, n_idx, p_idx});
+                visited[j].insert({n_idx, p_idx});
+            }
+        }
+
+        SimpleBigInt res(false);
+        for (int i = 1; i <= k; ++i) {
+            State curr = pq.top();
+            pq.pop();
+
+            if (i == k) {
+                for (int idx : curr.neg_idx) res.multiply(neg_abs_desc[idx]);
+                for (int idx : curr.pos_idx) res.multiply(pos_desc[idx]);
+                res.print();
+                return 0;
+            }
+
+            int j = curr.j;
+            int n_cnt = 2 * j;
+            int p_cnt = m - 2 * j;
+
+            for (int idx_n = 0; idx_n < n_cnt; ++idx_n) {
+                vector<int> next_n = curr.neg_idx;
+                next_n[idx_n]++;
+                if (next_n[idx_n] < neg_abs_desc.size() && (idx_n == n_cnt - 1 || next_n[idx_n] < next_n[idx_n + 1])) {
+                    if (visited[j].find({next_n, curr.pos_idx}) == visited[j].end()) {
+                        double n_lv = 0;
+                        for (int x : next_n) n_lv += log((double)neg_abs_desc[x]);
+                        double p_lv = 0;
+                        for (int x : curr.pos_idx) p_lv += log((double)pos_desc[x]);
+                        pq.push({n_lv + p_lv, j, next_n, curr.pos_idx});
+                        visited[j].insert({next_n, curr.pos_idx});
+                    }
+                }
+            }
+            for (int idx_p = 0; idx_p < p_cnt; ++idx_p) {
+                vector<int> next_p = curr.pos_idx;
+                next_p[idx_p]++;
+                if (next_p[idx_p] < pos_desc.size() && (idx_p == p_cnt - 1 || next_p[idx_p] < next_p[idx_p + 1])) {
+                    if (visited[j].find({curr.neg_idx, next_p}) == visited[j].end()) {
+                        double n_lv = 0;
+                        for (int x : curr.neg_idx) n_lv += log((double)neg_abs_desc[x]);
+                        double p_lv = 0;
+                        for (int x : next_p) p_lv += log((double)pos_desc[x]);
+                        pq.push({n_lv + p_lv, j, curr.neg_idx, next_p});
+                        visited[j].insert({curr.neg_idx, next_p});
+                    }
+                }
+            }
+        }
+    } else if (k <= count_pos + count_zero) {
+        cout << 0 << endl;
+    } else {
+        long long target = k - count_pos - count_zero;
+        vector<long long> pos_asc = pos;
+        sort(pos_asc.begin(), pos_asc.end());
+        vector<long long> neg_abs_asc;
+        for (long long x : neg) neg_abs_asc.push_back(abs(x));
+        sort(neg_abs_asc.begin(), neg_abs_asc.end());
+
+        priority_queue<State, vector<State>, greater<State>> pq;
+        set<pair<vector<int>, vector<int>>> visited[14];
+        for (int j = 0; j <= (m - 1) / 2; ++j) {
+            int n_cnt = 2 * j + 1;
+            int p_cnt = m - 2 * j - 1;
+            if (n_cnt <= neg_abs_asc.size() && p_cnt <= pos_asc.size() && p_cnt >= 0) {
+                double lv = 0;
+                vector<int> n_idx, p_idx;
+                for (int i = 0; i < n_cnt; ++i) {
+                    lv += log((double)neg_abs_asc[i]);
+                    n_idx.push_back(i);
+                }
+                for (int i = 0; i < p_cnt; ++i) {
+                    lv += log((double)pos_asc[i]);
+                    p_idx.push_back(i);
+                }
+                pq.push({lv, j, n_idx, p_idx});
+                visited[j].insert({n_idx, p_idx});
+            }
+        }
+
+        SimpleBigInt res(true);
+        for (int i = 1; i <= target; ++i) {
+            State curr = pq.top();
+            pq.pop();
+
+            if (i == target) {
+                for (int idx : curr.neg_idx) res.multiply(neg_abs_asc[idx]);
+                for (int idx : curr.pos_idx) res.multiply(pos_asc[idx]);
+                res.print();
+                return 0;
+            }
+
+            int j = curr.j;
+            int n_cnt = 2 * j + 1;
+            int p_cnt = m - 2 * j - 1;
+
+            for (int idx_n = 0; idx_n < n_cnt; ++idx_n) {
+                vector<int> next_n = curr.neg_idx;
+                next_n[idx_n]++;
+                if (next_n[idx_n] < neg_abs_asc.size() && (idx_n == n_cnt - 1 || next_n[idx_n] < next_n[idx_n + 1])) {
+                    if (visited[j].find({next_n, curr.pos_idx}) == visited[j].end()) {
+                        double n_lv = 0;
+                        for (int x : next_n) n_lv += log((double)neg_abs_asc[x]);
+                        double p_lv = 0;
+                        for (int x : curr.pos_idx) p_lv += log((double)pos_asc[x]);
+                        pq.push({n_lv + p_lv, j, next_n, curr.pos_idx});
+                        visited[j].insert({next_n, curr.pos_idx});
+                    }
+                }
+            }
+            for (int idx_p = 0; idx_p < p_cnt; ++idx_p) {
+                vector<int> next_p = curr.pos_idx;
+                next_p[idx_p]++;
+                if (next_p[idx_p] < pos_asc.size() && (idx_p == p_cnt - 1 || next_p[idx_p] < next_p[idx_p + 1])) {
+                    if (visited[j].find({curr.neg_idx, next_p}) == visited[j].end()) {
+                        double n_lv = 0;
+                        for (int x : curr.neg_idx) n_lv += log((double)neg_abs_asc[x]);
+                        double p_lv = 0;
+                        for (int x : next_p) p_lv += log((double)pos_asc[x]);
+                        pq.push({n_lv + p_lv, j, curr.neg_idx, next_p});
+                        visited[j].insert({curr.neg_idx, next_p});
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}

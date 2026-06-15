@@ -1,0 +1,74 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+cpp_int gcd_cpp(cpp_int a, cpp_int b) {
+    while (b != 0) {
+        cpp_int r = a % b;
+        a = b;
+        b = r;
+    }
+    return a;
+}
+
+struct Fraction {
+    cpp_int num, den;
+
+    Fraction(cpp_int n = 0, cpp_int d = 1) : num(n), den(d) {
+        normalize();
+    }
+
+    void normalize() {
+        cpp_int g = gcd_cpp(num, den);
+        num /= g;
+        den /= g;
+    }
+
+    void add(const cpp_int& n, const cpp_int& d) {
+        cpp_int g = gcd_cpp(den, d);
+        cpp_int new_num = num * (d / g) + n * (den / g);
+        cpp_int new_den = den / g * d;
+        num = new_num;
+        den = new_den;
+        normalize();
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    vector<vector<cpp_int>> C(51, vector<cpp_int>(51, 0));
+    for (int i = 0; i <= 50; ++i) {
+        C[i][0] = C[i][i] = 1;
+        for (int j = 1; j < i; ++j) {
+            C[i][j] = C[i - 1][j - 1] + C[i - 1][j];
+        }
+    }
+
+    vector<Fraction> I(n + 1);
+    I[0] = Fraction(1, 1);
+
+    for (int i = 1; i <= n; ++i) {
+        Fraction sum(1, 1);
+
+        for (int k = 0; k < i; ++k) {
+            sum.add(C[i][k] * I[k].num, I[k].den);
+        }
+
+        cpp_int denom_multiplier = 3;
+        denom_multiplier <<= i;
+        denom_multiplier -= 2;
+
+        I[i] = Fraction(sum.num, sum.den * denom_multiplier);
+    }
+
+    cout << I[n].num << '/' << I[n].den << '\n';
+
+    return 0;
+}

@@ -1,0 +1,130 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+struct Line {
+    int Y;
+    vector<int> V;
+};
+
+const int MAXN = 100005;
+int parent_node[MAXN];
+int head_node[MAXN];
+int tail_node[MAXN];
+int nxt_node[MAXN];
+int vis[MAXN];
+
+int find_set(int i) {
+    int root = i;
+    while (root != parent_node[root]) {
+        root = parent_node[root];
+    }
+    int curr = i;
+    while (curr != root) {
+        int nxt = parent_node[curr];
+        parent_node[curr] = root;
+        curr = nxt;
+    }
+    return root;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M, Q;
+    if (!(cin >> N >> M >> Q)) return 0;
+
+    for (int i = 1; i <= N; ++i) {
+        parent_node[i] = i;
+        head_node[i] = i;
+        tail_node[i] = i;
+        nxt_node[i] = 0;
+    }
+
+    vector<Line> lines(M);
+    for (int i = 0; i < M; ++i) {
+        int L;
+        cin >> lines[i].Y >> L;
+        lines[i].V.resize(L);
+        for (int j = 0; j < L; ++j) {
+            cin >> lines[i].V[j];
+        }
+    }
+
+    sort(lines.begin(), lines.end(), [](const Line& a, const Line& b) {
+        return a.Y > b.Y;
+    });
+
+    int token = 0;
+    int i = 0;
+    while (i < M) {
+        int j = i;
+        token++;
+        vector<int> roots;
+        while (j < M && lines[j].Y == lines[i].Y) {
+            for (int v : lines[j].V) {
+                int r = find_set(v);
+                if (vis[r] != token) {
+                    vis[r] = token;
+                    roots.push_back(r);
+                }
+            }
+            j++;
+        }
+
+        sort(roots.begin(), roots.end(), [&](int a, int b) {
+            return head_node[a] < head_node[b];
+        });
+
+        if (roots.size() > 1) {
+            for (size_t k = 0; k < roots.size() - 1; ++k) {
+                int u = roots[k];
+                int v = roots[k + 1];
+                nxt_node[tail_node[u]] = head_node[v];
+            }
+            tail_node[roots[0]] = tail_node[roots.back()];
+            for (size_t k = 1; k < roots.size(); ++k) {
+                parent_node[roots[k]] = roots[0];
+            }
+        }
+
+        i = j;
+    }
+
+    vector<int> final_roots;
+    for (int k = 1; k <= N; ++k) {
+        if (parent_node[k] == k) {
+            final_roots.push_back(k);
+        }
+    }
+
+    sort(final_roots.begin(), final_roots.end(), [&](int a, int b) {
+        return head_node[a] < head_node[b];
+    });
+
+    if (!final_roots.empty()) {
+        for (size_t k = 0; k < final_roots.size() - 1; ++k) {
+            int u = final_roots[k];
+            int v = final_roots[k + 1];
+            nxt_node[tail_node[u]] = head_node[v];
+        }
+    }
+
+    int curr = final_roots.empty() ? 1 : head_node[final_roots[0]];
+    vector<int> ans(N + 1);
+    for (int k = 1; k <= N; ++k) {
+        ans[k] = curr;
+        curr = nxt_node[curr];
+    }
+
+    for (int k = 0; k < Q; ++k) {
+        int q;
+        cin >> q;
+        cout << ans[q] << "\n";
+    }
+
+    return 0;
+}

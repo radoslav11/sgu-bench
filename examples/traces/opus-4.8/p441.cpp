@@ -1,0 +1,14 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    long long N,K;
+    cin>>N>>K;
+    if(K>N){cout<<0<<endl;return 0;}
+    vector<vector<long long>> S(N+1, vector<long long>(K+1,0));
+    S[0][0]=1;
+    for(int n=1;n<=N;n++)
+        for(int k=1;k<=K && k<=n;k++)
+            S[n][k]=(k*S[n-1][k]+S[n-1][k-1])%2007;
+    cout<<S[N][K]%2007<<endl;
+    return 0;
+}

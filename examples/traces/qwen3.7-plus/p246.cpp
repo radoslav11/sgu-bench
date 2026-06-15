@@ -1,0 +1,33 @@
+#include <iostream>
+
+using namespace std;
+
+int main() {
+    // Optimize standard I/O operations for speed
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    long long M;
+    if (cin >> M) {
+        long long N = (M + 1) / 2;
+        
+        // The problem reduces to finding the minimal K such that any subset 
+        // of size K in a cycle of length M = 2N-1 contains two elements 
+        // at distance N+1 (or N-2) modulo M.
+        // This is equivalent to finding the independence number of the graph 
+        // where edges connect vertices at distance N+1.
+        // The graph is a union of gcd(N+1, 2N-1) cycles.
+        // Since gcd(N+1, 2N-1) = gcd(N+1, -3), the gcd is either 1 or 3.
+        // If gcd is 1, max independent set is (M-1)/2 = N-1, so K = N.
+        // If gcd is 3, max independent set is (M-3)/2 = N-2, so K = N-1.
+        // gcd is 3 exactly when N+1 is a multiple of 3, i.e., N % 3 == 2.
+        
+        if (N % 3 == 2) {
+            cout << N - 1 << "\n";
+        } else {
+            cout << N << "\n";
+        }
+    }
+    
+    return 0;
+}

@@ -1,0 +1,138 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Aviamachinations
+ * Goal: Find an airline R such that after transferring some other flights to it, 
+ * the airline R can connect all towns. Minimize the total tax of transferred flights.
+ * 
+ * Solution approach:
+ * For each airline R, calculate the Minimum Spanning Tree (MST) weight where 
+ * the weight of a flight is 0 if it belongs to R and its tax p_i otherwise.
+ * The cost for a fixed R is the sum of p_i of the non-R flights in its MST.
+ * 
+ * Complexity:
+ * N = 2000, M = 2000, K = 200,000.
+ * For each airline R:
+ *   1. Add all its original flights to the DSU (weight 0).
+ *   2. Iterate through all K flights (pre-sorted by tax) and add if they connect two components.
+ * The complexity is O(M * K), which is 4 * 10^8 operations. 
+ * With a fast DSU and early exit, this should pass in 2.25s.
+ */
+
+struct Edge {
+    int u, v, c, p, id;
+};
+
+bool compareEdges(const Edge& a, const Edge& b) {
+    return a.p < b.p;
+}
+
+struct DSU {
+    int parent[2005];
+    int sz[2005];
+    void reset(int n) {
+        for (int i = 1; i <= n; ++i) {
+            parent[i] = i;
+            sz[i] = 1;
+        }
+    }
+    int find(int i) {
+        while (parent[i] != i) {
+            parent[i] = parent[parent[i]]; // Path halving
+            i = parent[i];
+        }
+        return i;
+    }
+    bool unite(int i, int j) {
+        int root_i = find(i);
+        int root_j = find(j);
+        if (root_i != root_j) {
+            if (sz[root_i] < sz[root_j]) swap(root_i, root_j);
+            parent[root_j] = root_i;
+            sz[root_i] += sz[root_j];
+            return true;
+        }
+        return false;
+    }
+};
+
+Edge all_edges[200005];
+Edge sorted_edges[200005];
+vector<int> airline_edges[2005];
+DSU dsu;
+
+int main() {
+    // Optimization for fast I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M, K;
+    if (!(cin >> N >> M >> K)) return 0;
+
+    for (int i = 1; i <= K; ++i) {
+        cin >> all_edges[i].u >> all_edges[i].v >> all_edges[i].c >> all_edges[i].p;
+        all_edges[i].id = i;
+        airline_edges[all_edges[i].c].push_back(i);
+        sorted_edges[i - 1] = all_edges[i];
+    }
+
+    // Pre-sort edges by their tax amount
+    sort(sorted_edges, sorted_edges + K, compareEdges);
+
+    long long min_cost = -1;
+    int best_r = -1;
+    vector<int> best_used_edges;
+
+    for (int r = 1; r <= M; ++r) {
+        dsu.reset(N);
+        int unions = 0;
+        long long current_cost = 0;
+        vector<int> current_used;
+
+        // First, add all edges belonging to airline R with cost 0
+        for (int idx : airline_edges[r]) {
+            if (dsu.unite(all_edges[idx].u, all_edges[idx].v)) {
+                unions++;
+            }
+        }
+
+        // If already connected, current_cost is 0
+        if (unions < N - 1) {
+            // Add edges from other airlines in increasing order of tax
+            for (int i = 0; i < K; ++i) {
+                if (sorted_edges[i].c != r) {
+                    if (dsu.unite(sorted_edges[i].u, sorted_edges[i].v)) {
+                        unions++;
+                        current_cost += sorted_edges[i].p;
+                        current_used.push_back(sorted_edges[i].id);
+                        if (unions == N - 1) break;
+                    }
+                }
+            }
+        }
+
+        // Check if airline R can connect all towns
+        if (unions == N - 1) {
+            if (min_cost == -1 || current_cost < min_cost) {
+                min_cost = current_cost;
+                best_r = r;
+                best_used_edges = current_used;
+            }
+        }
+    }
+
+    // Output results
+    if (best_r != -1) {
+        cout << min_cost << " " << best_r << " " << best_used_edges.size() << "\n";
+        for (int id : best_used_edges) {
+            cout << id << "\n";
+        }
+    }
+
+    return 0;
+}
+

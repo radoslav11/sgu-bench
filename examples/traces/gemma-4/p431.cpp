@@ -1,0 +1,136 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Wildcard Matching DP:
+ * dp[i][j] is true if the first i characters of string s match the first j characters of pattern p.
+ * p[j-1] == '*' can match zero or more characters.
+ * p[j-1] == '?' matches exactly one character.
+ * p[j-1] == char matches that character.
+ */
+bool isMatch(const string& s, const string& p) {
+    int n = s.size(), m = p.size();
+    vector<vector<bool>> dp(n + 1, vector<bool>(m + 1, false));
+    dp[0][0] = true;
+    for (int j = 1; j <= m; j++) {
+        if (p[j - 1] == '*') dp[0][j] = dp[0][j - 1];
+    }
+    for (int i = 1; i <= n; i++) {
+        for (int j = 1; j <= m; j++) {
+            if (p[j - 1] == '*') {
+                // '*' matches zero (dp[i][j-1]) or one/more (dp[i-1][j]) characters
+                dp[i][j] = dp[i][j - 1] || dp[i - 1][j];
+            } else if (p[j - 1] == '?' || s[i - 1] == p[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            }
+        }
+    }
+    return dp[n][m];
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+    vector<string> S(n), M(m);
+    int min_len = 100;
+    bool all_same_length = true;
+    for (int i = 0; i < n; ++i) {
+        cin >> S[i];
+        min_len = min(min_len, (int)S[i].size());
+        if (i > 0 && S[i].size() != S[0].size()) all_same_length = false;
+    }
+    for (int i = 0; i < m; ++i) cin >> M[i];
+
+    // Strategy:
+    // 1. If all n strings have the same length L, the most specific pattern is 
+    //    a string of length L with '?' where characters differ.
+    if (all_same_length) {
+        string p = "";
+        int len = S[0].size();
+        for (int i = 0; i < len; ++i) {
+            char c = S[0][i];
+            bool same = true;
+            for (int j = 1; j < n; ++j) {
+                if (S[j][i] != c) {
+                    same = false;
+                    break;
+                }
+            }
+            p += (same ? c : '?');
+        }
+        bool ok = true;
+        for (int i = 0; i < m; ++i) {
+            if (isMatch(M[i], p)) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            cout << p << endl;
+            return 0;
+        }
+    }
+
+    // 2. If we must use an asterisk (e.g., different lengths or more restrictive 
+    //    than a single '?'), we test patterns of the form: prefix*suffix.
+    //    We try all possible lengths for prefix (L_pre) and suffix (L_suf) 
+    //    such that L_pre + L_suf <= min_len.
+    //    The "most specific" prefix/suffix of a given length is constructed using 
+    //    characters where all n strings agree, and '?' otherwise.
+    for (int L_pre = 0; L_pre <= min_len; ++L_pre) {
+        for (int L_suf = 0; L_suf <= min_len - L_pre; ++L_suf) {
+            string prefix = "";
+            for (int i = 0; i < L_pre; ++i) {
+                char c = S[0][i];
+                bool same = true;
+                for (int j = 1; j < n; ++j) {
+                    if (S[j][i] != c) {
+                        same = false;
+                        break;
+                    }
+                }
+                prefix += (same ? c : '?');
+            }
+            string suffix = "";
+            for (int i = 0; i < L_suf; ++i) {
+                int idx0 = S[0].size() - L_suf + i;
+                char c = S[0][idx0];
+                bool same = true;
+                for (int j = 1; j < n; ++j) {
+                    int idxj = S[j].size() - L_suf + i;
+                    if (S[j][idxj] != c) {
+                        same = false;
+                        break;
+                    }
+                }
+                suffix += (same ? c : '?');
+            }
+
+            string p = prefix + "*" + suffix;
+            bool ok = true;
+            // By construction, the pattern p matches all n strings in S.
+            // We only need to ensure it doesn't match any of the m strings in M.
+            for (int i = 0; i < m; ++i) {
+                if (isMatch(M[i], p)) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) {
+                cout << p << endl;
+                return 0;
+            }
+        }
+    }
+
+    cout << "OOPS" << endl;
+    return 0;
+}
+

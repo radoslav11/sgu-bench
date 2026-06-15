@@ -1,0 +1,19 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    long long L;
+    cin >> L;
+
+    long long N = (L + 1) / 2;
+
+    if (L % 3 == 0)
+        cout << N - 1 << '\n';
+    else
+        cout << N << '\n';
+
+    return 0;
+}

@@ -1,0 +1,247 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+struct Point {
+    double x, y;
+};
+
+struct Line {
+    double a, b, c;
+};
+
+int N;
+vector<Point> T_poly;
+
+double cross_product(Point O, Point A, Point B) {
+    return (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);
+}
+
+double eval_line(Line L, Point P) {
+    return L.a * P.x + L.b * P.y + L.c;
+}
+
+bool intersects_interior(const vector<Point>& poly, Line L) {
+    bool has_pos = false;
+    bool has_neg = false;
+    for (const auto& P : poly) {
+        double val = eval_line(L, P);
+        if (val > 1e-9) has_pos = true;
+        if (val < -1e-9) has_neg = true;
+    }
+    return has_pos && has_neg;
+}
+
+pair<vector<Point>, vector<Point>> split_polygon(const vector<Point>& poly, Line L) {
+    vector<Point> pos_poly, neg_poly;
+    int n = poly.size();
+    for (int i = 0; i < n; ++i) {
+        Point P = poly[i];
+        Point Q = poly[(i + 1) % n];
+        double valP = eval_line(L, P);
+        double valQ = eval_line(L, Q);
+        bool inP_pos = (valP > -1e-9);
+        bool inP_neg = (valP < 1e-9);
+        bool inQ_pos = (valQ > -1e-9);
+        bool inQ_neg = (valQ < 1e-9);
+
+        if (inP_pos) pos_poly.push_back(P);
+        if (inP_neg) neg_poly.push_back(P);
+
+        if (inP_pos != inQ_pos) {
+            double t = valP / (valP - valQ);
+            Point intersect;
+            intersect.x = P.x + t * (Q.x - P.x);
+            intersect.y = P.y + t * (Q.y - P.y);
+            pos_poly.push_back(intersect);
+            neg_poly.push_back(intersect);
+        }
+    }
+    return {pos_poly, neg_poly};
+}
+
+vector<Point> clip_polygon(const vector<Point>& poly, Point O, Point A, bool keep_right) {
+    vector<Point> res;
+    int n = poly.size();
+    for (int i = 0; i < n; ++i) {
+        Point P = poly[i];
+        Point Q = poly[(i + 1) % n];
+        double cpP = cross_product(O, A, P);
+        double cpQ = cross_product(O, A, Q);
+        bool inP = keep_right ? (cpP <= 1e-9) : (cpP >= -1e-9);
+        bool inQ = keep_right ? (cpQ <= 1e-9) : (cpQ >= -1e-9);
+        
+        if (inP) {
+            res.push_back(P);
+        }
+        if (inP != inQ) {
+            double t = cpP / (cpP - cpQ);
+            Point intersect;
+            intersect.x = P.x + t * (Q.x - P.x);
+            intersect.y = P.y + t * (Q.y - P.y);
+            res.push_back(intersect);
+        }
+    }
+    return res;
+}
+
+double polygon_area(const vector<Point>& poly) {
+    double area = 0;
+    int n = poly.size();
+    for (int i = 0; i < n; ++i) {
+        area += poly[i].x * poly[(i + 1) % n].y - poly[i].y * poly[(i + 1) % n].x;
+    }
+    return abs(area) / 2.0;
+}
+
+double shadow_area(Point X) {
+    bool inside = true;
+    for (int i = 0; i < N; ++i) {
+        Point A = T_poly[i];
+        Point B = T_poly[(i + 1) % N];
+        if (cross_product(A, B, X) < -1e-9) {
+            inside = false;
+            break;
+        }
+    }
+    if (inside) return 10000.0;
+
+    int A_idx = -1, B_idx = -1;
+    for (int i = 0; i < N; ++i) {
+        bool all_right = true;
+        bool all_left = true;
+        for (int j = 0; j < N; ++j) {
+            if (i == j) continue;
+            double cp = cross_product(X, T_poly[i], T_poly[j]);
+            if (cp > 1e-9) all_right = false;
+            if (cp < -1e-9) all_left = false;
+        }
+        if (all_right) A_idx = i;
+        if (all_left) B_idx = i;
+    }
+    
+    if (A_idx == -1 || B_idx == -1) {
+        return 10000.0;
+    }
+
+    Point A = T_poly[A_idx];
+    Point B = T_poly[B_idx];
+    
+    vector<Point> S = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    vector<Point> clipped1 = clip_polygon(S, X, A, true);
+    vector<Point> clipped2 = clip_polygon(clipped1, X, B, false);
+    
+    double area = polygon_area(clipped2);
+    if (area > 10000.0) area = 10000.0;
+    return area;
+}
+
+const int N_GAUSS = 10;
+const double G_X[10] = {
+    0.9869532643, 0.9325316833, 0.8397047841, 0.7166976971, 0.5744371695,
+    0.4255628305, 0.2833023029, 0.1602952159, 0.0674683167, 0.0130467357
+};
+const double G_W[10] = {
+    0.0333356722, 0.0747256746, 0.1095431812, 0.1346333597, 0.1477621124,
+    0.1477621124, 0.1346333597, 0.1095431812, 0.0747256746, 0.0333356722
+};
+
+double integrate_poly(const vector<Point>& poly, const vector<Line>& lines, int depth) {
+    double area = polygon_area(poly);
+    if (area < 1e-12 || poly.size() < 3) return 0.0;
+    if (depth > 30) {
+        goto do_gauss;
+    }
+    
+    for (const auto& L : lines) {
+        if (intersects_interior(poly, L)) {
+            auto parts = split_polygon(poly, L);
+            if (parts.first.size() >= 3 && parts.second.size() >= 3) {
+                double a1 = polygon_area(parts.first);
+                double a2 = polygon_area(parts.second);
+                if (a1 > 1e-12 && a2 > 1e-12) {
+                    return integrate_poly(parts.first, lines, depth + 1) + 
+                           integrate_poly(parts.second, lines, depth + 1);
+                }
+            }
+        }
+    }
+    
+do_gauss:
+    double total_integral = 0.0;
+    Point P0 = poly[0];
+    for (size_t i = 1; i + 1 < poly.size(); ++i) {
+        Point P1 = poly[i];
+        Point P2 = poly[i + 1];
+        double t_area = abs((P1.x - P0.x) * (P2.y - P0.y) - (P1.y - P0.y) * (P2.x - P0.x)) / 2.0;
+        if (t_area < 1e-12) continue;
+        
+        double tri_integral = 0.0;
+        for (int iu = 0; iu < N_GAUSS; ++iu) {
+            for (int iv = 0; iv < N_GAUSS; ++iv) {
+                double u = G_X[iu];
+                double v = G_X[iv];
+                double w = G_W[iu] * G_W[iv];
+                
+                Point X;
+                X.x = (1 - u) * P0.x + u * (1 - v) * P1.x + u * v * P2.x;
+                X.y = (1 - u) * P0.y + u * (1 - v) * P1.y + u * v * P2.y;
+                
+                double jacobian = 2.0 * t_area * u;
+                tri_integral += w * shadow_area(X) * jacobian;
+            }
+        }
+        total_integral += tri_integral;
+    }
+    return total_integral;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> N)) return 0;
+
+    T_poly.resize(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> T_poly[i].x >> T_poly[i].y;
+    }
+
+    vector<Line> lines;
+    for (int i = 0; i < N; ++i) {
+        Point A = T_poly[i];
+        Point B = T_poly[(i + 1) % N];
+        Line L;
+        L.a = B.y - A.y;
+        L.b = A.x - B.x;
+        L.c = -(L.a * A.x + L.b * A.y);
+        lines.push_back(L);
+    }
+
+    Point S_verts[4] = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            Point A = T_poly[i];
+            Point B = S_verts[j];
+            double dist = hypot(A.x - B.x, A.y - B.y);
+            if (dist < 1e-9) continue;
+            Line L;
+            L.a = B.y - A.y;
+            L.b = A.x - B.x;
+            L.c = -(L.a * A.x + L.b * A.y);
+            lines.push_back(L);
+        }
+    }
+
+    vector<Point> S = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    double total_M = integrate_poly(S, lines, 0);
+    double prob = total_M / 10000.0;
+
+    cout << fixed << setprecision(10) << prob << "\n";
+
+    return 0;
+}

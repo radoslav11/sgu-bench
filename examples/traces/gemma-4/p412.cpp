@@ -1,0 +1,131 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+// Use long double for higher precision in geometric and trigonometric calculations.
+typedef long double ld;
+
+struct Point {
+    ld x, y;
+};
+
+struct Interval {
+    ld start, end;
+    bool operator<(const Interval& other) const {
+        if (start != other.start) return start < other.start;
+        return end < other.end;
+    }
+};
+
+// Function to get the r-value (distance from origin) for a given angle on a line.
+// The line is defined by two points P1 and P2.
+ld get_r(ld theta, ld A, ld B, ld C) {
+    ld den = A * cos(theta) + B * sin(theta);
+    // The denominator will not be zero because the origin is inside the convex polygon.
+    return -C / den;
+}
+
+int main() {
+    // Faster I/O
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<Point> poly(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> poly[i].x >> poly[i].y;
+    }
+
+    vector<Interval> shelf_intervals;
+    const ld PI = acos(-1.0L);
+
+    for (int i = 0; i < M; ++i) {
+        Point a, b;
+        cin >> a.x >> a.y >> b.x >> b.y;
+        ld theta_a = atan2(a.y, a.x);
+        ld theta_b = atan2(b.y, b.x);
+
+        // The shelf is a segment inside the polygon, so its angular span is < PI.
+        if (abs(theta_a - theta_b) > PI) {
+            if (theta_a < theta_b) {
+                // Wrap-around case: theta_a is large, theta_b is small.
+                // But if |theta_a - theta_b| > PI, and theta_a < theta_b,
+                // it means the shorter arc is [theta_b, PI] U [-PI, theta_a].
+                // Wait, if theta_a < theta_b and theta_b - theta_a > PI,
+                // then the angle increases from theta_b to PI and from -PI to theta_a.
+                // For simplicity, identify the two segments.
+                shelf_intervals.push_back({theta_b, PI});
+                shelf_intervals.push_back({-PI, theta_a});
+            } else {
+                shelf_intervals.push_back({theta_a, PI});
+                shelf_intervals.push_back({-PI, theta_b});
+            }
+        } else {
+            shelf_intervals.push_back({min(theta_a, theta_b), max(theta_a, theta_b)});
+        }
+    }
+
+    // Merge overlapping intervals from the shelves.
+    vector<Interval> merged;
+    if (!shelf_intervals.empty()) {
+        sort(shelf_intervals.begin(), shelf_intervals.end());
+        for (const auto& interval : shelf_intervals) {
+            if (merged.empty() || interval.start > merged.back().end) {
+                merged.push_back(interval);
+            } else {
+                merged.back().end = max(merged.back().end, interval.end);
+            }
+        }
+    }
+
+    ld total_shaded_length = 0;
+
+    for (int i = 0; i < N; ++i) {
+        Point p1 = poly[i];
+        Point p2 = poly[(i + 1) % N];
+
+        ld theta1 = atan2(p1.y, p1.x);
+        ld theta2 = atan2(p2.y, p2.x);
+
+        // Line equation Ax + By + C = 0 for the edge.
+        ld A = p1.y - p2.y;
+        ld B = p2.x - p1.x;
+        ld C = p1.x * p2.y - p2.x * p1.y;
+
+        // Edges are CCW, so theta increases (with possible -PI/PI jump).
+        vector<Interval> edge_ranges;
+        if (theta2 >= theta1) {
+            edge_ranges.push_back({theta1, theta2});
+        } else {
+            edge_ranges.push_back({theta1, PI});
+            edge_ranges.push_back({-PI, theta2});
+        }
+
+        for (const auto& er : edge_ranges) {
+            // Intersect each edge range with merged shelf intervals.
+            for (const auto& mr : merged) {
+                ld start = max(er.start, mr.start);
+                ld end = min(er.end, mr.end);
+
+                if (start < end) {
+                    ld r1 = get_r(start, A, B, C);
+                    ld r2 = get_r(end, A, B, C);
+                    ld x1 = r1 * cos(start), y1 = r1 * sin(start);
+                    ld x2 = r2 * cos(end), y2 = r2 * sin(end);
+                    total_shaded_length += sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+                }
+            }
+        }
+    }
+
+    cout << fixed << setprecision(10) << (double)total_shaded_length << endl;
+
+    return 0;
+}
+

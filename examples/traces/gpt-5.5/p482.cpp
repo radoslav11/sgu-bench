@@ -1,0 +1,91 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+    vector<int> h(n);
+    int totalSum = 0;
+    for (int i = 0; i < n; ++i) {
+        cin >> h[i];
+        totalSum += h[i];
+    }
+
+    int initialP = 2 * n + h[0] + h[n - 1];
+    for (int i = 0; i + 1 < n; ++i) {
+        initialP += abs(h[i] - h[i + 1]);
+    }
+
+    int target = (initialP + 1) / 2;
+    int maxP = 2 * n + 200 + (n - 1) * 99 + 5;
+
+    const int INF = 1e9;
+
+    vector<vector<int>> dp(n, vector<int>(maxP + 1, INF));
+    vector<vector<int>> parentIdx(n, vector<int>(maxP + 1, -1));
+    vector<vector<int>> parentP(n, vector<int>(maxP + 1, -1));
+
+    for (int j = 0; j < n; ++j) {
+        int pSingle = 2 + 2 * h[j];
+        if (h[j] < dp[j][pSingle]) {
+            dp[j][pSingle] = h[j];
+        }
+
+        for (int i = 0; i < j; ++i) {
+            for (int p = 0; p <= maxP; ++p) {
+                if (dp[i][p] == INF) continue;
+
+                int np = p + 2 + abs(h[i] - h[j]) + h[j] - h[i];
+                if (np > maxP) continue;
+
+                int ns = dp[i][p] + h[j];
+                if (ns < dp[j][np]) {
+                    dp[j][np] = ns;
+                    parentIdx[j][np] = i;
+                    parentP[j][np] = p;
+                }
+            }
+        }
+    }
+
+    int bestSum = INF;
+    int bestIdx = -1;
+    int bestP = -1;
+
+    for (int i = 0; i < n; ++i) {
+        for (int p = target; p <= maxP; ++p) {
+            if (dp[i][p] < bestSum) {
+                bestSum = dp[i][p];
+                bestIdx = i;
+                bestP = p;
+            }
+        }
+    }
+
+    vector<bool> kept(n, false);
+    while (bestIdx != -1) {
+        kept[bestIdx] = true;
+        int ni = parentIdx[bestIdx][bestP];
+        int np = parentP[bestIdx][bestP];
+        bestIdx = ni;
+        bestP = np;
+    }
+
+    vector<int> stolen;
+    for (int i = 0; i < n; ++i) {
+        if (!kept[i]) stolen.push_back(i + 1);
+    }
+
+    cout << totalSum - bestSum << '\n';
+    cout << stolen.size() << '\n';
+    for (int i = 0; i < (int)stolen.size(); ++i) {
+        if (i) cout << ' ';
+        cout << stolen[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

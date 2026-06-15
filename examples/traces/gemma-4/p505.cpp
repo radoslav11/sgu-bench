@@ -1,0 +1,197 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: 505. Prefixes and suffixes
+ * 
+ * Approach:
+ * 1. Build a Prefix Trie for all genomes.
+ * 2. Build a Suffix Trie (Trie of reversed genomes).
+ * 3. For each genome, find its node in both Tries. This maps each genome to a 2D point (in_prefix, in_suffix).
+ * 4. Use DFS entry (in) and exit (out) times to convert subtree queries into 2D range queries.
+ * 5. A query (p, s) becomes a 2D range: [in_p[u_p], out_p[u_p]] x [in_s[u_s], out_s[u_s]].
+ * 6. Solve the 2D range counting problem using a sweep-line algorithm with a Fenwick Tree.
+ * 
+ * Memory-efficient Trie: Use a child-sibling representation.
+ * Time complexity: O(TotalLen * AlphabetSize + (N+M) log (TotalLen)).
+ */
+
+const int MAX_NODES = 1000005;
+const int MAX_N = 100005;
+const int MAX_M = 100005;
+
+struct Node {
+    int first_child = -1;
+    int next_sibling = -1;
+    int in = 0, out = 0;
+    char c = 0;
+};
+
+// Use static allocation for Trie nodes to save memory and time.
+Node trie_p[MAX_NODES];
+Node trie_s[MAX_NODES];
+int p_nodes = 1, s_nodes = 1;
+
+// Standard Trie insertion for child-sibling representation.
+int insert(Node* trie, int& nodes_count, const string& s) {
+    int curr = 0;
+    for (char c : s) {
+        int next_node = -1;
+        for (int child = trie[curr].first_child; child != -1; child = trie[child].next_sibling) {
+            if (trie[child].c == c) {
+                next_node = child;
+                break;
+            }
+        }
+        if (next_node == -1) {
+            next_node = nodes_count++;
+            trie[next_node].c = c;
+            trie[next_node].first_child = -1;
+            trie[next_node].next_sibling = trie[curr].first_child;
+            trie[curr].first_child = next_node;
+        }
+        curr = next_node;
+    }
+    return curr;
+}
+
+// Standard Trie search.
+int search(Node* trie, const string& s) {
+    int curr = 0;
+    for (char c : s) {
+        int next_node = -1;
+        for (int child = trie[curr].first_child; child != -1; child = trie[child].next_sibling) {
+            if (trie[child].c == c) {
+                next_node = child;
+                break;
+            }
+        }
+        if (next_node == -1) return -1;
+        curr = next_node;
+    }
+    return curr;
+}
+
+struct State {
+    int u, child;
+};
+
+// Iterative DFS to avoid stack overflow for deep Tries.
+void dfs_iterative(Node* trie, int nodes_count) {
+    static State stack_arr[MAX_NODES];
+    int top = 0;
+    int timer = 0;
+    stack_arr[++top] = {0, trie[0].first_child};
+    trie[0].in = ++timer;
+    while (top > 0) {
+        if (stack_arr[top].child != -1) {
+            int v = stack_arr[top].child;
+            stack_arr[top].child = trie[v].next_sibling;
+            trie[v].in = ++timer;
+            stack_arr[++top] = {v, trie[v].first_child};
+        } else {
+            trie[stack_arr[top].u].out = timer;
+            top--;
+        }
+    }
+}
+
+struct Point {
+    int x, y;
+};
+
+struct QueryPart {
+    int x, y1, y2, id, sign;
+};
+
+int bit[MAX_NODES];
+void update(int idx, int val, int max_val) {
+    for (; idx <= max_val; idx += idx & -idx) bit[idx] += val;
+}
+int query_bit(int idx) {
+    int res = 0;
+    for (; idx > 0; idx -= idx & -idx) res += bit[idx];
+    return res;
+}
+
+int main() {
+    // Optimization for faster input/output.
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+    vector<string> genomes(n);
+    for (int i = 0; i < n; ++i) cin >> genomes[i];
+
+    // Step 1 & 2: Build Prefix and Suffix Tries.
+    vector<int> p_u(n), s_v(n);
+    for (int i = 0; i < n; ++i) {
+        p_u[i] = insert(trie_p, p_nodes, genomes[i]);
+        string rs = genomes[i];
+        reverse(rs.begin(), rs.end());
+        s_v[i] = insert(trie_s, s_nodes, rs);
+    }
+
+    // Step 3: Compute DFS entry and exit times.
+    dfs_iterative(trie_p, p_nodes);
+    dfs_iterative(trie_s, s_nodes);
+
+    // Step 4: Generate points for each genome.
+    vector<Point> points(n);
+    for (int i = 0; i < n; ++i) {
+        points[i] = {trie_p[p_u[i]].in, trie_s[s_v[i]].in};
+    }
+
+    int m;
+    if (!(cin >> m)) return 0;
+    vector<QueryPart> parts;
+    parts.reserve(2 * m);
+    vector<int> answers(m, 0);
+
+    // Step 5: Parse queries and convert to range parts.
+    for (int i = 0; i < m; ++i) {
+        string p, s;
+        cin >> p >> s;
+        int u = search(trie_p, p);
+        reverse(s.begin(), s.end());
+        int v = search(trie_s, s);
+
+        if (u != -1 && v != -1) {
+            int x1 = trie_p[u].in, x2 = trie_p[u].out;
+            int y1 = trie_s[v].in, y2 = trie_s[v].out;
+            // Query (x1..x2, y1..y2) split into two x-sweep parts.
+            parts.push_back({x2, y1, y2, i, 1});
+            parts.push_back({x1 - 1, y1, y2, i, -1});
+        }
+    }
+
+    // Step 6: Sort points and parts for sweep-line.
+    sort(points.begin(), points.end(), [](const Point& a, const Point& b) {
+        return a.x < b.x;
+    });
+    sort(parts.begin(), parts.end(), [](const QueryPart& a, const QueryPart& b) {
+        return a.x < b.x;
+    });
+
+    // Step 7: Sweep-line with Fenwick Tree.
+    int p_idx = 0;
+    for (const auto& part : parts) {
+        while (p_idx < n && points[p_idx].x <= part.x) {
+            update(points[p_idx].y, 1, s_nodes);
+            p_idx++;
+        }
+        answers[part.id] += part.sign * (query_bit(part.y2) - query_bit(part.y1 - 1));
+    }
+
+    for (int i = 0; i < m; ++i) {
+        cout << answers[i] << "\n";
+    }
+
+    return 0;
+}
+

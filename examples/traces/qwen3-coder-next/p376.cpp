@@ -1,0 +1,194 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+struct Participant {
+    int w, r, p;
+    int id;
+    double total_time;
+    
+    Participant(int wi, int ri, int pi, int idi) 
+        : w(wi), r(ri), p(pi), id(idi), total_time(0.0) {}
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, K;
+    cin >> N >> K;
+
+    vector<Participant> participants;
+    for (int i = 0; i < N; i++) {
+        int w, r, p;
+        cin >> w >> r >> p;
+        participants.emplace_back(w, r, p, i + 1);
+    }
+
+    vector<int> A(K);
+    for (int i = 0; i < K; i++) {
+        cin >> A[i];
+    }
+
+    vector<int> B(N);
+    for (int i = 0; i < N; i++) {
+        cin >> B[i];
+    }
+
+    // Precompute horse ridingness for each stage and each horse
+    // Stage i (0-indexed), horse j: f(i, j) = 3*A[i]^2 + 5*A[i]*B[j] + 2*B[j]^2
+    vector<vector<int>> horseRidingness(K, vector<int>(N));
+    for (int i = 0; i < K; i++) {
+        for (int j = 0; j < N; j++) {
+            int a = A[i];
+            int b = B[j];
+            horseRidingness[i][j] = 3*a*a + 5*a*b + 2*b*b;
+        }
+    }
+
+    // For each stage, sort horse ridingness in descending order (so the best horses come first)
+    // Actually, since participants take the maximal ridingness available, we can sort once and assign in order
+    vector<vector<int>> sortedHorses(K);
+    for (int i = 0; i < K; i++) {
+        vector<int> temp(horseRidingness[i].begin(), horseRidingness[i].end());
+        sort(temp.rbegin(), temp.rend()); // descending order
+        sortedHorses[i] = temp;
+    }
+
+    // Simulate the competition
+    // Each participant starts swimming at time 0
+    // After swimming, they go to stage 1 riding, etc.
+    
+    // Instead of simulating continuous time, we can process stages sequentially
+    // Since all participants start swimming at the same time, and swimming time is fixed per participant,
+    // they finish swimming at different times. Then they go to the first riding stage.
+
+    // But the problem is: participants reach riding stages at different times, and at each riding stage,
+    // they pick the best available horse at that moment.
+
+    // This requires simulating events in time order, which could be complex.
+
+    // Alternative interpretation (from known similar problems): 
+    // All stages happen sequentially, and participants move to the next stage only after finishing the current one.
+    // That is, all participants start swimming together. When participant i finishes swimming, they go to the first riding stage,
+    // and at that point, the best available horse at stage 1 is assigned to them. Then when they finish riding stage 1, 
+    // they go to riding stage 2, etc.
+
+    // However, the problem says: "participant who reaches the start of some riding stage (which is the finish of the previous stage) takes the horse with maximal ridingness from those who are still at the start of this stage."
+
+    // This implies that horses are shared across participants for the same stage, but once a horse is taken by a participant, it's gone for that stage.
+
+    // Important: horses are located at the start of each riding stage. So for stage 1, all N horses are available at the start of stage 1 (which is the finish of swimming). For stage 2, all N horses are again available at the start of stage 2 (which is the finish of stage 1 riding), but note: the horses used in stage 1 are not available in stage 2? 
+
+    // Rereading: "There are N horses located at the start of each of the riding stages". So each stage has its own set of N horses! That's crucial.
+
+    // And: "each horse can participate only in one stage" — but since each stage has its own horses, this means each horse (in its stage) is used at most once.
+
+    // Actually, the problem says: "The more the ridingness is, the faster the horse finishes the stage. For each participant, ... participant who reaches the start of some riding stage ... takes the horse with maximal ridingness from those who are still at the start of this stage."
+
+    // And: "each horse can participate only in one stage". This likely means in the *entire competition*, each horse is used only once. But the horses are located at the start of each stage — this is ambiguous.
+
+    // However, looking at the example: 
+    // Input: 4 2, then A = [2,3], B = [4,5,6,7]
+    // So for stage 1, horses' ridingness are computed with A[0]=2 and B=[4,5,6,7]
+    // For stage 2, with A[1]=3 and B=[4,5,6,7]
+    // Total horses: 4 for stage 1, 4 for stage 2? But the problem says "N horses located at the start of each stage", so 4 each.
+
+    // But then it says "each horse can participate only in one stage" — which makes sense: a horse is at a specific stage's start, so it can only be used in that stage.
+
+    // Therefore, for each stage, there are N horses (the same N horses, but at that stage's location), and each horse can only be used once per stage (i.e., one participant per horse per stage).
+
+    // So for stage i, we have a multiset of horse ridingness values: { f(i, j) for j=0..N-1 }.
+
+    // The process:
+    // 1. All participants start swimming at time 0. Participant i finishes swimming at time T_swim[i] = 2e7 - W_i.
+    // 2. Then they go to stage 1 (the first riding stage). As they arrive (at time T_swim[i]), they take the best available horse at stage 1.
+    // 3. The time to finish stage 1 riding for participant i is T_ride1[i] = 2e7 - R_i - S_j, where S_j is the ridingness of the horse they got.
+    // 4. So they finish stage 1 at time T_swim[i] + T_ride1[i], and then go to stage 2.
+    // 5. Similarly, at stage 2, when they arrive, they take the best available horse at stage 2, and so on.
+
+    // Since the number of stages K and participants N are at most 1000, we can simulate event-by-event.
+
+    // However, note: the time for swimming is 2e7 - W_i, and for riding: 2e7 - R_i - S_j.
+    // Total time for participant = (2e7 - W_i) + sum_{k=0}^{K-1} (2e7 - R_i - S_{i,k})
+    // where S_{i,k} is the horse ridingness assigned to participant i at stage k.
+
+    // But note: the horse assigned at each stage depends on the order of arrival.
+
+    // Therefore, we must simulate the stages one by one, and for each stage, determine the order in which participants arrive at that stage.
+
+    // Steps:
+    // Let current_time[i] = time when participant i finishes the current stage (starts next stage).
+    // Initially, current_time[i] = time to finish swimming = 2e7 - W_i.
+
+    // For stage stage_idx from 0 to K-1:
+    //   - Collect all participants who are at the start of this stage (all of them, but they arrive at different times: current_time[i])
+    //   - Sort participants by arrival time (ascending), and if same time, by strength descending (higher strength first).
+    //   - For the current stage, get the list of horse ridingness (sorted descending) for this stage.
+    //   - Assign the best available horse to the first participant in the sorted list, next best to the next, etc.
+
+    // Then, for each participant i:
+    //   time_to_finish_stage = 2e7 - R_i - assigned_horse_ridingness
+    //   current_time[i] += time_to_finish_stage
+
+    // After all stages, sort participants by total time (ascending), and if tie, by strength descending.
+
+    // Implementation:
+    vector<int> participant_index(N);
+    for (int i = 0; i < N; i++) participant_index[i] = i;
+
+    // current_time[i] = time when participant i finishes swimming (and starts stage 0 of riding)
+    vector<double> current_time(N);
+    for (int i = 0; i < N; i++) {
+        current_time[i] = 2e7 - participants[i].w;
+    }
+
+    // For each stage
+    for (int stage = 0; stage < K; stage++) {
+        // Sort participants by arrival time at this stage, and by strength descending on tie
+        // We create an array of indices sorted by: current_time[i], then -participants[i].p (since higher strength first)
+        vector<int> indices(N);
+        iota(indices.begin(), indices.end(), 0);
+        sort(indices.begin(), indices.end(), [&](int i, int j) {
+            if (abs(current_time[i] - current_time[j]) > 1e-9) {
+                return current_time[i] < current_time[j];
+            }
+            return participants[i].p > participants[j].p; // higher strength first
+        });
+
+        // Get the list of horse ridingness for this stage, sorted descending
+        vector<int> horses = sortedHorses[stage];
+
+        // Assign horses: the k-th participant in the sorted list gets horses[k]
+        for (int rank = 0; rank < N; rank++) {
+            int i = indices[rank];
+            int horse_val = horses[rank];
+            // Time for this stage: 2e7 - R_i - horse_val
+            current_time[i] += (2e7 - participants[i].r - horse_val);
+        }
+    }
+
+    // Now, current_time[i] is the total time for participant i
+    // Sort participants by total time (ascending), and if tie by strength descending
+    vector<int> result_order(N);
+    iota(result_order.begin(), result_order.end(), 0);
+    sort(result_order.begin(), result_order.end(), [&](int i, int j) {
+        if (abs(current_time[i] - current_time[j]) > 1e-9) {
+            return current_time[i] < current_time[j];
+        }
+        return participants[i].p > participants[j].p;
+    });
+
+    // Output the participant numbers (1-indexed) in order
+    for (int i = 0; i < N; i++) {
+        if (i > 0) cout << " ";
+        cout << participants[result_order[i]].id;
+    }
+    cout << endl;
+
+    return 0;
+}

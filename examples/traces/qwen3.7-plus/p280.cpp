@@ -1,0 +1,86 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N, K;
+    if (!(cin >> N >> K)) return 0;
+    
+    vector<vector<int>> adj(N + 1);
+    for (int i = 0; i < N - 1; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+    
+    vector<int> parent(N + 1, 0);
+    vector<int> order;
+    order.reserve(N);
+    vector<int> q;
+    q.reserve(N);
+    
+    q.push_back(1);
+    int head = 0;
+    while (head < (int)q.size()) {
+        int u = q[head++];
+        order.push_back(u);
+        for (int v : adj[u]) {
+            if (v != parent[u]) {
+                parent[v] = u;
+                q.push_back(v);
+            }
+        }
+    }
+    
+    reverse(order.begin(), order.end());
+    
+    vector<int> down_dist(N + 1, -1);
+    vector<int> up_dist(N + 1, INF);
+    vector<int> centers;
+    
+    for (int u : order) {
+        for (int v : adj[u]) {
+            if (v == parent[u]) continue;
+            if (down_dist[v] != -1) {
+                down_dist[u] = max(down_dist[u], down_dist[v] + 1);
+            }
+            if (up_dist[v] != INF) {
+                up_dist[u] = min(up_dist[u], up_dist[v] + 1);
+            }
+        }
+        
+        if (up_dist[u] > K) {
+            down_dist[u] = max(down_dist[u], 0);
+        }
+        
+        if (down_dist[u] == K) {
+            centers.push_back(u);
+            down_dist[u] = -1;
+            up_dist[u] = 0;
+        }
+        
+        if (u == 1 && down_dist[u] != -1) {
+            centers.push_back(u);
+            down_dist[u] = -1;
+            up_dist[u] = 0;
+        }
+    }
+    
+    sort(centers.begin(), centers.end());
+    
+    cout << centers.size() << "\n";
+    for (int i = 0; i < (int)centers.size(); ++i) {
+        cout << centers[i] << (i + 1 == (int)centers.size() ? "" : " ");
+    }
+    cout << "\n";
+    
+    return 0;
+}

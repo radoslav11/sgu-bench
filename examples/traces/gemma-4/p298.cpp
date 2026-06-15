@@ -1,0 +1,153 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The constraints are A_{Xi} >= A_{Yi} + Ci, which can be rewritten as A_{Yi} - A_{Xi} <= -Ci.
+ * This is a system of difference constraints.
+ * In a graph where an edge u -> v with weight w means A_v - A_u <= w, 
+ * a solution exists if and only if there are no negative cycles.
+ * We want to minimize A_N - A_1.
+ * For any solution, A_1 - A_N <= dist(N, 1), where dist(N, 1) is the shortest path from N to 1.
+ * This implies A_N - A_1 >= -dist(N, 1).
+ * If there is no path from N to 1, dist(N, 1) = infinity, meaning A_N - A_1 can be as small as -20000.
+ * The range constraint -10000 <= A_i <= 10000 means max(A_i) - min(A_i) <= 20000.
+ * 
+ * Approach:
+ * 1. Build the graph with edges Xi -> Yi with weight -Ci.
+ * 2. Use SPFA from a source node (connected to all nodes) to check for negative cycles.
+ * 3. If a negative cycle exists, output -1.
+ * 4. Find the shortest path dist(N, 1).
+ * 5. The minimum A_N - A_1 is K = max(-20000LL, -dist(N, 1)) if dist(N, 1) is finite, else -20000.
+ * 6. If K > 20000, output -1 (because the range cannot exceed 20000).
+ * 7. Add an edge 1 -> N with weight K to the graph and solve the system again.
+ * 8. Check if the resulting range max(A_i) - min(A_i) <= 20000.
+ * 9. If yes, output the shifted values. Otherwise, output -1.
+ */
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+    int weight;
+    int next;
+};
+
+const int MAXN = 10005;
+const int MAXM = 100105;
+Edge edges[MAXM];
+int head[MAXN];
+int edge_count = 0;
+
+void add_edge(int u, int v, int w) {
+    edges[++edge_count] = {v, w, head[u]};
+    head[u] = edge_count;
+}
+
+bool spfa(int n, int start_node, vector<long long>& dist, bool use_source) {
+    for (int i = 0; i <= n; ++i) dist[i] = INF;
+    vector<int> count(n + 1, 0);
+    vector<bool> in_queue(n + 1, false);
+    queue<int> q;
+
+    if (use_source) {
+        for (int i = 1; i <= n; ++i) {
+            dist[i] = 0;
+            q.push(i);
+            in_queue[i] = true;
+        }
+    } else {
+        dist[start_node] = 0;
+        q.push(start_node);
+        in_queue[start_node] = true;
+    }
+
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        in_queue[u] = false;
+
+        for (int i = head[u]; i; i = edges[i].next) {
+            int v = edges[i].to;
+            int w = edges[i].weight;
+            if (dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
+                if (!in_queue[v]) {
+                    count[v]++;
+                    if (count[v] > n) return false; // Negative cycle
+                    q.push(v);
+                    in_queue[v] = true;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    for (int i = 0; i < M; ++i) {
+        int u, v, c;
+        cin >> u >> v >> c;
+        add_edge(u, v, -c);
+    }
+
+    vector<long long> dist(N + 1);
+    if (!spfa(N, 0, dist, true)) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    // Find shortest path from N to 1
+    vector<long long> dist_N(N + 1);
+    spfa(N, N, dist_N, false);
+
+    long long K;
+    if (dist_N[1] == INF) {
+        K = -20000;
+    } else {
+        K = -dist_N[1];
+    }
+
+    if (K > 20000) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    // Add the constraint edge 1 -> N with weight K
+    add_edge(1, N, (int)K);
+
+    // Final SPFA to get the solution
+    if (!spfa(N, 0, dist, true)) {
+        // Should not happen if K is calculated correctly
+        cout << -1 << endl;
+        return 0;
+    }
+
+    long long min_d = INF, max_d = -INF;
+    for (int i = 1; i <= N; ++i) {
+        min_d = min(min_d, dist[i]);
+        max_d = max(max_d, dist[i]);
+    }
+
+    if (max_d - min_d > 20000) {
+        cout << -1 << endl;
+    } else {
+        for (int i = 1; i <= N; ++i) {
+            cout << dist[i] - min_d - 10000 << (i == N ? "" : " ");
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+

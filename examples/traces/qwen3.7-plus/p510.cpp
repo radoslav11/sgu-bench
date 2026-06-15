@@ -1,0 +1,73 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <set>
+
+using namespace std;
+
+int n;
+string ans = "";
+
+bool dfs(int len, int L, int target, string& current, set<string>& subs) {
+    int remaining = L - len;
+    
+    if ((int)subs.size() > target) return false;
+    if ((int)subs.size() + remaining > target) return false;
+    
+    int max_new = 0;
+    for (int i = 1; i <= remaining; ++i) {
+        max_new += (len + i);
+    }
+    if ((int)subs.size() + max_new < target) return false;
+
+    if (len == L) {
+        if ((int)subs.size() == target) {
+            ans = current;
+            return true;
+        }
+        return false;
+    }
+    
+    for (char c = 'a'; c <= 'z'; ++c) {
+        current.push_back(c);
+        
+        vector<string> added;
+        string suffix = "";
+        for (int i = len; i >= 0; --i) {
+            suffix = current[i] + suffix;
+            if (subs.find(suffix) == subs.end()) {
+                subs.insert(suffix);
+                added.push_back(suffix);
+            }
+        }
+        
+        if (dfs(len + 1, L, target, current, subs)) {
+            return true;
+        }
+        
+        for (const string& s : added) {
+            subs.erase(s);
+        }
+        current.pop_back();
+    }
+    return false;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> n)) return 0;
+    
+    for (int L = 1; ; ++L) {
+        if (L * (L + 1) / 2 < n) continue;
+        set<string> subs;
+        string current = "";
+        if (dfs(0, L, n, current, subs)) {
+            cout << ans << "\n";
+            return 0;
+        }
+    }
+    
+    return 0;
+}

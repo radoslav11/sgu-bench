@@ -1,0 +1,142 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <bitset>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * - The boolean expression uses variables 'a' through 'j'.
+ * - There are 10 variables, meaning there are 2^10 = 1024 possible truth assignments.
+ * - We can represent any boolean function of 10 variables using a bitset of length 1024.
+ * - The priority of operators: '!' (negation) > '&' (conjunction) > '||, <=>, =>, #' (others).
+ * - We must output an equivalent expression without any brackets.
+ * - A Sum of Products (SOP) form like (M1 || M2 || ... || Mk) where each Mi is a minterm
+ *   will be bracket-free if we follow the precedence rules.
+ * - A minterm for a variable set can be represented as (v1 & v2 & ... & v10) or its negation.
+ * - Max length for 1024 minterms: 1024 * 29 (max chars per minterm) + 1023 * 2 (|| operators) = 31742.
+ *   This is within the 32768 limit.
+ */
+
+string input;
+int pos = 0;
+bitset<1024> varBitsets[10];
+
+// Function prototypes for recursive descent parser
+bitset<1024> parseExpr();
+bitset<1024> parseTerm();
+bitset<1024> parseFactor();
+
+// Precompute truth tables for each variable 'a' through 'j'
+void precompute() {
+    for (int j = 0; j < 10; ++j) {
+        varBitsets[j].reset();
+        for (int i = 0; i < 1024; ++i) {
+            if ((i >> j) & 1) {
+                varBitsets[j].set(i);
+            }
+        }
+    }
+}
+
+// parseExpr handles lower priority operators: ||, <=>, =>, # (left-associative)
+bitset<1024> parseExpr() {
+    bitset<1024> res = parseTerm();
+    while (pos < (int)input.size()) {
+        if (input[pos] == '|' && pos + 1 < (int)input.size() && input[pos+1] == '|') {
+            pos += 2;
+            res |= parseTerm();
+        } else if (input[pos] == '<' && pos + 2 < (int)input.size() && input[pos+1] == '=' && input[pos+2] == '>') {
+            pos += 3;
+            res = ~(res ^ parseTerm());
+        } else if (input[pos] == '=' && pos + 1 < (int)input.size() && input[pos+1] == '>') {
+            pos += 2;
+            res = (~res) | parseTerm();
+        } else if (input[pos] == '#') {
+            pos += 1;
+            res ^= parseTerm();
+        } else {
+            break;
+        }
+    }
+    return res;
+}
+
+// parseTerm handles middle priority operator: &
+bitset<1024> parseTerm() {
+    bitset<1024> res = parseFactor();
+    while (pos < (int)input.size() && input[pos] == '&') {
+        pos += 1;
+        res &= parseFactor();
+    }
+    return res;
+}
+
+// parseFactor handles highest priority: '!', '( Expr )', and variables
+bitset<1024> parseFactor() {
+    if (input[pos] == '!') {
+        pos += 1;
+        return ~parseFactor();
+    } else if (input[pos] == '(') {
+        pos += 1;
+        bitset<1024> res = parseExpr();
+        if (pos < (int)input.size() && input[pos] == ')') {
+            pos += 1;
+        }
+        return res;
+    } else {
+        bitset<1024> res = varBitsets[input[pos] - 'a'];
+        pos += 1;
+        return res;
+    }
+}
+
+int main() {
+    // Speed up I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> input)) return 0;
+    precompute();
+    pos = 0;
+    bitset<1024> truthTable = parseExpr();
+
+    // Output the resulting expression using the SOP form
+    if (truthTable.none()) {
+        // If the expression is always false
+        cout << "a&!a" << endl;
+    } else if (truthTable.all()) {
+        // If the expression is always true
+        cout << "a||!a" << endl;
+    } else {
+        // Find all minterms (combinations of variables that make the function true)
+        vector<string> minterms;
+        for (int i = 0; i < 1024; ++i) {
+            if (truthTable.test(i)) {
+                string m;
+                m.reserve(30);
+                for (int j = 0; j < 10; ++j) {
+                    if ((i >> j) & 1) {
+                        if (!m.empty()) m += "&";
+                        m += (char)('a' + j);
+                    } else {
+                        if (!m.empty()) m += "&";
+                        m += "!";
+                        m += (char)('a' + j);
+                    }
+                }
+                minterms.push_back(m);
+            }
+        }
+        // Join minterms with the OR operator (||)
+        for (int i = 0; i < (int)minterms.size(); ++i) {
+            cout << minterms[i] << (i == (int)minterms.size() - 1 ? "" : "||");
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+

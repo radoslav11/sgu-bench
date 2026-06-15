@@ -1,0 +1,69 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    long long k;
+    cin >> n >> m >> k;
+
+    vector<long long> w(n + 1), c(n + 1);
+    vector<long long> prefW(n + 1, 0), prefC(n + 1, 0);
+
+    for (int i = 1; i <= n; ++i) {
+        cin >> w[i] >> c[i];
+        prefW[i] = prefW[i - 1] + w[i];
+        prefC[i] = prefC[i - 1] + c[i];
+    }
+
+    vector<long long> suffC(n + 1, 0);
+    for (int i = 1; i <= n; ++i) {
+        suffC[i] = suffC[i - 1] + c[n - i + 1];
+    }
+
+    int N = n - m; // maximum possible stolen count is less than or equal to N-1
+
+    long long bestSum = 0;
+    int bestT = 0, bestH = 0;
+
+    for (int h = 0; h < N; ++h) {
+        int r = n - h - m; // last pearl on the table if T=0
+
+        long long Wh = prefW[n - h] - prefW[r];
+
+        long long need = (Wh + k - 1) / k;
+        long long limit = prefW[r] - need;
+
+        int maxT = int(upper_bound(prefW.begin(), prefW.begin() + r, limit) - prefW.begin()) - 1;
+
+        if (maxT < 0) break;
+
+        for (int t = 0; t <= maxT; ++t) {
+            long long cur = prefC[t] + suffC[h];
+            if (cur > bestSum) {
+                bestSum = cur;
+                bestT = t;
+                bestH = h;
+            }
+        }
+    }
+
+    int p = bestT + bestH;
+
+    if (p == 0) {
+        cout << "0 0\n";
+        return 0;
+    }
+
+    cout << p << ' ' << bestSum << '\n';
+
+    string ans;
+    ans.append(bestH, 'H');
+    ans.append(bestT, 'T');
+
+    cout << ans << '\n';
+
+    return 0;
+}

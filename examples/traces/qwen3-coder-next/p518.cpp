@@ -1,0 +1,67 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <set>
+#include <queue>
+#include <cmath>
+#include <iomanip>
+#include <map>
+#include <climits>
+#include <cstring>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    vector<vector<int>> adj(n+1, vector<int>(n+1, 0));
+    for (int i = 1; i <= n; i++) {
+        for (int j = 1; j <= n; j++) {
+            cin >> adj[i][j];
+        }
+    }
+
+    int k;
+    cin >> k;
+    vector<int> roads(k);
+    for (int i = 0; i < k; i++) {
+        cin >> roads[i];
+    }
+
+    // We'll use BFS/dynamic programming: dp[i] = set of possible positions after processing first i roads
+    // Start at position 1
+    set<int> current;
+    current.insert(1);
+
+    for (int step = 0; step < k; step++) {
+        int needed_length = roads[step];
+        set<int> next;
+
+        for (int u : current) {
+            for (int v = 1; v <= n; v++) {
+                // Check if there is an edge from u to v with the required length
+                if (adj[u][v] == needed_length) {
+                    next.insert(v);
+                }
+            }
+        }
+
+        current = next;
+    }
+
+    vector<int> result(current.begin(), current.end());
+    sort(result.begin(), result.end());
+
+    cout << result.size() << "\n";
+    for (int i = 0; i < result.size(); i++) {
+        if (i > 0) cout << " ";
+        cout << result[i];
+    }
+    if (result.size() > 0) cout << "\n";
+
+    return 0;
+}

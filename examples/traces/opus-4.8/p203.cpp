@@ -1,0 +1,28 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    int n;
+    scanf("%d",&n);
+    queue<long long> q1,q2;
+    for(int i=0;i<n;i++){
+        long long x; scanf("%lld",&x);
+        q1.push(x);
+    }
+    long long total=0;
+    auto getMin=[&]()->long long{
+        if(q2.empty()|| (!q1.empty() && q1.front()<=q2.front())){
+            long long v=q1.front(); q1.pop(); return v;
+        } else {
+            long long v=q2.front(); q2.pop(); return v;
+        }
+    };
+    while(q1.size()+q2.size()>1){
+        long long a=getMin();
+        long long b=getMin();
+        long long s=a+b;
+        total+=s;
+        q2.push(s);
+    }
+    printf("%lld\n",total);
+    return 0;
+}

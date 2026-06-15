@@ -1,0 +1,176 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const double EPS = 1e-10;
+
+struct Pt {
+    double x, y;
+};
+
+struct Seg {
+    Pt a, b;
+};
+
+Pt operator+(Pt p, Pt q) { return {p.x + q.x, p.y + q.y}; }
+Pt operator-(Pt p, Pt q) { return {p.x - q.x, p.y - q.y}; }
+Pt operator*(Pt p, double k) { return {p.x * k, p.y * k}; }
+
+double dot(Pt p, Pt q) { return p.x * q.x + p.y * q.y; }
+double cross(Pt p, Pt q) { return p.x * q.y - p.y * q.x; }
+double norm2(Pt p) { return dot(p, p); }
+double dist(Pt p, Pt q) { return sqrt(norm2(p - q)); }
+
+bool samePoint(Pt p, Pt q) {
+    return dist(p, q) < 1e-8;
+}
+
+bool isPointSeg(const Seg& s) {
+    return dist(s.a, s.b) < EPS;
+}
+
+Pt rot(Pt p, int type) {
+    if (type == 0) return p;             // identity
+    if (type == 1) return {p.y, -p.x};   // rotate -90
+    if (type == 2) return {-p.x, -p.y};  // rotate 180
+    return {-p.y, p.x};                  // rotate +90
+}
+
+bool pointOnSegment(Pt p, const Seg& s) {
+    Pt a = s.a, b = s.b;
+    if (fabs(cross(p - a, b - a)) > 1e-8) return false;
+    return dot(p - a, p - b) <= 1e-8;
+}
+
+vector<Seg> intersectSegs(const Seg& s1, const Seg& s2) {
+    vector<Seg> res;
+
+    if (isPointSeg(s1)) {
+        if (pointOnSegment(s1.a, s2)) res.push_back({s1.a, s1.a});
+        return res;
+    }
+
+    Pt A = s1.a, B = s1.b;
+    Pt C = s2.a, D = s2.b;
+    Pt v = B - A;
+    Pt w = D - C;
+
+    double den = cross(v, w);
+
+    if (fabs(den) > EPS) {
+        double t = cross(C - A, w) / den;
+        double u = cross(C - A, v) / den;
+
+        if (t > -EPS && t < 1.0 + EPS && u > -EPS && u < 1.0 + EPS) {
+            t = max(0.0, min(1.0, t));
+            Pt p = A + v * t;
+            res.push_back({p, p});
+        }
+    } else {
+        if (fabs(cross(C - A, v)) > EPS) return res;
+
+        double vv = dot(v, v);
+        double t1 = dot(C - A, v) / vv;
+        double t2 = dot(D - A, v) / vv;
+        if (t1 > t2) swap(t1, t2);
+
+        double l = max(0.0, t1);
+        double r = min(1.0, t2);
+
+        if (l > r + EPS) return res;
+
+        if (fabs(l - r) < EPS) {
+            Pt p = A + v * ((l + r) / 2.0);
+            res.push_back({p, p});
+        } else {
+            Pt p = A + v * l;
+            Pt q = A + v * r;
+            res.push_back({p, q});
+        }
+    }
+
+    return res;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    vector<Seg> original(n);
+    for (int i = 0; i < n; i++) {
+        cin >> original[i].a.x >> original[i].a.y >> original[i].b.x >> original[i].b.y;
+    }
+
+    vector<vector<Seg>> sets(4);
+
+    for (int t = 0; t < 4; t++) {
+        for (auto s : original) {
+            sets[t].push_back({rot(s.a, t), rot(s.b, t)});
+        }
+    }
+
+    vector<Seg> cur = sets[0];
+
+    for (int k = 1; k < 4; k++) {
+        vector<Seg> nxt;
+
+        for (const Seg& a : cur) {
+            for (const Seg& b : sets[k]) {
+                vector<Seg> inter = intersectSegs(a, b);
+                for (auto s : inter) nxt.push_back(s);
+            }
+        }
+
+        cur.swap(nxt);
+    }
+
+    double totalLen = 0.0;
+    double totalIntegral = 0.0;
+
+    vector<Pt> points;
+
+    for (const Seg& s : cur) {
+        double len = dist(s.a, s.b);
+
+        if (len > 1e-9) {
+            Pt u = s.a;
+            Pt d = s.b - s.a;
+
+            double avgIntegral = norm2(u) + dot(u, d) + norm2(d) / 3.0;
+            totalIntegral += 2.0 * len * avgIntegral;
+            totalLen += len;
+        } else {
+            points.push_back(s.a);
+        }
+    }
+
+    cout.setf(ios::fixed);
+    cout << setprecision(10);
+
+    if (totalLen > 1e-9) {
+        cout << totalIntegral / totalLen << '\n';
+    } else {
+        vector<Pt> uniq;
+
+        for (Pt p : points) {
+            bool found = false;
+            for (Pt q : uniq) {
+                if (samePoint(p, q)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) uniq.push_back(p);
+        }
+
+        double ans = 0.0;
+        for (Pt p : uniq) ans += 2.0 * norm2(p);
+        ans /= (double)uniq.size();
+
+        cout << ans << '\n';
+    }
+
+    return 0;
+}

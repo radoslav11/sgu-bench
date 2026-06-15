@@ -1,0 +1,147 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+    long long weight;
+};
+
+void dijkstra(int start, int n, const vector<vector<Edge>>& adj, vector<long long>& dist) {
+    dist.assign(n + 1, INF);
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
+    dist[start] = 0;
+    pq.push({0, start});
+    
+    while (!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+        
+        if (d > dist[u]) continue;
+        
+        for (const auto& edge : adj[u]) {
+            if (dist[u] + edge.weight < dist[edge.to]) {
+                dist[edge.to] = dist[u] + edge.weight;
+                pq.push({dist[edge.to], edge.to});
+            }
+        }
+    }
+}
+
+struct Road {
+    int u, v;
+    long long w;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, x, y;
+    if (!(cin >> n >> x >> y)) return 0;
+    
+    int m;
+    cin >> m;
+    
+    vector<vector<Edge>> adj(n + 1);
+    vector<Road> roads(m);
+    
+    for (int i = 0; i < m; ++i) {
+        cin >> roads[i].u >> roads[i].v >> roads[i].w;
+        adj[roads[i].u].push_back({roads[i].v, roads[i].w});
+        adj[roads[i].v].push_back({roads[i].u, roads[i].w});
+    }
+    
+    vector<long long> distX, distY;
+    dijkstra(x, n, adj, distX);
+    dijkstra(y, n, adj, distY);
+    
+    long long D = distX[y];
+    
+    if (D == INF) {
+        for (int i = 1; i <= n; ++i) {
+            cout << 0 << (i == n ? "" : " ");
+        }
+        cout << "\n";
+        return 0;
+    }
+    
+    vector<long long> queries;
+    for (int i = 1; i <= n; ++i) {
+        if (distX[i] != INF && distY[i] != INF && distX[i] + distY[i] == D) {
+            queries.push_back(distX[i]);
+        }
+    }
+    
+    sort(queries.begin(), queries.end());
+    queries.erase(unique(queries.begin(), queries.end()), queries.end());
+    
+    int q_sz = queries.size();
+    vector<int> diff_queries(q_sz + 1, 0);
+    vector<int> C_count(q_sz, 0);
+    
+    for (int i = 1; i <= n; ++i) {
+        if (distX[i] != INF && distY[i] != INF && distX[i] + distY[i] == D) {
+            auto it = lower_bound(queries.begin(), queries.end(), distX[i]);
+            int idx = distance(queries.begin(), it);
+            C_count[idx]++;
+        }
+    }
+    
+    for (int i = 0; i < m; ++i) {
+        int u = roads[i].u;
+        int v = roads[i].v;
+        long long w = roads[i].w;
+        
+        if (distX[u] != INF && distX[v] != INF && distY[u] != INF && distY[v] != INF) {
+            if (distX[u] + w == distX[v] && distX[v] + distY[v] == D) {
+                long long L = distX[u];
+                long long R = distX[v];
+                auto it1 = upper_bound(queries.begin(), queries.end(), L);
+                auto it2 = lower_bound(queries.begin(), queries.end(), R);
+                int idx1 = distance(queries.begin(), it1);
+                int idx2 = distance(queries.begin(), it2);
+                if (idx1 < idx2) {
+                    diff_queries[idx1]++;
+                    diff_queries[idx2]--;
+                }
+            } else if (distX[v] + w == distX[u] && distX[u] + distY[u] == D) {
+                long long L = distX[v];
+                long long R = distX[u];
+                auto it1 = upper_bound(queries.begin(), queries.end(), L);
+                auto it2 = lower_bound(queries.begin(), queries.end(), R);
+                int idx1 = distance(queries.begin(), it1);
+                int idx2 = distance(queries.begin(), it2);
+                if (idx1 < idx2) {
+                    diff_queries[idx1]++;
+                    diff_queries[idx2]--;
+                }
+            }
+        }
+    }
+    
+    vector<int> internal_count(q_sz, 0);
+    int current = 0;
+    for (int i = 0; i < q_sz; ++i) {
+        current += diff_queries[i];
+        internal_count[i] = current;
+    }
+    
+    for (int i = 1; i <= n; ++i) {
+        if (distX[i] != INF && distY[i] != INF && distX[i] + distY[i] == D) {
+            auto it = lower_bound(queries.begin(), queries.end(), distX[i]);
+            int idx = distance(queries.begin(), it);
+            cout << C_count[idx] + internal_count[idx] << (i == n ? "" : " ");
+        } else {
+            cout << 0 << (i == n ? "" : " ");
+        }
+    }
+    cout << "\n";
+    
+    return 0;
+}

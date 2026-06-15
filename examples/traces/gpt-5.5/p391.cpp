@@ -1,0 +1,189 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct State {
+    long long n;
+    vector<long long> s;
+
+    bool operator==(const State& other) const {
+        return n == other.n && s == other.s;
+    }
+};
+
+struct Hasher {
+    size_t operator()(const State& st) const {
+        size_t h = hash<long long>()(st.n);
+        for (long long x : st.s) {
+            h ^= hash<long long>()(x + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+        }
+        return h;
+    }
+};
+
+static unordered_map<State, bool, Hasher> memo;
+
+static vector<long long> unique_sorted(vector<long long> v) {
+    sort(v.begin(), v.end());
+    v.erase(unique(v.begin(), v.end()), v.end());
+    return v;
+}
+
+static bool simulate_fold(long long n, const vector<long long>& s, long long t, bool foldLeft,
+                          long long& newN, vector<long long>& ns) {
+    long long L = t, R = n - t;
+    long long M = max(L, R);
+    newN = M;
+
+    unordered_set<long long> marked(s.begin(), s.end());
+    vector<long long> img;
+
+    auto map_pos = [&](long long x) -> long long {
+        if (foldLeft) {
+            long long off = M - R;
+            if (x <= t) {
+                long long d = t - x + 1;
+                return off + d;
+            } else {
+                return off + (x - t);
+            }
+        } else {
+            long long off = M - L;
+            if (x <= t) {
+                return off + x;
+            } else {
+                long long d = x - t;
+                return off + L - d + 1;
+            }
+        }
+    };
+
+    for (long long x : s) img.push_back(map_pos(x));
+    ns = unique_sorted(img);
+
+    if (ns.size() >= s.size()) return false;
+
+    for (long long y : ns) {
+        vector<long long> pre;
+
+        if (foldLeft) {
+            long long off = M - R;
+
+            long long dLeft = y - off;
+            if (1 <= dLeft && dLeft <= L) {
+                long long x = t + 1 - dLeft;
+                pre.push_back(x);
+            }
+
+            long long dRight = y - off;
+            if (1 <= dRight && dRight <= R) {
+                long long x = t + dRight;
+                pre.push_back(x);
+            }
+        } else {
+            long long off = M - L;
+
+            long long xLeft = y - off;
+            if (1 <= xLeft && xLeft <= L) {
+                pre.push_back(xLeft);
+            }
+
+            long long dRight = off + L - y + 1;
+            if (1 <= dRight && dRight <= R) {
+                long long x = t + dRight;
+                pre.push_back(x);
+            }
+        }
+
+        for (long long x : pre) {
+            if (!marked.count(x)) return false;
+        }
+    }
+
+    return true;
+}
+
+static bool can_fold_1d(long long n, vector<long long> s) {
+    s = unique_sorted(s);
+    if (s.size() <= 1) return true;
+
+    State st{n, s};
+    if (memo.count(st)) return memo[st];
+
+    int q = (int)s.size();
+
+    for (int i = 0; i < q; i++) {
+        for (int j = i + 1; j < q; j++) {
+            long long a = s[i], b = s[j];
+
+            if ((a + b) % 2 == 0) continue;
+
+            long long t = (a + b - 1) / 2;
+            if (t < 1 || t >= n) continue;
+
+            for (int dir = 0; dir < 2; dir++) {
+                long long nn;
+                vector<long long> ns;
+
+                if (simulate_fold(n, s, t, dir == 0, nn, ns)) {
+                    if (can_fold_1d(nn, ns)) {
+                        return memo[st] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    return memo[st] = false;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    long long n, m;
+    int k;
+
+    if (!(cin >> n >> m >> k)) return 0;
+
+    vector<pair<long long, long long>> cells(k);
+    vector<long long> rows, cols;
+
+    set<pair<long long, long long>> marked;
+
+    for (int i = 0; i < k; i++) {
+        long long x, y;
+        cin >> x >> y;
+
+        cells[i] = {x, y};
+        rows.push_back(x);
+        cols.push_back(y);
+        marked.insert({x, y});
+    }
+
+    rows = unique_sorted(rows);
+    cols = unique_sorted(cols);
+
+    if ((long long)rows.size() * (long long)cols.size() != k) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    for (long long x : rows) {
+        for (long long y : cols) {
+            if (!marked.count({x, y})) {
+                cout << "NO\n";
+                return 0;
+            }
+        }
+    }
+
+    memo.clear();
+    bool okRows = can_fold_1d(n, rows);
+
+    memo.clear();
+    bool okCols = can_fold_1d(m, cols);
+
+    cout << (okRows && okCols ? "YES\n" : "NO\n");
+
+    return 0;
+}

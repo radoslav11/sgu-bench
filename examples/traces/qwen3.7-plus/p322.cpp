@@ -1,0 +1,108 @@
+#include <iostream>
+#include <vector>
+#include <set>
+#include <algorithm>
+
+using namespace std;
+
+struct Edge {
+    int u, v;
+    Edge(int u, int v) : u(min(u, v)), v(max(u, v)) {}
+    bool operator<(const Edge& other) const {
+        if (u != other.u) return u < other.u;
+        return v < other.v;
+    }
+    bool operator==(const Edge& other) const {
+        return u == other.u && v == other.v;
+    }
+};
+
+struct Operation {
+    int p;
+    int add_u, add_v;
+    int rem_u, rem_v;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<vector<int>> adj(n + 1);
+    set<Edge> current_T1;
+
+    for (int i = 0; i < n - 1; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+        current_T1.insert(Edge(u, v));
+    }
+
+    set<Edge> e2;
+    for (int i = 0; i < n - 1; ++i) {
+        int u, v;
+        cin >> u >> v;
+        e2.insert(Edge(u, v));
+    }
+
+    vector<Operation> operations;
+
+    for (const auto& e : e2) {
+        if (current_T1.count(e)) continue;
+
+        vector<int> parent(n + 1, 0);
+        vector<bool> visited(n + 1, false);
+        vector<int> q;
+        q.reserve(n);
+        q.push_back(e.u);
+        visited[e.u] = true;
+        
+        int head = 0;
+        while (head < (int)q.size()) {
+            int u = q[head++];
+            if (u == e.v) break;
+            
+            for (int v : adj[u]) {
+                if (!visited[v]) {
+                    visited[v] = true;
+                    parent[v] = u;
+                    q.push_back(v);
+                }
+            }
+        }
+
+        int curr = e.v;
+        Edge edge_to_remove(0, 0);
+        while (curr != e.u) {
+            int p = parent[curr];
+            Edge cand(p, curr);
+            if (!e2.count(cand)) {
+                edge_to_remove = cand;
+                break;
+            }
+            curr = p;
+        }
+
+        operations.push_back({1, e.u, e.v, edge_to_remove.u, edge_to_remove.v});
+
+        current_T1.erase(edge_to_remove);
+        current_T1.insert(e);
+
+        adj[edge_to_remove.u].erase(remove(adj[edge_to_remove.u].begin(), adj[edge_to_remove.u].end(), edge_to_remove.v), adj[edge_to_remove.u].end());
+        adj[edge_to_remove.v].erase(remove(adj[edge_to_remove.v].begin(), adj[edge_to_remove.v].end(), edge_to_remove.u), adj[edge_to_remove.v].end());
+        
+        adj[e.u].push_back(e.v);
+        adj[e.v].push_back(e.u);
+    }
+
+    cout << operations.size() << "\n";
+    for (const auto& op : operations) {
+        cout << op.p << " " << op.add_u << " " << op.add_v << " " 
+             << op.rem_u << " " << op.rem_v << "\n";
+    }
+
+    return 0;
+}

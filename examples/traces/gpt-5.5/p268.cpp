@@ -1,0 +1,130 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int N;
+string S1, S2;
+unsigned fullMask;
+
+bool good(const string& s) {
+    if ((int)s.size() < N + 1) return true;
+    vector<int> cnt(N, 0);
+    int have = 0;
+
+    for (int i = 0; i < (int)s.size(); ++i) {
+        int x = s[i] - 'A';
+        if (cnt[x]++ == 0) have++;
+
+        if (i >= N + 1) {
+            int y = s[i - (N + 1)] - 'A';
+            if (--cnt[y] == 0) have--;
+        }
+
+        if (i >= N && have != N) return false;
+    }
+    return true;
+}
+
+bool build_with_gap(int gap, string& res) {
+    int L = 2 * N + gap;
+    res.assign(L, '?');
+
+    for (int i = 0; i < N; ++i) res[i] = S1[i];
+    for (int i = 0; i < N; ++i) res[N + gap + i] = S2[i];
+
+    vector<int> last(N, -1000000);
+
+    for (int t = 0; t < L; ++t) {
+        if (res[t] != '?') {
+            int c = res[t] - 'A';
+
+            int mn = INT_MAX, who = -1;
+            for (int i = 0; i < N; ++i) {
+                int d = last[i] + N + 1;
+                if (d < mn) {
+                    mn = d;
+                    who = i;
+                }
+            }
+
+            if (mn < t) return false;
+            if (mn == t && who != c) return false;
+
+            last[c] = t;
+        } else {
+            int mn = INT_MAX, who = -1;
+            for (int i = 0; i < N; ++i) {
+                int d = last[i] + N + 1;
+                if (d < mn) {
+                    mn = d;
+                    who = i;
+                }
+            }
+
+            if (mn < t) return false;
+
+            res[t] = char('A' + who);
+            last[who] = t;
+        }
+    }
+
+    return good(res);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> N >> S1 >> S2;
+    fullMask = (1u << N) - 1;
+
+    string best;
+    int bestLen = INT_MAX;
+
+    for (int overlap = N - 1; overlap >= 0; --overlap) {
+        bool ok = true;
+        for (int i = 0; i < overlap; ++i) {
+            if (S1[N - overlap + i] != S2[i]) {
+                ok = false;
+                break;
+            }
+        }
+
+        if (ok) {
+            string cur = S1 + S2.substr(overlap);
+            if (good(cur) && (int)cur.size() < bestLen) {
+                best = cur;
+                bestLen = cur.size();
+            }
+        }
+    }
+
+    for (int gap = 0; gap <= 2 * N + 5; ++gap) {
+        string cur;
+        if (build_with_gap(gap, cur)) {
+            if ((int)cur.size() < bestLen) {
+                best = cur;
+                bestLen = cur.size();
+            }
+            break;
+        }
+    }
+
+    if (best.empty()) {
+        // A safe fallback construction.
+        // Repeat S1 cyclically until it is safe to append S2.
+        string cur = S1;
+        for (int i = 0; i < 5 * N; ++i) cur += S1[i % N];
+
+        for (int cut = 0; cut <= (int)cur.size(); ++cut) {
+            string pref = cur.substr(0, cut);
+            string cand = pref + S2;
+            if (cand.find(S1) != string::npos && good(cand)) {
+                best = cand;
+                break;
+            }
+        }
+    }
+
+    cout << best << '\n';
+    return 0;
+}

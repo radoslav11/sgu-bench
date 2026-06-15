@@ -1,0 +1,151 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cstdio>
+
+using namespace std;
+
+int n, k;
+int target_states;
+vector<uint8_t> visited;
+vector<string> ops;
+bool found = false;
+
+struct Neighbor {
+    int next_mask;
+    int op_type;
+    int dancer;
+    int degree;
+};
+
+Neighbor neighbors_arr[40];
+int num_neighbors;
+
+void dfs(int mask, int depth) {
+    if (found) return;
+    if (depth == target_states) {
+        if (__builtin_popcount(mask) == 1) {
+            for (int i = 0; i < n; ++i) {
+                if (mask & (1 << i)) {
+                    ops.push_back("-" + to_string(i + 1));
+                    found = true;
+                    return;
+                }
+            }
+        }
+        return;
+    }
+    
+    num_neighbors = 0;
+    int pc = __builtin_popcount(mask);
+    
+    for (int i = 0; i < n; ++i) {
+        if ((mask & (1 << i)) == 0) {
+            if (pc < k) {
+                int nxt = mask | (1 << i);
+                if (!visited[nxt]) {
+                    neighbors_arr[num_neighbors++] = {nxt, 0, i + 1, 0};
+                }
+            }
+        } else {
+            int nxt = mask ^ (1 << i);
+            if (!visited[nxt]) {
+                neighbors_arr[num_neighbors++] = {nxt, 1, i + 1, 0};
+            }
+        }
+    }
+    for (int i = 0; i < n - 1; ++i) {
+        if ((mask & (1 << i)) && !(mask & (1 << (i + 1)))) {
+            int nxt = mask ^ (1 << i) ^ (1 << (i + 1));
+            if (!visited[nxt]) {
+                neighbors_arr[num_neighbors++] = {nxt, 2, i + 1, 0};
+            }
+        } else if (!(mask & (1 << i)) && (mask & (1 << (i + 1)))) {
+            int nxt = mask ^ (1 << i) ^ (1 << (i + 1));
+            if (!visited[nxt]) {
+                neighbors_arr[num_neighbors++] = {nxt, 3, i + 2, 0};
+            }
+        }
+    }
+    
+    for (int j = 0; j < num_neighbors; ++j) {
+        int m = neighbors_arr[j].next_mask;
+        int deg = 0;
+        int pc_m = __builtin_popcount(m);
+        for (int i = 0; i < n; ++i) {
+            if ((m & (1 << i)) == 0) {
+                if (pc_m < k) {
+                    if (!visited[m | (1 << i)]) deg++;
+                }
+            } else {
+                if (!visited[m ^ (1 << i)]) deg++;
+            }
+        }
+        for (int i = 0; i < n - 1; ++i) {
+            if ((m & (1 << i)) && !(m & (1 << (i + 1)))) {
+                if (!visited[m ^ (1 << i) ^ (1 << (i + 1))]) deg++;
+            } else if (!(m & (1 << i)) && (m & (1 << (i + 1)))) {
+                if (!visited[m ^ (1 << i) ^ (1 << (i + 1))]) deg++;
+            }
+        }
+        neighbors_arr[j].degree = deg;
+    }
+    
+    sort(neighbors_arr, neighbors_arr + num_neighbors, [](const Neighbor& a, const Neighbor& b) {
+        if (a.degree != b.degree) return a.degree < b.degree;
+        if (a.op_type != b.op_type) return a.op_type < b.op_type;
+        return a.dancer < b.dancer;
+    });
+    
+    for (int j = 0; j < num_neighbors; ++j) {
+        const Neighbor& nb = neighbors_arr[j];
+        visited[nb.next_mask] = 1;
+        
+        char buf[16];
+        const char* prefix = "";
+        if (nb.op_type == 0) prefix = "+";
+        else if (nb.op_type == 1) prefix = "-";
+        else if (nb.op_type == 2) prefix = "++";
+        else if (nb.op_type == 3) prefix = "--";
+        
+        sprintf(buf, "%s%d", prefix, nb.dancer);
+        ops.push_back(string(buf));
+        
+        dfs(nb.next_mask, depth + 1);
+        if (found) return;
+        
+        ops.pop_back();
+        visited[nb.next_mask] = 0;
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> n >> k)) return 0;
+    
+    long long comb = 1;
+    target_states = 0;
+    for (int i = 0; i <= k; ++i) {
+        target_states += comb;
+        comb = comb * (n - i) / (i + 1);
+    }
+    
+    visited.assign(1 << n, 0);
+    visited[0] = 1;
+    
+    dfs(0, 1);
+    
+    if (found) {
+        for (const string& op : ops) {
+            cout << op;
+        }
+        cout << "\n";
+    } else {
+        cout << "0\n";
+    }
+    
+    return 0;
+}

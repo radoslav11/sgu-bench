@@ -1,0 +1,71 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+long long mod_pow(long long a, int e, long long mod) {
+    long long res = 1 % mod;
+    a %= mod;
+    while (e > 0) {
+        if (e & 1) res = (__int128)res * a % mod;
+        a = (__int128)a * a % mod;
+        e >>= 1;
+    }
+    return res;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    long long p;
+    cin >> n >> p;
+
+    vector<vector<cpp_int>> a(n, vector<cpp_int>(n));
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            long long x;
+            cin >> x;
+            a[i][j] = x;
+        }
+    }
+
+    int sign = 1;
+    cpp_int prev = 1;
+
+    for (int k = 0; k < n - 1; ++k) {
+        int pivot = k;
+        while (pivot < n && a[pivot][k] == 0) ++pivot;
+
+        if (pivot != k) {
+            swap(a[pivot], a[k]);
+            sign = -sign;
+        }
+
+        cpp_int piv = a[k][k];
+
+        for (int i = k + 1; i < n; ++i) {
+            for (int j = k + 1; j < n; ++j) {
+                a[i][j] = (a[i][j] * piv - a[i][k] * a[k][j]) / prev;
+            }
+        }
+
+        prev = piv;
+
+        for (int i = k + 1; i < n; ++i) a[i][k] = 0;
+        for (int j = k + 1; j < n; ++j) a[k][j] = 0;
+    }
+
+    cpp_int det = a[n - 1][n - 1];
+    if (sign == -1) det = -det;
+    if (det < 0) det = -det;
+
+    long long det_mod = (det % p).convert_to<long long>();
+    long long ans = (__int128)det_mod * mod_pow(2, n, p) % p;
+
+    cout << ans << '\n';
+
+    return 0;
+}

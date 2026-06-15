@@ -1,0 +1,31 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    unsigned long long q;
+    int c;
+    cin >> q >> c;
+
+    vector<unsigned long long> f;
+    f.reserve(c + 1000);
+    f.push_back(0); // f[0]
+
+    int n = 0;
+    while (f.back() < q) {
+        ++n;
+        unsigned long long val;
+        if (n <= c) {
+            val = 0;
+        } else {
+            __int128 cur = (__int128)f[n - 1] + f[n - c - 1] + 1;
+            val = (cur >= q ? q : (unsigned long long)cur);
+        }
+        f.push_back(val);
+    }
+
+    cout << n << '\n';
+    return 0;
+}

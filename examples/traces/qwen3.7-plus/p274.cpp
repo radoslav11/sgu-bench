@@ -1,0 +1,46 @@
+#include <iostream>
+#include <string>
+#include <regex>
+
+using namespace std;
+
+int main() {
+    // Optimize standard I/O operations for competitive programming
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N;
+    if (!(cin >> N)) return 0;
+    
+    string line;
+    // Consume the rest of the first line (including the newline character)
+    getline(cin, line);
+    
+    // Regular expression strictly following the provided BNF grammar:
+    // <letter> ::= a-z, A-Z
+    // <symbol> ::= <letter>, 0-9, _, -
+    // <word>   ::= one or more <symbol>
+    // <prefix> ::= <word> or <prefix>.<word>  (one or more words separated by dots)
+    // <domain> ::= 2 or 3 <letter>s
+    // <suffix> ::= <prefix>.<domain>
+    // <address>::= <prefix>@<suffix>
+    regex email_regex(R"(^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*@[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*\.[A-Za-z]{2,3}$)");
+    
+    for (int i = 0; i < N; ++i) {
+        if (!getline(cin, line)) break;
+        
+        // Remove trailing carriage return if present (handles Windows \r\n line endings)
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        
+        // Check if the entire string matches the email grammar
+        if (regex_match(line, email_regex)) {
+            cout << "YES\n";
+        } else {
+            cout << "NO\n";
+        }
+    }
+    
+    return 0;
+}

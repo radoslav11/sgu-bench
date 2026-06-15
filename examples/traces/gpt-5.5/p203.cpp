@@ -1,0 +1,39 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<long long> p(N);
+    for (int i = 0; i < N; ++i) cin >> p[i];
+
+    vector<long long> q;
+    q.reserve(N);
+
+    int i = 0, j = 0;
+
+    auto getMin = [&]() -> long long {
+        if (i < N && (j >= (int)q.size() || p[i] <= q[j])) {
+            return p[i++];
+        } else {
+            return q[j++];
+        }
+    };
+
+    long long answer = 0;
+
+    for (int step = 0; step < N - 1; ++step) {
+        long long a = getMin();
+        long long b = getMin();
+        long long sum = a + b;
+        answer += sum;
+        q.push_back(sum);
+    }
+
+    cout << answer << '\n';
+    return 0;
+}

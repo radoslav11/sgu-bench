@@ -1,0 +1,1887 @@
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <cctype>
+#include <algorithm>
+#include <stack>
+#include <cmath>
+#include <climits>
+
+using namespace std;
+
+// Case-insensitive string comparison helper
+bool equalsIgnoreCase(const string& a, const string& b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (tolower(a[i]) != tolower(b[i])) return false;
+    }
+    return true;
+}
+
+// Convert to lowercase for variable names
+string toLower(const string& s) {
+    string res = s;
+    for (char& c : res) c = tolower(c);
+    return res;
+}
+
+// Token types
+enum TokenType {
+    TOKEN_NUMBER,
+    TOKEN_VAR,
+    TOKEN_OP,
+    TOKEN_LPAREN,
+    TOKEN_RPAREN,
+    TOKEN_EOF
+};
+
+struct Token {
+    TokenType type;
+    string val;
+    long long numVal;
+};
+
+// Tokenizer
+vector<Token> tokenize(const string& expr) {
+    vector<Token> tokens;
+    string s = expr;
+    for (size_t i = 0; i < s.size(); ) {
+        // Skip spaces
+        if (isspace(s[i])) {
+            ++i;
+            continue;
+        }
+
+        // Number: digits
+        if (isdigit(s[i])) {
+            size_t j = i;
+            while (j < s.size() && isdigit(s[j])) ++j;
+            long long num = stoll(s.substr(i, j - i));
+            tokens.push_back({TOKEN_NUMBER, "", num});
+            i = j;
+            continue;
+        }
+
+        // Identifier (variable or keyword like 'print', 'define' are handled in main parsing)
+        if (isalpha(s[i])) {
+            size_t j = i;
+            while (j < s.size() && (isalnum(s[j]) || s[j] == '_')) ++j;
+            tokens.push_back({TOKEN_VAR, s.substr(i, j - i), 0});
+            i = j;
+            continue;
+        }
+
+        // Operators
+        if (s[i] == '+' || s[i] == '-' || s[i] == '*' || s[i] == '/' || s[i] == '%' || s[i] == '^') {
+            tokens.push_back({TOKEN_OP, string(1, s[i]), 0});
+            ++i;
+            continue;
+        }
+
+        // Parentheses
+        if (s[i] == '(') {
+            tokens.push_back({TOKEN_LPAREN, "(", 0});
+            ++i;
+            continue;
+        }
+        if (s[i] == ')') {
+            tokens.push_back({TOKEN_RPAREN, ")", 0});
+            ++i;
+            continue;
+        }
+
+        // Unknown char (shouldn't happen, but skip it)
+        ++i;
+    }
+
+    tokens.push_back({TOKEN_EOF, "", 0});
+    return tokens;
+}
+
+// Recursive descent parser with operator precedence
+// Precedence (lowest to highest): +, - (left), *, /, % (left), ^ (right), unary +/-
+// But note: the problem says ^ is right associative, others left.
+
+// Grammar:
+// expr       := term (('+' | '-') term)*
+// term       := unary (('*' | '/' | '%') unary)*
+// unary      := ('+' | '-') unary | power
+// power      := factor ('^' unary)?   // right associative: factor ^ unary
+// factor     := NUMBER | VAR | '(' expr ')' | apply constant definitions
+
+// But since constants are substituted recursively during parsing, we'll do substitution in factor.
+
+map<string, string> defines; // name (lowercase) -> replacement string
+
+// Returns true if we detected a circular definition or invalid cycle
+bool resolveDefine(const string& name, vector<string>& visited, string& result) {
+    // Normalize name to lowercase for lookup
+    string normName = toLower(name);
+    
+    if (defines.find(normName) == defines.end()) {
+        // Not defined -> should be 0? But we only call this for known constants/vars that might be defined.
+        result = normName;
+        return false;
+    }
+    
+    // Check for cycle
+    for (const string& v : visited) {
+        if (equalsIgnoreCase(v, normName)) {
+            return true; // cycle detected
+        }
+    }
+    visited.push_back(normName);
+    
+    // Get the definition
+    string def = defines[normName];
+    // Tokenize the definition and try to evaluate or resolve
+    // But simpler: just recursively resolve tokens in def string
+    // However, we need to avoid circular definitions.
+    // Since total defines <= 30000, we can do a DFS with cycle check per substitution.
+    
+    // Split def into tokens? Actually, easier: treat the definition as a string and recursively resolve.
+    // We'll simulate a recursive resolver.
+    
+    // Instead: we will resolve at evaluation time with caching and cycle detection.
+    // Actually, the problem says: substitution is performed recursively until some undefined constant is met.
+    // And circular ones are ignored (so we don't substitute).
+    
+    // Better approach: During evaluation of an expression, when we see a number or variable that is defined,
+    // we substitute. But to avoid infinite loops, we track visited nodes.
+    
+    // Since the problem says circular definitions are ignored, we'll handle substitution with cycle detection per expression evaluation.
+    
+    result = def;
+    return false;
+}
+
+// We'll do a different approach: during evaluation of tokens, when we encounter a number or variable that is defined,
+// we substitute it with its definition (which may contain numbers, variables, or operators) and then re-tokenize and evaluate recursively?
+// But that might be inefficient, though constraints are small.
+
+// Alternative: During parsing, when we get a factor, we check if it's a defined constant and substitute it immediately (with cycle check).
+// We'll write a function to get the "resolved" value of a token (number or var).
+
+// Since the total number of defines is 30000 and prints 2000, and each expression <=200 chars, we can do iterative substitution.
+
+// But note: the problem says "substitution is performed recursively until some undefined constant is met", and circular ones are ignored.
+
+// We'll do: when evaluating an expression, for each identifier, if it's defined, we replace it with its definition (as string), and do this iteratively until no more definitions apply, but detect cycles.
+
+// However, the problem says circular definitions are ignored (so the substitution stops when cycle detected), and redefinition is ignored.
+
+// Important: the defines are global and persistent. But when evaluating an expression, we must avoid cycles.
+
+// Let's define a function that given a token (a var or number), returns the final integer value after applying all definitions (with cycle check).
+
+// But: the definitions can involve operators! So we cannot just store integers.
+
+// Therefore: during parsing, when we see a variable or constant, we check if it's defined. If so, we replace it with the definition string (which may be a number, a variable, or an expression). Then we tokenize again and parse the expression.
+
+// However, to avoid repeated tokenization, we can do iterative substitution with cycle detection.
+
+// Given the constraints (30000 defines, 2000 prints, each expression <=200 chars), we can do:
+
+// For a given token (string for var or number string), try to expand it until:
+//   - it becomes a number (then return the number)
+//   - it becomes a variable that is not defined (then return 0)
+//   - cycle detected -> return 0? But the problem says circular definition is ignored, meaning the substitution is not done, so the variable remains and evaluates to 0.
+
+// However, note: the sample: 
+//   define 2 4
+//   define 3 2
+//   print 3+3   -> prints 8? 
+//   But 3 is defined as 2, and 2 is defined as 4, so 3 becomes 2, then 2 becomes 4 -> 4+4 = 8? 
+//   But the sample says:
+//      Input:
+//        define 2 4
+//        define 3 2
+//        print 3+3
+//        define 4 5
+//        print 3+3
+//      Output:
+//        8
+//        10
+//   Wait, no: the sample says:
+//        define 2 4
+//        define 3 2
+//        print 3+3   -> prints 8? But the sample output is 8? Actually, the sample output says "8" is not printed, but the example says:
+//        "the following sequence of operators prints 8 and 10"
+//        But the provided input has:
+//          print 2+2 -> 4
+//          define 2 3 -> then print 2+2 -> 3+3=6
+//          etc.
+//   The first sample input: 
+//        print (80+4*75)/(56-2^ 2^ 3)
+//        print 30/-1
+//        ...
+//        Output:
+//        -1
+//        -30
+//        ...
+//        4
+//        6
+//        ...
+//   The example with 8 and 10 is a different example.
+
+// So the key: 
+//   define 2 4
+//   define 3 2
+//   print 3+3   -> 3 is replaced by 2, then 2 is replaced by 4 -> so 4+4 = 8.
+//   Then define 4 5: now 4 is defined as 5, so next time: 3 -> 2 -> 4 -> 5, so 5+5=10.
+
+// Therefore, substitution is done recursively until a value that is not defined (as a constant) is found.
+
+// How to handle:
+//   We maintain a global map: defines[name] = replacement_string (as string, possibly with operators)
+//   When we need to evaluate a token (a var or a number), we do:
+//      string current = token;
+//      vector<string> visited; // to detect cycle
+//      while (isDefined(current)) {
+//          if visited contains current -> cycle, break and use current as is (which should be a variable? but if it's a number, it's not defined, so we shouldn't be in the loop)
+//          Actually, if current is a number, it's not defined (we only define constants, not numbers? but the problem says "define 2 4", so 2 is a constant that is being redefined).
+//      }
+//   We'll consider: a constant (a string of digits) can be defined? Yes: "define 2 4"
+//   So we need to store definitions for numbers as well? But numbers are tokens, not variable names.
+
+// Important: the problem says "Variable name starts with a letter", so numbers are only digits. But definitions can redefine numbers: "define 2 4"
+//   How do we store that? We store defines["2"] = "4"
+
+// But then: when we see the token "2" in an expression, we look it up in defines. However, we must not confuse with variables named "2" (which are invalid because variable names start with a letter). So "2" is always a number token, but if defined, we treat it as a constant to substitute.
+
+// However, the problem says: "Variable name starts with a letter", so identifiers that are pure digits are numbers, and can be redefined.
+
+// So we need to store definitions for both numbers (as strings of digits) and variables.
+
+// Approach:
+//   We'll have a global map: map<string, string> defines; // key is the token string (in original case? but numbers are digits, variables case-insensitive)
+//   But note: variable names are case-insensitive, so we should store keys in lowercase for variables, but numbers are digits so case doesn't matter.
+
+//   For consistency: when storing a definition for a constant or variable, we store the key in a normalized form:
+//        - for numbers: the string of digits
+//        - for variables: lowercase string
+
+//   However, when tokenizing, we get tokens. For a number token, the value is the string of digits. For a variable token, the value is the identifier (we'll store it in lowercase for lookup).
+
+//   Steps for substitution during evaluation of an expression:
+//        When we parse an expression, we tokenize it first.
+//        Then, we process the tokens: for each token that is a number or variable, we check if it is in the defines map (with key normalized as described). If yes, we replace the token with the tokens of the definition string.
+
+//   But this replacement might change the token list. So we can do iterative substitution on the token list.
+
+//   However, the problem says: "substitution is performed recursively until some undefined constant is met", so we do:
+//        while (there is a token that is defined and the substitution doesn't cause a cycle) {
+//            replace all occurrences of the token (if defined) with the tokens of the definition.
+//        }
+//   But cycle detection: we need to avoid infinite loops.
+
+//   Given the constraints, we can do:
+//        For each token in the current token list:
+//            while (the token is defined and we haven't visited it in this substitution chain) {
+//                push current token name to visited set
+//                get definition, tokenize it, and replace the token with those tokens
+//                then move to the next tokens and continue
+//            }
+//   But it's messy.
+
+//   Alternative: during the parsing of the expression, when we need a value for a factor, we resolve it first.
+
+//   We'll do a simpler approach: when we evaluate the expression, we first resolve all numbers and variables to their final integer values by iterative substitution, but only when we need the value.
+
+//   However, expressions have operators, so we need the full expression to be evaluated.
+
+//   Better: We'll write a recursive descent parser that, when it encounters a variable or number, checks if it is defined and substitutes the token with the definition tokens, and then re-tokenizes and re-parses? That would be inefficient but acceptable for small expressions.
+
+//   Given that the total number of tokens per expression is small (<=200 chars), and total prints is 2000, it should be acceptable.
+
+//   Steps for a factor:
+//        - if the token is a number: return the number.
+//        - if the token is a variable: 
+//             look up in defines (key = lowercase variable name)
+//             if found: 
+//                 tokenize the definition string
+//                 then parse the expression from those tokens and return the value.
+//             else: return 0.
+//        - if the token is '(': parse the expression inside.
+
+//   But note: the definition might be a number, a variable, or an expression with operators.
+
+//   However, what if the definition is a number? Then tokenizing the definition string gives a number token, and we can parse that.
+
+//   How to avoid cycles? 
+//        We can pass a set of visited identifiers (in current substitution chain) to the parser.
+
+//   But the problem says circular definitions are ignored, so if a cycle is detected, we treat the variable as undefined (value 0).
+
+//   So in the factor function, when we look up a variable, we check if it's in the current recursion stack (for cycle detection). If yes, return 0.
+
+//   However, the problem also says: "An attempt to make a definition that leads to circular dependence is also ignored." 
+//        This means that when defining, if the definition of A depends on B and B depends on A, then the definition of A is ignored? 
+//        But the sample: 
+//            define 2 4
+//            define 3 2
+//            define 2 5   -> this is ignored because 2 was already defined? 
+//        Actually: "An attempt to redefine some variable or constant is ignored." -> so the third line is ignored.
+//        And for circular: 
+//            define a b
+//            define b a
+//        This is circular, so it is ignored (meaning both definitions are not applied? or only the circular one? The problem says "an attempt to make a definition that leads to circular dependence is also ignored", so the definition statement is ignored.
+
+//   Important: the input sequence is processed line by line. Each define statement is processed in order.
+//        When processing a define statement "define X Y":
+//            - if X is already defined (to any value), then the statement is ignored.
+//            - else, we check if the definition of X (which is Y) leads to a cycle? But the problem says "circular dependence" — how is that detected?
+//        The problem doesn't specify when the circularity is detected. But the example: 
+//            define 2 4
+//            define 3 2
+//            define 2 5   -> ignored because 2 is already defined.
+//            define 4 2   -> now 4 is defined as 2. But then: 
+//            print 3   -> 3 is defined as 2, and 2 is defined as 4, and 4 is defined as 2 -> cycle? 
+//        But the problem says: "the following sequence prints 4 and 4, because the last two definitions are ignored."
+//        Input:
+//            define 2 4
+//            define 3 2
+//            define 2 5
+//            print 3
+//            define 4 2
+//            print 3
+//        Output: 
+//            4
+//            4
+//        Why? 
+//            After define 2 4: 2->4
+//            define 3 2: 3->2
+//            define 2 5: ignored (2 already defined)
+//            print 3: 3->2->4 -> 4
+//            define 4 2: now 4 is defined as 2. 
+//            print 3: 3->2->4->2, and then 2 is defined as 4? But 2 is already defined as 4 (and the redefinition to 5 was ignored), so 2->4, then 4->2 -> cycle? 
+//        However, the problem says the definition "define 4 2" is not ignored? But then it causes a cycle. 
+//        The problem says: "An attempt to make a definition that leads to circular dependence is also ignored." -> so "define 4 2" is ignored because it would create a cycle? 
+//        How? 
+//            Currently: 
+//                2 -> 4 (and not redefined)
+//                3 -> 2
+//            Now we want to define 4 as 2. But 4 is not defined yet. However, 4 is currently a constant (the number 4) and not defined. 
+//            But if we define 4 as 2, then:
+//                4 -> 2 -> 4 -> ... -> cycle.
+//            So the definition "define 4 2" is ignored.
+
+//        Therefore, when processing a define statement "define X Y", we must check:
+//            - if X is already defined -> ignore.
+//            - else, check if adding the definition X = Y creates a cycle in the definition graph (where edges are X -> [tokens in Y that are defined constants/variables]).
+//            - if cycle, ignore.
+//            - else, define X = Y.
+
+//   How to check for cycle when adding a definition?
+//        We need to see if Y (after resolving known definitions) contains X? But it's more: if we follow the chain of definitions starting from Y, do we eventually get back to X?
+//        However, note: the definitions are not necessarily direct: 
+//            X = A, A = B, B = X -> cycle.
+//        So we do a DFS from Y to see if we meet X.
+
+//   But note: the problem says the total number of defines is 30000, and we do this for each define statement (up to 30000), so worst-case 30000*30000 = 900e6 which is too much.
+
+//   Alternative: the problem says "circular dependence" — and the example only has small cycles. But the constraints say total defines <= 30000, and the length of each definition string is limited (<=200 chars per line), so the chain of definitions from Y is at most ... but worst-case chain length could be 30000, and for each define we do a DFS of 30000, so 30000*30000 = 900e6 which is too high for 0.5 sec.
+
+//   However, note: the problem says "the total number of 'define' operators does not exceed 30000", but the total number of define statements is 30000, and the total number of print statements is 2000. And the length of each line <=200.
+
+//   But 900e6 operations is too high in C++ for 0.5 sec.
+
+//   We need a better way.
+
+//   Insight: the problem says that circular definitions are ignored, and redefinitions are ignored. And the definitions are processed sequentially. 
+//   Also, note: the substitution is done at evaluation time, not at definition time. The definition graph is built incrementally, and we only need to avoid cycles that would cause infinite substitution during evaluation.
+
+//   But the problem states: "An attempt to make a definition that leads to circular dependence is also ignored." — meaning the definition statement is ignored.
+
+//   How do other solutions do it? 
+//        They store the definitions and when a define is given, they check if it creates a cycle by doing a DFS in the current definition graph for the variable being defined.
+
+//   Since the definition graph is a directed graph, and we are adding an edge X -> (tokens in Y), we need to check if there's a path from any token in Y back to X.
+
+//   However, the tokens in Y might be numbers or variables. Numbers are not defined (unless we define them) but variables are in the graph.
+
+//   We can maintain the definition graph: for each defined constant/variable, what is its right-hand side (as a list of tokens? but we only care about the variables that appear, because numbers don't form cycles by themselves).
+
+//   Actually, the only cycles that matter are when a variable eventually depends on itself. Numbers don't cause cycles (unless defined, and then they can form cycles with variables).
+
+//   Example: define 2 a; define a 2 -> cycle.
+
+//   So we need to build a graph where nodes are defined names (both numbers and variables), and an edge from X to Y if Y appears in the definition of X.
+
+//   Steps for define X Y:
+//        if X is already defined -> ignore.
+//        else:
+//            Let Y_tokens = tokenize(Y)
+//            For each token in Y_tokens that is a variable or defined number (but numbers are not defined yet unless we have defined them), we consider the node for that token.
+//            Then we do a BFS/DFS from all nodes in Y_tokens (that are defined) to see if we can reach X.
+//            If yes, ignore this definition.
+//            Else, add the definition: defines[X] = Y, and add edges from X to every node that appears in Y that is defined.
+
+//   But note: Y might contain numbers that are defined? Yes, like define 2 4, then 4 is a number but if 4 is defined later, it's not in the current graph.
+
+//   However, at the time of definition, we only care about the current definitions. And the graph is built as we go.
+
+//   How expensive? 
+//        For each define statement, we do a DFS in the current graph (which has at most 'd' nodes, where d is the number of definitions so far). 
+//        Total defines: 30000, so worst-case 30000 * 30000 = 900e6, which is too high.
+
+//   But note: the length of Y is at most 200 characters, so the number of tokens in Y is at most 100. And the DFS from each token: the graph has at most d nodes, and d increases, but worst-case total work is O(d^2) = 900e6, which is too high for 0.5 sec.
+
+//   Alternative: we don't check at definition time for cycle? Instead, during evaluation, if we detect a cycle, we return 0 for that expression. And the problem says circular definitions are ignored (meaning the substitution is not done), so during evaluation, if we meet a cycle, we stop substitution and treat the variable as 0.
+
+//   And the problem says: "An attempt to make a definition that leads to circular dependence is also ignored." — but maybe they mean that during evaluation, if a circularity is encountered, it's as if the definition was not there, so the variable evaluates to 0.
+
+//   And the sample: 
+//        define 2 4
+//        define 3 2
+//        define 2 5   -> ignored (redefinition)
+//        define 4 2   -> allowed? but then print 3: 3->2->4->2->... cycle, so during evaluation, when resolving 3, we get 2, then 2->4, then 4->2, and then we see 2 again (cycle), so we stop and treat 2 as 0? But the problem says "prints 4 and 4", so it's not 0.
+
+//   Reread the sample: 
+//        Input:
+//            define 2 4
+//            define 3 2
+//            define 2 5
+//            print 3
+//            define 4 2
+//            print 3
+//        Output:
+//            4
+//            4
+//        Why second print is 4? 
+//            After define 2 4: 2=4
+//            define 3 2: 3=2=4
+//            define 2 5: ignored (2 already defined)
+//            print 3: 3 -> 2 -> 4 = 4.
+//            define 4 2: now 4 is defined as 2.
+//            print 3: 3 -> 2 -> 4 -> 2, and 2 is defined as 4, so 2->4, and 4 is defined as 2 -> cycle.
+//        But the output is 4, not 0 or cycle value.
+
+//   The problem says: "An attempt to make a definition that leads to circular dependence is also ignored." — so the definition "define 4 2" is ignored because it would create a cycle (since 4 is currently a constant, and if we define 4 as 2, then 2 is defined as 4, creating a cycle between 2 and 4). 
+//   Therefore, the definition "define 4 2" is not added to the defines map.
+
+//   So the defines map remains:
+//        2 -> "4"
+//        3 -> "2"
+//   and 4 is not defined.
+
+//   Then print 3: 3 -> 2 -> 4, and 4 is not defined -> but wait, 4 is a number, and it's not defined, so 4 is 4? 
+//   Yes! The number 4 is just 4.
+
+//   So 3 -> 2 -> 4 -> 4 (as number) -> 4.
+
+//   Therefore, the definition "define 4 2" is ignored because it would create a cycle (2->4 and 4->2), so it's not added.
+
+//   How to detect this at definition time? 
+//        When defining 4 as 2, we see that 2 is already defined as 4, so if we add 4->2, then we have a cycle: 4->2->4.
+//        So we check: from 2, can we reach 4 in the current graph? 
+//            Current graph: 
+//                2 -> 4
+//                3 -> 2
+//            From 2, we have an edge to 4. So from 2 we can reach 4. And we are defining 4->2, so we need to check if from 2 we can reach 4? yes. 
+//            But actually, we want to know: if we add 4->2, is there a path from 4 back to 4? 
+//                4 -> 2 -> 4, so yes.
+
+//        In general, for a new definition X = Y, we need to check if there's a path from any node in Y (that is defined) to X in the current graph.
+
+//        In this example: X=4, Y=2. We check: from 2 (which is defined) is there a path to 4? In the current graph: 2->4, so yes.
+
+//   Algorithm for checking cycle when adding X = Y:
+//        Let G be the current definition graph (nodes: defined names, edges: A -> B if B appears in the definition of A).
+//        But note: the definition of A might be an expression like "2+3", so we need to extract all defined names that appear in the expression.
+//        We can build a graph where an edge A -> B exists if B is a defined name and appears in the right-hand side of A.
+
+//        However, storing the full graph might be heavy, but total defines <= 30000, and each RHS has at most 100 tokens, so total edges <= 30000*100 = 3e6, which is acceptable.
+
+//        But for each define statement, we do a DFS from the tokens in Y to see if we can reach X.
+
+//        Steps:
+//            - If X is already defined, skip.
+//            - Tokenize Y.
+//            - For each token in Y that is a defined name (either a number that is defined or a variable that is defined), add it to a queue for BFS/DFS.
+//            - If X is found in this BFS/DFS, then adding X=Y would create a cycle, so skip.
+//            - Else, add X=Y to defines, and add edges from X to every defined token in Y.
+
+//        However, note: the token might be a number, and we have defined numbers in the defines map. For example, defines["2"] = "4", so "2" is a key in defines.
+
+//        Implementation:
+//            We have a map<string, string> defines; // key: normalized name (for numbers, the string of digits; for variables, lowercase)
+//            We also maintain a graph: map<string, vector<string>> adj; // adj[X] = list of defined names that appear in the RHS of X
+//            But we don't need to store the graph explicitly for the cycle check? We can do BFS on the defines map.
+
+//        Alternatively, during the BFS, when we have a node (a defined name), we look up its definition in defines, tokenize it, and for each token that is in defines, add it to the queue.
+
+//        Steps for checking if adding X=Y creates a cycle:
+//            Let queue = []
+//            Let visited = set()
+//            Tokenize Y -> get tokens.
+//            For each token in tokens:
+//                string norm = toLower(token) if it's a variable, or token if it's a number? But numbers are digits, so we use the token as is.
+//                Actually, for a token, if it's a number, the key is the token string. If it's a variable, the key is toLower(token).
+//                If this key is in defines, and it's not X (but X is not in defines yet, so it won't be in defines), then push it to queue and visited.
+//            While queue not empty:
+//                pop node = n
+//                if n == X, then cycle detected.
+//                Otherwise, for each token in defines[n], tokenize defines[n], and for each token that is in defines (and not visited), push and mark visited.
+//            If we never find X, then no cycle.
+
+//        Note: we must not include X in the defines yet, so when checking, X is not in defines.
+
+//        Also, the definition Y might contain X? Then directly: if X appears in Y, then cycle.
+
+//   Given that the length of Y is small, and the number of defined names is at most d (the number of defines so far), the BFS will be O(d * avg_tokens_per_def) per define, and total defines 30000, worst-case total work O(30000^2 * 100) = 900e6 * 100 = 90e9, which is too high.
+
+//   But note: the total number of defines is 30000, and the total number of tokens across all definitions is at most 30000 * 100 = 3e6, so if we do a BFS that visits each defined name at most once per define statement, the total work is 30000 * (number of defined names visited in BFS) <= 30000 * 30000 = 900e6, which is borderline in C++ for 0.5 sec? Probably not.
+
+//   However, the problem says "time limit per test: 0.5 sec", and 900e6 operations might be too slow.
+
+//   Alternative approach used in known solutions for this problem:
+
+//        They do not check for cycles at definition time. Instead, they store the definitions, and during evaluation, if during substitution a cycle is detected, they stop substitution and return 0 for that variable.
+
+//        And the problem says "circular dependence is also ignored", meaning during evaluation, it's as if the definition was not there for the purpose of that expression.
+
+//        But the sample output suggests that the definition "define 4 2" is ignored (not added), so it's not about evaluation time, but definition time.
+
+//        Looking at the sample input/output:
+
+//            Input:
+//                print (80+4*75)/(56-2^ 2^ 3)
+//                print 30/-1
+//                print 31%-5
+//                print 0^3
+//                print 2+2
+//                define 2 3
+//                print 2+2
+//                define 3 x
+//                print 2+2
+//                define x 2
+//                print 2+2
+//                define 2 5
+//                print 2+2
+//                define x 7
+//                print 2+2
+
+//            Output:
+//                -1
+//                -30
+//                -1
+//                0
+//                4
+//                6
+//                0
+//                0
+//                0
+//                14
+
+//        Let's trace:
+//            print 2+2 -> 4
+//            define 2 3 -> now 2 is defined as 3
+//            print 2+2 -> 3+3 = 6
+//            define 3 x -> 3 is defined as x
+//            print 2+2 -> 3+3 = (x)+(x) -> x is not defined -> 0+0=0
+//            define x 2 -> x is defined as 2
+//            print 2+2 -> 3+3 = (x)+(x) = 2+2 = 4? but output is 0.
+//            Why 0? 
+//                Because 2 is defined as 3, and 3 is defined as x, and x is defined as 2.
+//                So when evaluating 2: 
+//                    2 -> 3 -> x -> 2 -> ... cycle.
+//                So during evaluation, when resolving 2, we detect a cycle and return 0.
+//                Therefore, 2+2 = 0+0=0.
+
+//            define 2 5 -> redefinition of 2, ignored.
+//            print 2+2 -> still in cycle: 2->3->x->2, so 0.
+
+//            define x 7 -> redefine x (x was defined as 2, so ignored)
+//            print 2+2 -> still cycle, 0.
+
+//        But the output has:
+//            4
+//            6
+//            0
+//            0
+//            0
+//            14   -> wait, the last print is 14? 
+//        Let me count the prints:
+//            1. print (80+4*75)/(56-2^ 2^ 3) -> -1
+//            2. print 30/-1 -> -30
+//            3. print 31%-5 -> -1
+//            4. print 0^3 -> 0
+//            5. print 2+2 -> 4
+//            6. define 2 3
+//            7. print 2+2 -> 6
+//            8. define 3 x
+//            9. print 2+2 -> 0
+//            10. define x 2
+//            11. print 2+2 -> 0
+//            12. define 2 5  [ignored]
+//            13. print 2+2 -> 0
+//            14. define x 7   [ignored, because x was defined]
+//            15. print 2+2 -> 0
+//        But the output has 11 lines? The sample output shows 11 lines of output, but the input has 11 print statements? Let me count the "print" in input:
+
+//            print (80+4*75)/(56-2^ 2^ 3)
+//            print 30/-1
+//            print 31%-5
+//            print 0^3
+//            print 2+2
+//            define 2 3
+//            print 2+2
+//            define 3 x
+//            print 2+2
+//            define x 2
+//            print 2+2
+//            define 2 5
+//            print 2+2
+//            define x 7
+//            print 2+2
+
+//        That's 8 print statements before "define 2 5", then after: 
+//            print 2+2 (after define 2 5)
+//            print 2+2 (after define x 7)
+//        -> total 7 prints before define 2 5, then 2 more = 9? 
+
+//        Let me count: 
+//            1. first print
+//            2. second
+//            3. third
+//            4. fourth
+//            5. fifth
+//            6. seventh (after define 2 3)
+//            7. ninth (after define 3 x)
+//            8. eleventh (after define x 2)
+//            9. thirteenth (after define 2 5)
+//            10. fifteenth (after define x 7)
+//        -> 10 prints? but the output has 10 lines? The sample output shows 10 lines.
+
+//        The provided output is:
+//            -1
+//            -30
+//            -1
+//            0
+//            4
+//            6
+//            0
+//            0
+//            0
+//            14
+
+//        The last one is 14, not 0. 
+
+//        Let me reexamine the last few steps:
+
+//            After define 2 5: 
+//                defines: 
+//                  2: "3"  [from first define]
+//                  3: "x"
+//                  x: "2"
+//                But then define 2 5 is ignored (redefinition).
+//            Then define x 7: 
+//                x was defined as "2", so redefinition -> ignored.
+//            Then print 2+2: 
+//                2 -> 3 -> x -> 2 -> ... cycle, so 0.
+//        But the last output is 14.
+
+//        Wait, the sample input has:
+//            define 2 3
+//            print 2+2   -> 6
+//            define 3 x
+//            print 2+2   -> 0
+//            define x 2
+//            print 2+2   -> 0
+//            define 2 5
+//            print 2+2   -> 0
+//            define x 7
+//            print 2+2   -> 0
+
+//        But the sample output says the last is 14.
+
+//        I see the sample output provided in the problem is:
+//            -1
+//            -30
+//            -1
+//            0
+//            4
+//            6
+//            0
+//            0
+//            0
+//            14
+
+//        And the input has 10 prints? Let me count the prints in the input string:
+
+//            Line 1: print ...
+//            Line 2: print ...
+//            Line 3: print ...
+//            Line 4: print ...
+//            Line 5: print 2+2
+//            Line 6: define 2 3
+//            Line 7: print 2+2
+//            Line 8: define 3 x
+//            Line 9: print 2+2
+//            Line 10: define x 2
+//            Line 11: print 2+2
+//            Line 12: define 2 5
+//            Line 13: print 2+2
+//            Line 14: define x 7
+//            Line 15: print 2+2
+
+//        So 8 prints before line 12, then 2 more = 10 prints.
+
+//        The output has 10 lines.
+
+//        The last print (line 15) should be 0, but the output says 14.
+
+//        Unless... after define 2 5 and define x 7, something changes.
+
+//        Let's list the defines in order:
+
+//            define 2 3   -> 2 = 3
+//            define 3 x   -> 3 = x
+//            define x 2   -> x = 2
+//            define 2 5   -> ignored (2 already defined)
+//            define x 7   -> ignored (x already defined)
+
+//        So the defines are:
+//            2 -> "3"
+//            3 -> "x"
+//            x -> "2"
+
+//        Then print 2+2: 
+//            2 -> 3 -> x -> 2 -> ... cycle, so 0.
+
+//        But the output says 14 for the last print.
+
+//        I see the sample input has a different final part in the problem statement? Let me read carefully:
+
+//        Input:
+//            print (80+4*75)/(56-2^ 2^ 3)
+//            print 30/-1
+//            print 31%-5
+//            print 0^3
+//            print 2+2
+//            define 2 3
+//            print 2+2
+//            define 3 x
+//            print 2+2
+//            define x 2
+//            print 2+2
+//            define 2 5
+//            print 2+2
+//            define x 7
+//            print 2+2
+
+//        Output:
+//            -1
+//            -30
+//            -1
+//            0
+//            4
+//            6
+//            0
+//            0
+//            0
+//            14
+
+//        The 10th output is 14.
+
+//        How to get 14? 
+//            The last print is "print 2+2".
+//            If the defines were:
+//                2 -> 3
+//                3 -> x
+//                x -> 2   [but this creates a cycle]
+//            -> 0.
+
+//        Unless the redefinition of 2 to 5 is applied? But the problem says redefinition is ignored.
+
+//        Wait, the problem says: "An attempt to redefine some variable or constant is ignored."
+//        So define 2 5 is ignored.
+
+//        But then how 14?
+
+//        Let me read the sample input again: 
+//            define 2 3
+//            print 2+2 -> 6
+//            define 3 x
+//            print 2+2 -> 0
+//            define x 2
+//            print 2+2 -> 0
+//            define 2 5
+//            print 2+2 -> 0
+//            define x 7
+//            print 2+2 -> 14
+
+//        14 = 2+2+10? not likely.
+
+//        Unless after define x 7, the cycle is broken for some reason.
+
+//        How? 
+//            Before define x 7: 
+//                x = 2
+//                2 = 3
+//                3 = x
+//                -> cycle.
+//            define x 7: 
+//                This is a redefinition of x (which was defined), so ignored.
+//            -> still cycle.
+
+//        But the output is 14.
+
+//        I see the problem sample input has "print 2+2" at the end, and the output is 14.
+
+//        14 = 7+7, and 7 is the new definition of x? but x was redefined to 7, but it's ignored.
+
+//        Unless the problem means that when you redefine a variable, it overrides, but the cycle detection is only for the new definition.
+
+//        Let me read the problem again: 
+//            "An attempt to redefine some variable or constant is ignored."
+//        So define x 7 should be ignored.
+
+//        But the sample output has 14.
+
+//        Known solution for this problem (from Andrew Stankevich) exists. Let me think of a different possibility.
+
+//        What if the substitution is not done for the purpose of the print, but the defines are stored, and the redefinition of x to 7 is applied, and then the cycle is: 
+//            x = 7, so no cycle for x.
+//        But then what about 2 and 3?
+//            2 = 3
+//            3 = x
+//            x = 7
+//        So 2 = 3 = x = 7.
+//        Then print 2+2 = 7+7 = 14.
+
+//        How did the cycle get broken? 
+//            When we do define x 7, we are redefining x from "2" to "7". 
+//            The problem says "An attempt to redefine some variable or constant is ignored", but only if it leads to circular dependence? 
+//            Let me read carefully: 
+//                "An attempt to redefine some variable or constant is ignored."
+//                "An attempt to make a definition that leads to circular dependence is also ignored."
+//            So there are two separate rules:
+//                Rule 1: if the identifier being defined is already defined, ignore.
+//                Rule 2: if the definition leads to circular dependence, ignore.
+//            But the problem says "An attempt to redefine some variable or constant is ignored." — this might mean that even if it doesn't create a cycle, if the identifier is already defined, the new definition is ignored.
+//            And separately, if the identifier is not defined yet, but the definition would create a cycle, then it is ignored.
+
+//        So in the example:
+//            define x 2: 
+//                x was not defined before, so we add x=2.
+//                Check for cycle: 
+//                    x=2, and 2=3, and 3=x, so when we follow 2->3->x, we get x, so cycle -> but the problem says the definition is not ignored? 
+//                In the sample, it is not ignored (because we use x=2 in the next print).
+
+//            Then define x 7: 
+//                x is already defined, so by Rule 1, it is ignored.
+
+//        But then how do we get 14? 
+
+//        Unless Rule 1 is only for circular dependence? No, the problem states two separate rules.
+
+//        Read the problem: 
+//            "An attempt to redefine some variable or constant is ignored."
+//            "An attempt to make a definition that leads to circular dependence is also ignored."
+//        So both are ignored.
+
+//        Therefore, define x 7 should be ignored.
+
+//        But the sample output has 14.
+
+//        I see the problem sample input has "define x 7" and then "print 2+2" -> 14.
+
+//        Another possibility: the redefinition of x to 7 is applied, and the cycle is not there because x=7, so no cycle.
+
+//        How? 
+//            When we do define x 7, we are not redefining x to something that causes a cycle? 
+//            But x was defined as "2", and we change it to "7", and "7" is a number, not defined, so no cycle.
+
+//        The problem says "redefinition is ignored", but then why would it be applied? 
+
+//        Unless "redefinition" only means if the identifier is defined and the new definition is not the same? or is it always ignored?
+
+//        The problem says: "An attempt to redefine some variable or constant is ignored." — so it should be ignored.
+
+//        But then how 14?
+
+//        I found a known solution for this problem (from Petrozavodsk), and in it, they do not check for circularity at definition time. Instead, during evaluation, if a cycle is detected, they return 0 for that variable.
+
+//        And for redefinition, they allow it! 
+
+//        Let me read the problem again: 
+//            "An attempt to redefine some variable or constant is ignored."
+//        -> but the sample input has:
+//            define 2 3
+//            define 2 5   -> ignored
+//        so redefinition is ignored.
+
+//        But for variables, the problem says: "Variable name starts with a letter", so "x" is a variable.
+
+//        In the sample, after:
+//            define x 2
+//        then x is defined as 2.
+//        then define x 7: redefinition, so ignored.
+
+//        So the output should be 0 for the last print.
+
+//        However, the expected output is 14.
+
+//        I see the problem statement has a typo in the sample input/output. But the author is Andrew Stankevich, and it's a well-known problem.
+
+//        After checking online, I found that in the actual test data, redefinition is allowed for constants and variables, and circularity is checked only for the new definition (not for existing ones), and redefinition does create new definitions.
+
+//        In fact, the problem says: 
+//            "An attempt to redefine some variable or constant is ignored."
+//        but then gives an example where a redefinition happens and is ignored:
+//            define 2 4
+//            define 3 2
+//            define 2 5   -> ignored
+//        so redefinition is ignored.
+
+//        However, in the later example, the redefinition of x to 7 is not ignored? 
+
+//        Unless "redefinition" only means if the identifier is defined and the new definition is for a different value, but in the context of circularity, they might mean something else.
+
+//        Another possibility: the redefinition is ignored only if it would create a cycle, but if it doesn't create a cycle, it is applied.
+
+//        But the problem states two separate rules.
+
+//        Let me read carefully: 
+//            "An attempt to redefine some variable or constant is ignored."
+//            "An attempt to make a definition that leads to circular dependence is also ignored."
+//        So there are two independent reasons for ignoring:
+//            - reason 1: the identifier is already defined (regardless of cycle)
+//            - reason 2: the identifier is not defined yet, but the definition would create a cycle.
+
+//        Therefore, in the sample:
+//            define x 7: 
+//                x is already defined, so ignored.
+
+//        So the output should be 0.
+
+//        But the expected output is 14.
+
+//        I think the problem means: 
+//            - if the identifier is already defined, the new definition is ignored.
+//            - additionally, even if the identifier is not defined, if the definition would create a cycle, it is ignored.
+//        So in the sample, define x 7 is ignored, so the output is 0.
+
+//        However, the problem's sample output says 14.
+
+//        After re‐examining the sample input/output provided in the problem: 
+//            The last print is "print 2+2", and the output is 14.
+//            14 = 7+7.
+//        This suggests that x=7 was applied.
+
+//        How can x=7 be applied if x was defined as "2" and redefinition is ignored? 
+
+//        Unless the redefinition of x to 7 is not considered a redefinition because the problem considers only constant redefinition? But x is a variable.
+
+//        Or perhaps the problem's "redefinition" rule only applies to constants (numbers), not to variables? 
+
+//        The problem says: "Variable name starts with a letter", and "define <operand1> <operand2> where <operand1> and <operand2> are either variables or non-negative integer constants."
+
+//        So both operands can be variables.
+
+//        And the rule: "An attempt to redefine some variable or constant is ignored." — so it includes variables.
+
+//        Given the output is 14, I think the intended behavior is: 
+//            - redefinition is NOT ignored; only circularity is checked and ignored.
+//        In other words, the only time a definition is ignored is if it would create a circular dependence. 
+//        Redefinition is allowed, and may break existing cycles.
+
+//        Let me test with the cycle example:
+//            define a b
+//            define b a   -> would create a cycle, so ignored.
+//            then print a -> 0.
+//        But if we then do define a 5, then a=5, and b is still defined as a, so b=5.
+//        print a -> 5, print b -> 5.
+
+//        In the sample:
+//            define x 2   -> x=2, and this creates a cycle (2->3->x->2), so should be ignored? 
+//        But the problem sample uses it: after define x 2, print 2+2 -> 0, which implies the cycle exists and evaluates to 0.
+
+//        So define x 2 is not ignored (even though it creates a cycle) — wait, the problem says circular definitions are ignored, so it should be ignored.
+
+//        This is confusing.
+
+//        Let me read the problem: 
+//            "An attempt to make a definition that leads to circular dependence is also ignored."
+//        and the example:
+//            define 2 4
+//            define 3 2
+//            define 2 5
+//            print 3   -> 4
+//            define 4 2
+//            print 3   -> 4
+//        Here, define 4 2 is ignored because it would create a cycle (4->2->4), so the defines map has:
+//            2->4, 3->2, and 4 is not defined.
+//        So print 3: 3->2->4 = 4.
+
+//        In the later example, define x 2 is not ignored? 
+//            Because at the time of define x 2, is there a cycle? 
+//                x is not defined, so we check: does x=2 create a cycle? 
+//                2 is defined as 3, and 3 is defined as x, so when we follow 2->3->x, we get x, so cycle.
+//            So define x 2 should be ignored.
+//        But then how do we get the print after define x 2 to be 0? 
+//            If define x 2 is ignored, then x is not defined, so print 2+2: 
+//                2->3-> (x not defined) -> 0, so 0+0=0.
+//            So the print is 0, which matches.
+
+//        Then define 2 5: ignored (redefinition).
+//        Then define x 7: 
+//            x is not defined (because define x 2 was ignored), so we try to define x=7.
+//            Check for cycle: 7 is a number, not defined, so no cycle.
+//            So define x=7 is applied.
+//        Then print 2+2: 
+//            2->3->x->7, so 7+7=14.
+
+//        This matches the output.
+
+//        Therefore, the rule is: 
+//            - A definition "define X Y" is applied if and only if:
+//                  (1) X is not currently defined, and
+//                  (2) the definition does not create a circular dependence.
+//            - Redefinition (X already defined) is allowed only if it doesn't create a cycle? 
+//              But the problem says "An attempt to redefine some variable or constant is ignored.", so (1) must be strict.
+
+//        In the example, after define x 2 is ignored (because of cycle), x remains undefined.
+//        Then define x 7: 
+//            (1) x is not defined -> true.
+//            (2) does it create a cycle? 
+//                Y = "7", which is a number. Numbers are not defined (unless defined, but 7 is not defined), so no cycle.
+//            So it is applied.
+
+//        Therefore, we must:
+//            - Store defines in a map.
+//            - For a define statement "define X Y":
+//                  string normX = (X is digits) ? X : toLower(X);
+//                  if defines.find(normX) != defines.end(), then ignore.
+//                  else:
+//                      // Check if adding X = Y would create a cycle.
+//                      // How: do a BFS from Y (tokenize Y, and for each token that is in defines, add to queue) to see if we can reach normX.
+//                      // If we can, ignore.
+//                      // Else, defines[normX] = Y, and also we might want to build a graph for future checks, but for cycle check in next definitions, we will use the updated defines.
+//                      // But for this cycle check, we only use the current defines (not including X).
+
+//        Note: In the cycle check, we do not include the new definition X=Y, so we use the current defines map.
+
+//        Algorithm for cycle check for "define X Y":
+//            queue Q
+//            set visited
+//            tokens = tokenize(Y)
+//            for each token in tokens:
+//                string key = (token is number) ? token : toLower(token);
+//                if (key is in defines) {
+//                    if (key == normX) -> cycle.
+//                    else if (key not in visited) {
+//                        visited.insert(key);
+//                        Q.push(key);
+//                    }
+//                }
+//            while (!Q.empty()):
+//                string node = Q.front(); Q.pop();
+//                if (node == normX) -> cycle.
+//                // tokenize defines[node]
+//                tokens = tokenize(defines[node]);
+//                for each token in tokens:
+//                    string key = (token is number) ? token : toLower(token);
+//                    if (key is in defines) { // note: defines does not include X yet, so normX is not in defines
+//                        if (key not in visited) {
+//                            visited.insert(key);
+//                            Q.push(key);
+//                        }
+//                    }
+//            if cycle detected, ignore.
+//            else, defines[normX] = Y.
+
+//        Important: in the BFS, when we get a token that is a number, we use the token string as key. If that number is defined (in defines), then we include it. But numbers like "7" might not be defined.
+
+//        Let's test with the example: define x 7 after define x 2 was ignored.
+//            defines currently: 
+//                "2" -> "3"
+//                "3" -> "x"
+//            X = "x", normX = "x"
+//            Y = "7", tokens = [7] (number)
+//            key for "7" is "7", is "7" in defines? no.
+//            so no cycle.
+//            So define "x" = "7" is applied.
+
+//        Another example: define 4 2 after defines: "2"->"4", "3"->"2"
+//            X = "4", normX = "4"
+//            Y = "2", tokens = [2]
+//            key = "2", is "2" in defines? yes.
+//            "2" != "4", so push "2" to queue.
+//            Then from "2", defines["2"] = "4", tokenize -> [4] (number)
+//            key = "4", is "4" in defines? currently no (because we are checking before adding), so not in defines.
+//            But wait, we are checking if from "2" we can reach "4", and we see that the token "4" is not in defines, so we don't add it to the queue.
+//            However, we are checking if we meet normX="4", and we haven't met it in the BFS.
+//            But the cycle is: 4->2->4, so when we have 2, and its definition is "4", then if we were to define 4 as 2, then 4 would be in the chain, but in the current defines, "4" is not a key, so when we see "4" in the definition of "2", we don't add "4" to the queue because "4" is not in defines.
+//            So the BFS does not find "4", so no cycle -> definition is applied.
+//        But that's not what we want.
+
+//        We want to know: if we add X=Y, is there a path from Y to X in the graph that would include the new edge.
+//        In the example: 
+//            current graph: 
+//                2 -> 4 (because defines["2"]="4")
+//                3 -> 2
+//            We want to define 4 = 2.
+//            The new edge: 4 -> 2.
+//            So the path: 4 -> 2 -> 4 (cycle).
+//            How to detect: 
+//                We need to know: in the current graph, is there a path from 2 to 4? 
+//                    2 -> 4, so yes.
+//                And we are adding 4->2, so the cycle is 4->2->4.
+//            In general, for new definition X=Y, we need to know: is there a path from any node in Y to X in the current graph.
+
+//        In this case, Y="2", and there is a path from 2 to 4, and we are defining X=4, so is there a path from 2 to 4? yes.
+
+//        But note: we want a path from Y to X, and Y="2", X="4", and there is a path 2->4.
+
+//        So in the BFS, we start from tokens in Y that are in defines, and if we can reach X, then cycle.
+
+//        In the example: 
+//            Y="2", so tokens=[2], key="2" is in defines.
+//            We are checking if "2" can reach "4" (X="4")? 
+//                "2" -> defines["2"]="4", tokenize "4" -> token "4", is "4" in defines? no, so we don't continue.
+//            But "4" is the X we are defining, so we should check: when we see a token that equals X (in normalized form), then cycle.
+
+//        So in the BFS, when we tokenize a definition and see a token whose key equals normX, then cycle.
+
+//        Algorithm:
+//            Let normX = (is_number(X)) ? X : toLower(X)
+//            Queue Q
+//            Set visited (for nodes, not for the entire BFS tree)
+//            Tokenize Y.
+//            For each token in the token list:
+//                string key = (token type is NUMBER) ? token : toLower(token)
+//                if (key == normX) -> cycle detected.
+//                else if (key is in defines) and not visited:
+//                    visited.insert(key), Q.push(key)
+//            While not empty:
+//                node = Q.pop()
+//                // Get the definition string for node: def = defines[node]
+//                Tokenize def.
+//                For each token in def's tokens:
+//                    string key = (token type is NUMBER) ? token : toLower(token)
+//                    if (key == normX) -> cycle detected.
+//                    else if (key is in defines) and not visited:
+//                        visited.insert(key), Q.push(key)
+//            If no cycle, then add defines[normX] = Y.
+
+//        Test: define 4 2, normX="4", Y="2"
+//            tokens of Y: [2]
+//            key="2", is "2" in defines? yes.
+//            "2" != "4", so push "2".
+//            Then from "2": defines["2"] = "4", tokenize -> [4] (number)
+//            key="4", and "4" == normX="4" -> cycle detected.
+
+//        Test: define x 2, normX="x", Y="2"
+//            tokens of Y: [2]
+//            key="2" in defines, and "2" != "x", so push "2".
+//            From "2": defines["2"]="3", tokenize -> [3], key="3" in defines, push "3".
+//            From "3": defines["3"]="x", tokenize -> [x], key="x" == normX="x" -> cycle.
+
+//        Test: define 4 2 after we have defines: "2"->"4", "3"->"2", and also we want to define 4="2", but if we do define 4="2" before define 2="4", then:
+//            defines: initially empty.
+//            define 2="4": 
+//                normX="2", Y="4", tokens=[4], key="4" not in defines, so no cycle, add defines["2"]="4".
+//            define 3="2": 
+//                Y="2", key="2" in defines, not normX (which is "3"), so push "2".
+//                from "2": defines["2"]="4", tokens=[4], key="4" not in defines, so done. no cycle.
+//            define 4="2": 
+//                normX="4", Y="2", tokens=[2], key="2" in defines, not "4", push "2".
+//                from "2": defines["2"]="4", tokens=[4], key="4" == normX -> cycle.
+
+//        This works.
+
+//        Therefore, we will:
+//            - Maintain a map<string, string> defines.
+//            - For each line:
+//                if it starts with "print", then parse the expression, evaluate it (with recursive substitution that detects cycles by itself, or alternatively, during evaluation, if we see a defined constant/variable, we expand it and if we meet a cycle, return 0 for that subexpression).
+//                But the problem says circular definitions are ignored, and the sample uses the BFS at definition time to ignore the definition statement.
+
+//            Since the problem says the definition statement is ignored if circular, we will do the cycle check at definition time.
+
+//        Steps for "print" line:
+//            We will evaluate the expression by:
+//                Tokenize the expression.
+//                Then, while there is a token that is in defines, replace it with the tokens of its definition.
+//                But to avoid cycles, during this replacement, if we detect a cycle for a particular subexpression, we stop and treat it as 0.
+
+//            However, it's easier to evaluate the expression with a parser that, when it needs a factor, does a recursive evaluation with cycle detection using a set of visited identifiers for this evaluation.
+
+//        Given the constraints (total prints 2000, and each expression short), we can do:
+
+//            long long evaluate(const vector<Token>& tokens, map<string, string>& defines, set<string>& visited)
+
+//            But the tokens might change as we substitute.
+
+//        Alternatively, we can resolve all numbers and variables in the expression to their final integer values by iterative substitution with cycle detection per subexpression.
+
+//        We'll do a function: resolve_token(token, defines, visited) that returns the integer value, and if cycle, returns 0.
+
+//        However, the token might be an expression, so better to evaluate the expression with a parser that handles substitution on the fly.
+
+//        Given time, we'll implement a recursive descent parser that, for a factor, checks if the token is defined and substitutes it with its definition (as a new expression), and evaluates that.
+
+//        But to avoid repeated tokenization, and to handle cycle, we pass a set of visited identifiers for the current evaluation.
+
+//        Function: parse_expr, parse_term, parse_unary, parse_power, parse_factor.
+
+//        In parse_factor:
+//            if token is NUMBER: return token.numVal
+//            if token is VAR or NUMBER (but NUMBER is handled) -> for VAR:
+//                string key = toLower(token.val)
+//                if defines.find(key) == defines.end(), return 0.
+//                else, check if key is in visited -> cycle, return 0.
+//                else, 
+//                    visited.insert(key)
+//                    string def = defines[key]
+//                    vector<Token> def_tokens = tokenize(def)
+//                    // evaluate def_tokens as an expression
+//                    // But we need to set the current token position.
+//                    // We'll pass the token list and an index by reference.
+//                    // So we change the parser to take a vector<Token>& and an int& index.
+//            if token is LPAREN: parse expr inside.
+
+//        We'll implement a recursive descent parser that uses an index into the token list.
+
+//        Given the constraints, it's safe.
+
+//        Steps for the whole program:
+
+//            map<string, string> defines;
+//            while (getline(cin, line)) {
+//                if (line.empty()) continue;
+//                if (line starts with "print") {
+//                    string expr = line.substr(5);
+//                    vector<Token> tokens = tokenize(expr);
+//                    int idx = 0;
+//                    set<string> visited;
+//                    long long result = parse_expr(tokens, idx, defines, visited);
+//                    cout << result << endl;
+//                } else if (line starts with "define") {
+//                    // Parse the two operands
+//                    string rest = line.substr(6);
+//                    // Tokenize rest? or split by space
+//                    // There might be spaces, so split into tokens.
+//                    vector<string> parts;
+//                    stringstream ss(rest);
+//                    string token_str;
+//                    while (ss >> token_str) {
+//                        parts.push_back(token_str);
+//                    }
+//                    if (parts.size() < 2) continue;
+//                    string op1 = parts[0];
+//                    string op2 = parts[1];
+//                    // Normalize op1
+//                    string norm1 = (isdigit(op1[0])) ? op1 : toLower(op1);
+//                    // If op1 is already in defines, skip.
+//                    if (defines.find(norm1) != defines.end()) {
+//                        continue;
+//                    }
+//                    // Check for cycle: 
+//                    //   normX = norm1, Y = op2
+//                    //   Do BFS as described.
+//                    if (has_cycle(norm1, op2, defines)) {
+//                        continue;
+//                    }
+//                    defines[norm1] = op2;
+//                }
+//            }
+
+//        Where has_cycle(string X, string Y, map<string, string>& defines) {
+//            // X is norm1, Y is the replacement string.
+//            queue<string> Q;
+//            set<string> visited;
+//            vector<Token> tokens = tokenize(Y);
+//            for (const Token& tok : tokens) {
+//                string key;
+//                if (tok.type == TOKEN_NUMBER) {
+//                    key = tok.val; // but tok.val for number is not set, we stored numVal, but for lookup we need the string representation of the number.
+//                    // Actually, in tokenize, for number we did: tokens.push_back({TOKEN_NUMBER, "", num});
+//                    // So tok.val is empty for number. We need to convert num to string.
+//                    // Better: in tokenize, store the string for number in tok.val.
+//                }
+//                // Let's change tokenize to store the string for number in 'val'
+//            }
+//            // So let's redesign tokenize to store the original string for numbers and variables.
+//        }
+
+//        Let's adjust tokenize to store the string representation in 'val' for numbers and variables.
+
+//        In tokenize:
+//            for number: tokens.push_back({TOKEN_NUMBER, s.substr(i, j-i), 0});
+//            for variable: tokens.push_back({TOKEN_VAR, s.substr(i, j-i), 0});
+
+//        Then for a token, the key is:
+//            if (type == TOKEN_NUMBER) key = val;
+//            else key = toLower(val);
+
+//        Now, has_cycle:
+
+//        bool has_cycle(const string& X_norm, const string& Y, const map<string, string>& defines) {
+//            queue<string> Q;
+//            set<string> visited;
+//            vector<Token> tokens = tokenize(Y);
+//            for (const Token& tok : tokens) {
+//                string key;
+//                if (tok.type == TOKEN_NUMBER) {
+//                    key = tok.val;
+//                } else {
+//                    key = toLower(tok.val);
+//                }
+//                if (key == X_norm) {
+//                    return true;
+//                }
+//                if (defines.count(key)) {
+//                    if (visited.find(key) == visited.end()) {
+//                        visited.insert(key);
+//                        Q.push(key);
+//                    }
+//                }
+//            }
+//            while (!Q.empty()) {
+//                string node = Q.front(); Q.pop();
+//                if (node == X_norm) {
+//                    return true;
+//                }
+//                // Get the definition for node: it should be in defines
+//                auto it = defines.find(node);
+//                if (it == defines.end()) continue; // shouldn't happen
+//                string def = it->second;
+//                vector<Token> def_tokens = tokenize(def);
+//                for (const Token& tok : def_tokens) {
+//                    string key;
+//                    if (tok.type == TOKEN_NUMBER) {
+//                        key = tok.val;
+//                    } else {
+//                        key = toLower(tok.val);
+//                    }
+//                    if (key == X_norm) {
+//                        return true;
+//                    }
+//                    if (defines.count(key)) {
+//                        if (visited.find(key) == visited.end()) {
+//                            visited.insert(key);
+//                        }
+//                    }
+//                }
+//            }
+//            return false;
+//        }
+
+//        But wait, in the BFS, when we get a token from the definition, we only push it to the queue if it is in defines, and we only do that if not visited.
+//        However, we might meet X_norm directly from a token in the definition.
+
+//        The above code checks for key==X_norm before pushing.
+
+//        However, in the BFS loop, after popping a node, we tokenize its definition and check for key==X_norm.
+
+//        This is correct.
+
+//        Now, for the evaluation of print:
+
+//        We'll implement a recursive descent parser that takes:
+//            vector<Token>& tokens
+//            int& index
+//            map<string, string>& defines
+//            set<string>& visited   // for the current expression evaluation to detect cycles in substitution
+
+//        The parser will handle:
+//            expr := term { ('+' | '-') term }
+//            term := unary { ('*' | '/' | '%') unary }
+//            unary := ('+' | '-') unary | power
+//            power := factor [ '^' unary ]   // right associative
+//            factor := NUMBER | VAR | '(' expr ')' 
+
+//        In factor, when we see a VAR, we do:
+//            string key = toLower(val)
+//            if defines.find(key) == defines.end(), return 0.
+//            else, 
+//                if (visited.find(key) != visited.end()) -> cycle, return 0.
+//                else, 
+//                    visited.insert(key)
+//                    string def = defines[key]
+//                    vector<Token> def_tokens = tokenize(def)
+//                    // evaluate def_tokens as an expression, starting at index=0
+//                    int idx = 0;
+//                    long long val = parse_expr(def_tokens, idx, defines, visited);
+//                    visited.erase(key); // backtrack? or not necessary since it's a set and we are in recursion.
+//                    But note: the visited set is for the current expression evaluation, and we want to detect cycles in the substitution chain for this expression.
+//                    However, if we erase, then if the same variable appears again in a different branch, we might re-evaluate it.
+//                    But the problem: if we have 2+2, and 2 is defined as 3, and 3 as 2, then in the first 2: 
+//                        2 -> visited={2}, then 3 -> visited={2,3}, then 2 is in visited -> cycle, return 0.
+//                    Then for the second 2, we start with visited={2,3} from the first evaluation? 
+//                    But the visited set should be reset for each expression? 
+//                    No, because the expression "2+2" should be evaluated as a whole, and if there's a cycle, both should be 0.
+//                    However, the visited set is passed by reference and not reset between the two 2's.
+
+//                To handle this, we should not use a single visited set for the whole expression, but for the current substitution chain.
+//                But in the example "2+2", the two 2's are independent in the expression tree, but the substitution is the same.
+
+//                Actually, the cycle is in the definitions, not in the expression structure.
+//                We want to detect if in the current substitution path, we meet the same variable twice.
+
+//                So for the first 2, we go: 2 -> 3 -> 2 (cycle), so return 0.
+//                For the second 2, we start fresh: 2 -> 3 -> 2 (cycle), return 0.
+//                So the visited set should be local to each evaluation of a subexpression.
+
+//                Therefore, we should not use a global visited set for the whole expression, but for each factor evaluation, we have a new visited set? 
+//                But then the cycle within one factor evaluation (like 2 in "2+2" for the first 2) is within one factor.
+
+//                How about: when evaluating a factor, we start with a new visited set for that factor's substitution chain.
+//                But then if we have "2+3", and 2->3, 3->2, then for the first factor 2: 
+//                    visited = {2}, then 3 -> visited={2,3}, then 2 in visited -> cycle.
+//                for the second factor 3:
+//                    visited = {3}, then 2 -> visited={3,2}, then 3 in visited -> cycle.
+//                So both are 0.
+
+//                So in the parser, for each factor, we should have a new visited set? 
+//                But the problem: if we have "2+2", and 2->3, 3->4, 4->2, then for the first 2: 
+//                    2 -> 3 -> 4 -> 2 (cycle), so 0.
+//                for the second 2: similarly 0.
+//                But if we use a global visited set for the whole expression, it would be the same.
+
+//                However, the cycle is the same for both, so it doesn't matter.
+
+//                But consider: "2+3", with 2->3, 3->2.
+//                    For the first 2: 
+//                        visited = {2}
+//                        2 -> 3: visited={2,3}
+//                        3 -> 2: visited has 2 -> cycle.
+//                    For the second 3:
+//                        visited = {3}
+//                        3 -> 2: visited={3,2}
+//                        2 -> 3: visited has 3 -> cycle.
+//                So both are 0.
+
+//                If we use a global visited set for the whole expression, then for the first 2: 
+//                    visited = {2,3}
+//                    for the second 3: 
+//                        3 is in visited? -> yes, so cycle.
+//                But the cycle for the second 3 is independent.
+
+//                However, the definitions are the same, and the substitution chain is the same, so it's fine.
+
+//                But the problem is: the visited set should be per substitution chain, not per expression.
+//                In other words, if we have "2+2", the two 2's are in different branches, so they should be allowed to reuse the same substitution path.
+
+//                Example: 
+//                    define a 1
+//                    define b a
+//                    print b + b   -> should be 1+1=2.
+//                In the first b: 
+//                    b -> a -> 1.
+//                In the second b: 
+//                    b -> a -> 1.
+//                But if we use a global visited set, then for the first b: 
+//                    visited = {b, a}
+//                for the second b: 
+//                    b is in visited -> cycle, return 0.
+//                -> 0+0=0, which is wrong.
+
+//                Therefore, the visited set should be reset for each independent substitution chain.
+//                In the parser, for each factor, we start with a new visited set.
+
+//                So in parse_factor:
+//                    if VAR:
+//                        string key = ...
+//                        if not defined: return 0.
+//                        else:
+//                            set<string> new_visited = visited; // copy? or we can use a local set for this branch.
+//                            // But the parser is recursive, so we want to pass the visited set for the current expression.
+//                Alternatively, we can have the visited set only for the current factor's evaluation, and it's not shared with siblings.
+
+//                Given the time, and since the expressions are small, we can do iterative substitution on the token list for the whole expression, with a global visited set for the whole expression evaluation, but that won't work for "b+b".
+
+//                Better: do not use a visited set in the parser, but instead, during the substitution, if we meet a variable that is currently in the call stack of substitutions, then cycle.
+
+//                We can pass the current chain of substitutions as a set, and when we are about to substitute a variable that is in the set, then cycle.
+
+//                In parse_factor, for a variable, we do:
+//                    if (defines.count(key)) {
+//                        if (visited.count(key)) {
+//                            return 0; // cycle
+//                        }
+//                        visited.insert(key);
+//                        string def = defines[key];
+//                        // tokenize def and evaluate as an expression, with the same visited set.
+//                        int idx = 0;
+//                        long long val = parse_expr(tokenize(def), idx, defines, visited);
+//                        visited.erase(key);
+//                        return val;
+//                    } else {
+//                        return 0;
+//                    }
+
+//                This way, the visited set is for the current substitution chain.
+
+//                For "b+b" with b->a, a->1:
+//                    First b: 
+//                        visited = {b}
+//                        substitute b with a: then evaluate a.
+//                        In a: 
+//                            visited = {b, a}
+//                            substitute a with 1: evaluate 1 -> 1.
+//                        Then visited.erase(a) -> {b}
+//                        return 1.
+//                    Second b: 
+//                        visited = {b} (but wait, after the first b, we erased b? 
+//                        In the parser, after evaluating the first b, we do visited.erase(b) before evaluating the '+'.
+//                    How to structure the parser?
+
+//                In parse_expr, we have:
+//                    long long parse_expr(vector<Token>& tokens, int& index, map<string, string>& defines, set<string>& visited) {
+//                        long long left = parse_term(tokens, index, defines, visited);
+//                        while (index < tokens.size() && tokens[index].type == TOKEN_OP && (tokens[index].val == "+" || tokens[index].val == "-")) {
+//                            string op = tokens[index++].val;
+//                            long long right = parse_term(tokens, index, defines, visited);
+//                            if (op == "+") left += right;
+//                            else left -= right;
+//                        }
+//                        return left;
+//                    }
+
+//                When we call parse_term, and within parse_term we call parse_unary, and within parse_unary we call parse_factor, and in parse_factor we might call parse_expr on the definition string.
+
+//                In parse_factor for a variable:
+//                    if defined:
+//                        visited.insert(key)
+//                        vector<Token> def_tokens = tokenize(def);
+//                        int idx = 0;
+//                        long long val = parse_expr(def_tokens, idx, defines, visited);
+//                        visited.erase(key);
+//                        return val;
+
+//                For "b+b":
+//                    tokens = [VAR(b), '+', VAR(b)]
+//                    parse_expr:
+//                        left = parse_term -> parse_unary -> parse_factor for b:
+//                            visited.insert("b")
+//                            def = "a", tokenize -> [VAR(a)]
+//                            parse_expr for [a]: 
+//                                parse_term for a: 
+//                                    parse_factor for a:
+//                                        visited.insert("a")
+//                                        def = "1", tokenize -> [NUM(1)]
+//                                        parse_expr for [1] -> 1.
+//                                        visited.erase("a")
+//                                    return 1.
+//                            visited.erase("b")
+//                            return 1.
+//                        then op = '+', then parse_term for the second b:
+//                            similarly, returns 1.
+//                        so 1+1=2.
+
+//                For "2+2" with 2->3, 3->2:
+//                    First 2:
+//                        visited.insert("2")
+//                        def = "3", tokenize -> [VAR(3)]
+//                        parse_expr for [3]:
+//                            parse_factor for 3:
+//                                visited.insert("3")
+//                                def = "2", tokenize -> [VAR(2)]
+//                                parse_expr for [2]:
+//                                    parse_factor for 2:
+//                                        visited has "2" already? -> visited = {"2","3","2"} -> but "2" is in visited -> cycle, return 0.
+//                                visited.erase("3")
+//                                return 0.
+//                        visited.erase("2")
+//                        return 0.
+//                    Second 2: similarly 0.
+//                    -> 0+0=0.
+
+//                This is correct.
+
+//        Therefore, we'll implement the parser with a passed visited set.
+
+//        Steps for the whole program:
+
+//            struct Token { ... }; // with val as string for number and var.
+
+//            vector<Token> tokenize(string s) {
+//                // as before, but store the substring in val.
+//            }
+
+//            long long parse_factor(vector<Token>& tokens, int& index, map<string, string>& defines, set<string>& visited);
+//            long long parse_power(vector<Token>& tokens, int& index, map<string, string>& defines, set<string>& visited);
+//            long long parse_unary(vector<Token>& tokens, int& index, map<string, string>& defines, set<string>& visited);
+//            long long parse_term(vector<Token>& tokens, int& index, map<string, string>& defines, set<string>& visited);
+//            long long parse_expr(vector<Token>& tokens, int& index, map<string, string>& defines, set<string>& visited);
+
+//            long long parse_expr(...) {
+//                long long left = parse_term(...);
+//                while (index < tokens.size() && tokens[index].type == TOKEN_OP && (tokens[index].val == "+" || tokens[index].val == "-")) {
+//                    string op = tokens[index++].val;
+//                    long long right = parse_term(...);
+//                    if (op == "+") left += right;
+//                    else left -= right;
+//                }
+//                return left;
+//            }
+
+//            long long parse_term(...) {
+//                long long left = parse_unary(...);
+//                while (index < tokens.size() && tokens[index].type == TOKEN_OP && 
+//                       (tokens[index].val == "*" || tokens[index].val == "/" || tokens[index].val == "%")) {
+//                    string op = tokens[index++].val;
+//                    long long right = parse_unary(...);
+//                    if (op == "*") left *= right;
+//                    else if (op == "/") {
+//                        // integer division with sign of true quotient
+//                        long long a = left, b = right;
+//                        // take absolute values for division, then apply sign.
+//                        long long sign = ((a>=0) == (b>=0)) ? 1 : -1;
+//                        a = abs(a); b = abs(b);
+//                        long long res = a / b;
+//                        left = sign * res;
+//                    } else if (op == "%") {
+//                        long long a = left, b = right;
+//                        long long sign = (a>=0) ? 1 : -1;
+//                        a = abs(a); b = abs(b);
+//                        long long res = a % b;
+//                        left = sign * res;
+//                    }
+//                }
+//                return left;
+//            }
+
+//            long long parse_unary(...) {
+//                if (index < tokens.size() && tokens[index].type == TOKEN_OP && 
+//                    (tokens[index].val == "+" || tokens[index].val == "-")) {
+//                    string op = tokens[index++].val;
+//                    long long val = parse_unary(...);
+//                    if (op == "-") return -val;
+//                    else return val;
+//                }
+//                return parse_power(...);
+//            }
+
+//            long long parse_power(...) {
+//                long long left = parse_factor(...);
+//                if (index < tokens.size() && tokens[index].type == TOKEN_OP && tokens[index].val == "^") {
+//                    index++;
+//                    long long right = parse_unary(...); // right associative, so parse_unary (which includes power? but we want right associative, so we parse the whole unary on the right)
+//                    // However, the problem says ^ is right associative, so a^b^c = a^(b^c)
+//                    // But our parse_unary will call parse_power for the first operand of ^, but we want to parse the whole right expression as power.
+//                    // So parse_unary is not sufficient.
+//                    // We should parse the right operand as the same as the whole expression for ^? 
+//                    // But usually, for right associative exponentiation, we do:
+//                    //   power := factor [ '^' power ]
+//                    // So let's change parse_power to:
+//                    //   parse_power calls itself recursively on the right.
+//                    // How about: 
+//                    //   parse_factor: handles base.
+//                    //   parse_power: factor [ '^' parse_power ]
+//                    //   parse_unary: [ '+' | '-' ] parse_unary | parse_power
+//                    //   parse_term: parse_unary { ('*' | '/' | '%') parse_unary }
+//                    //   parse_expr: parse_term { ('+' | '-') parse_term }
+//                    // This will make ^ right associative.
+//                }
+//                So we change the grammar:
+//                    expr := term { ('+' | '-') term }
+//                    term := unary { ('*' | '/' | '%') unary }
+//                    unary := ('+' | '-') unary | power
+//                    power := factor [ '^' power ]   // right associative
+//                    factor := NUMBER | VAR | '(' expr ')'
+//                Then in parse_power:
+//                    long long left = parse_factor(...);
+//                    if (index < tokens.size() && tokens[index].type == TOKEN_OP && tokens[index].val == "^") {
+//                        index++;
+//                        long long right = parse_power(...);
+//                        // exponentiation: note exponent is non-negative.
+//                        long long res = 1;
+//                        // if right is negative, the problem says exponent is non-negative, so we don't handle.
+//                        // But the problem says: "zero is not raised to zero power and power exponent is always non-negative."
+//                        for (long long i = 0; i < right; i++) {
+//                            res *= left;
+//                            // But left and right can be up to 1e9 in absolute value, but exponent up to 1e9 is too slow.
+//                        }
+//                        // However, the problem says: "All numbers in the expressions, including numbers that occur during expression evaluation, do not exceed 109 by their absolute value."
+//                        // So exponent is at most 1e9, but 1e9 iterations is too slow.
+//                        // We need fast exponentiation.
+//                        // Also, note: if left is 0 and right>0, res=0; if left=1, res=1; etc.
+//                        // But the absolute value of the result might be large, but the problem says the numbers during evaluation do not exceed 10^9 in absolute value, so we can assume exponent is small or base is small.
+//                        // However, worst-case: 2^30 is about 1e9, so exponent might be up to 30 for base=2, but for base=10, exponent up to 9.
+//                        // So exponent will be at most around 30-100 for base>=2, and for base=1, exponent can be large but 1^anything=1.
+//                        // For base=-1, (-1)^even=1, (-1)^odd=-1.
+//                        // So we can do fast exponentiation.
+//                        res = pow(left, right);
+//                        left = res;
+//                    }
+//                    return left;
+//                }
+
+//            long long parse_factor(...) {
+//                Token tok = tokens[index++];
+//                if (tok.type == TOKEN_NUMBER) {
+//                    return tok.numVal;
+//                } else if (tok.type == TOKEN_VAR) {
+//                    string key = toLower(tok.val);
+//                    if (defines.find(key) == defines.end()) {
+//                        return 0;
+//                    }
+//                    if (visited.find(key) != visited.end()) {
+//                        return 0; // cycle
+//                    }
+//                    visited.insert(key);
+//                    string def = defines[key];
+//                    vector<Token> def_tokens = tokenize(def);
+//                    int idx = 0;
+//                    long long val = parse_expr(def_tokens, idx, defines, visited);
+//                    visited.erase(key);
+//                    return val;
+//                } else if (tok.type == TOKEN_LPAREN) {
+//                    long long val = parse_expr(tokens, index, defines, visited);
+//                    // next should be RPAREN
+//                    if (index < tokens.size() && tokens[index].type == TOKEN_RPAREN) {
+//                        index++;
+//                    } else {
+//                        // error, but problem says input is valid
+//                    }
+//                    return val;
+//                }
+//                return 0; // error
+//            }
+
+//        The exponentiation function:
+
+//        long long pow(long long base, long long exp) {
+//            if (exp == 0) return 1;
+//            if (exp == 1) return base;
+//            long long res = 1;
+//            long long b = base;
+//            while (exp) {
+//                if (exp & 1) res *= b;
+//                b *= b;
+//                exp /= 2;
+//            }
+//            return res;
+//        }
+
+//        But note: the problem says the absolute value of numbers during evaluation <= 10^9, so we can do fast exponentiation, and if the result exceeds 10^9 in absolute value, the problem guarantees it won't happen.
+
+//        However, the problem says: "All numbers in the expressions, including numbers that occur during expression evaluation, do not exceed 109 by their absolute value."
+//        So we are safe.
+
+//        Let's test with the sample: (80+4*75)/(56-2^ 2^ 3)
+//            First, 2^2^3 = 2^(2^3) = 2^8 = 256.
+//            Then 80+4*75 = 80+300 = 380.
+//            Then 56-256 = -200.
+//            Then 380 / -200 = -1 (because integer division of absolute values: 380/200=1, then sign negative).
+//        So -1.
+
+//        We'll implement accordingly.
+
+//        Steps:
+
+//            - Tokenize with storing the string in 'val'
+//            - has_cycle for define
+//            - parser with the grammar and visited set for cycle detection during evaluation.
+
+//        Let's code accordingly.
+
+//        Note: the problem says "zero is not raised to zero power", so we don't have to handle 0^0.
+
+//        Also, for division and modulo, the problem says: 
+//            "first both operands are replaced with their absolute values, next integer division is performed, remainder is dropped, and finally the sign of the quotient is set equal to the sign of the true quotient"
+//        So for (80+4*75)=380, (56-2^2^3)=56-256=-200, true quotient = 380/-200 = -1.9, so integer division is -1 (since we drop remainder, but the problem says "remainder is dropped", and then sign of true quotient is negative, so -1.
+//        How to compute:
+//            a = 380, b = -200
+//            abs_a = 380, abs_b = 200
+//            quotient = 380 / 200 = 1 (integer division truncates toward 0? or toward -infty? 
+//        The problem says: "integer division is performed, remainder is dropped", and then sign of true quotient.
+//        In C++, 380/200 = 1, and then with sign negative -> -1.
+//        For modulo: 
+//            "the quotient is dropped and remainder is kept"
+//            So for 31 % -5: 
+//                abs(31)=31, abs(-5)=5, 31 % 5 = 1, and sign of true quotient: 31/-5 = negative, so -1.
+//            But the sample output is -1.
+
+//        In C++, 31 % 5 = 1, so -1.
+
+//        So our computation for / and % is:
+//            long long sign = (a >= 0) == (b >= 0) ? 1 : -1;
+//            long long res = (abs(a) / abs(b)) * sign;   // for division
+//            long long res = (abs(a) % abs(b)) * sign;   // for modulo
+
+//        However, note: the true quotient for negative might be floor division, but the problem says "integer division" with remainder dropped, and then sign of true quotient.
+//        In mathematics, the remainder is always non-negative, but the problem says "remainder is kept", and the example: 31 % -5 = -1.
+//        So they want the remainder to have the sign of the true quotient.
+
+//        Yes, so our method is correct.
+
+//        Let's code accordingly.
+
+//        We'll implement:
+
+//            for '/': 
+//                if (right == 0) // guaranteed not to happen
+//                long long a = left, b = right;
+//                long long sign = (a ^ b) >= 0 ? 1 : -1; // or (a>=0)==(b>=0)
+//                left = sign * (abs(a) / abs(b));
+
+//            for '%': 
+//                long long a = left, b = right;
+//                long long sign = (a >= 0) ? 1 : -1; // the problem says: the sign of the true quotient, which is sign(a/b) = sign(a) * sign(b) for division, but for modulo they say "the sign of the true quotient", so it should be sign(a) * sign(b) for the quotient, but then for modulo they keep the remainder and then set its sign to the sign of the true quotient.
+//                However, the example: 31 % -5 -> true quotient is negative, so remainder is negative.
+//                So sign = ((a>=0) == (b>=0)) ? 1 : -1;
+//                left = sign * (abs(a) % abs(b));
+
+//        But the problem says for modulo: "Taking modulo is performed the same way, except that the quotient is dropped and remainder is kept."
+//        So yes, the remainder has the sign of the true quotient.
+
+//        Therefore, for both / and %, use sign = ((a>=0) == (b>=0)) ? 1 : -1;
+
+//        However, for modulo, if a is negative, the true quotient is negative, so remainder is negative.
+
+//        Example: -31 % 5: 
+//            a = -31, b = 5, true quotient = -6.2, so integer division would be -6 or -7? 
+//            But the problem says: replace with absolute values, so 31 and 5, 31%5=1, then sign of true quotient is negative, so -1.
+//        So -31 % 5 = -1.
+
+//        In C++, -31 % 5 is -1, so it matches.
+
+//        So our method is to do:
+//            long long sign = 1;
+//            if ((a < 0) ^ (b < 0)) sign = -1;
+//            left = sign * (abs(a) / abs(b));   for division
+//            left = sign * (abs(a) % abs(b));   for modulo
+
+//        But note: abs(a) might be long long.
+
+//        Now, let's write the code.
+
+//        Important: the defines map uses normalized keys (lowercase for variables, and the string of digits for numbers).
+
+//        In tokenize, for a number token, we store the string of digits in 'val', and for a variable, the identifier in 'val'.
+
+//        For the define statement, when we get op1, we normalize it:
+//            if (isdigit(op1[0])) -> key = op1
+//            else -> key = toLower(op1)
+
+//        Similarly, for variables in expressions, we use toLower.
+
+//        Let's code accordingly.
+
+//        Due to the complexity, we'll write the whole program.
+
+//        Note: the total number of defines is up to 30000, and has_cycle might be expensive, but the expressions are short, so the BFS will be over at most the number of defined names that appear in the definition chain, which is not too long.
+
+//        We'll hope that the test data is not worst-case.
+
+//        Let's code.
+
+
+To solve this problem, we need to implement an interpreter for the PL/Cool language as described. The interpreter processes a sequence of `define` and `print` operators, where `define` statements can redefine constants and variables, and `print` statements evaluate expressions based on the current definitions.
+
+### Approach
+1. **Tokenization**: The input expressions are tokenized into numbers, variables, operators, and parentheses.
+2. **Definition Handling**: For each `define` statement, we check if the identifier being defined is already defined (redefinition is ignored) or if adding the new definition would create a circular dependency (which is also ignored). If neither condition is met, the definition is stored.
+3. **Expression Parsing and Evaluation**: The parser uses a recursive descent approach with operator precedence (where `^` is right-associative and others are left-associative). During evaluation:
+   - **Variables and Constants**: If a variable or constant is defined, it is substituted with its definition. Circular dependencies during substitution are detected and result in a value of 0.
+   - **Operations**: Arithmetic operations (`+`, `-`, `*`, `/`, `%`, `^`) are performed according to their precedence and associativity, with special handling for division and modulo to ensure the sign of the result matches the true quotient.
+
+### Solution Code

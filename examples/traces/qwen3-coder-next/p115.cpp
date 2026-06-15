@@ -1,0 +1,37 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+int main() {
+    int day, month;
+    std::cin >> day >> month;
+
+    // Days in each month for 2001 (not a leap year)
+    std::vector<int> daysInMonth = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    // Check if the date is valid
+    if (month < 1 || month > 12) {
+        std::cout << "Impossible" << std::endl;
+        return 0;
+    }
+
+    if (day < 1 || day > daysInMonth[month - 1]) {
+        std::cout << "Impossible" << std::endl;
+        return 0;
+    }
+
+    // Calculate day of year
+    int dayOfYear = day;
+    for (int i = 0; i < month - 1; ++i) {
+        dayOfYear += daysInMonth[i];
+    }
+
+    // January 1, 2001 was a Monday (day 1)
+    // So we can compute: (dayOfYear - 1) % 7 gives days after Monday
+    // Monday = day 1, Sunday = day 7
+    int dayOfWeek = (dayOfYear - 1) % 7 + 1;
+
+    std::cout << dayOfWeek << std::endl;
+
+    return 0;
+}

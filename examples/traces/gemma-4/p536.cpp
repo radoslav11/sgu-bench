@@ -1,0 +1,176 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <queue>
+#include <bitset>
+#include <cmath>
+
+using namespace std;
+
+/**
+ * Problem: Berland Chess
+ * Goal: Find the minimum number of moves for the white king to capture all black pieces.
+ * The number of black pieces is small (up to 14), suggesting a BFS on (king_position, mask_of_remaining_pieces).
+ * The movement of the king must avoid squares currently attacked by any remaining black piece.
+ * Capturing a piece removes it from the board, potentially changing the attack patterns.
+ */
+
+struct Piece {
+    int r, c;
+    char type;
+};
+
+struct State {
+    int r, c, mask;
+};
+
+int n, m;
+int piece_at[15][15];
+short dist[15][15][1 << 14];
+bitset<225> attacked_cache[1 << 14];
+bool cache_computed[1 << 14];
+
+int knight_dr[] = {2, 2, -2, -2, 1, 1, -1, -1};
+int knight_dc[] = {1, -1, 1, -1, 2, -2, 2, -2};
+
+/**
+ * Precompute which squares are attacked by pieces in the current mask.
+ * For bishops and rooks, the attack path can be blocked by other pieces in the mask.
+ */
+void compute_attacked(int mask, int num_pieces, const vector<Piece>& pieces) {
+    attacked_cache[mask].reset();
+    for (int i = 0; i < num_pieces; ++i) {
+        if (!(mask & (1 << i))) continue;
+        const Piece& p = pieces[i];
+        if (p.type == 'K') {
+            for (int k = 0; k < 8; ++k) {
+                int nr = p.r + knight_dr[k];
+                int nc = p.c + knight_dc[k];
+                if (nr >= 0 && nr < n && nc >= 0 && nc < m) {
+                    attacked_cache[mask].set(nr * m + nc);
+                }
+            }
+        } else if (p.type == 'B') {
+            int bdr[] = {1, 1, -1, -1};
+            int bdc[] = {1, -1, 1, -1};
+            for (int k = 0; k < 4; ++k) {
+                int nr = p.r + bdr[k], nc = p.c + bdc[k];
+                while (nr >= 0 && nr < n && nc >= 0 && nc < m) {
+                    attacked_cache[mask].set(nr * m + nc);
+                    int idx = piece_at[nr][nc];
+                    if (idx != -1 && (mask & (1 << idx))) break;
+                    nr += bdr[k]; nc += bdc[k];
+                }
+            }
+        } else if (p.type == 'R') {
+            int rdr[] = {1, -1, 0, 0};
+            int rdc[] = {0, 0, 1, -1};
+            for (int k = 0; k < 4; ++k) {
+                int nr = p.r + rdr[k], nc = p.c + rdc[k];
+                while (nr >= 0 && nr < n && nc >= 0 && nc < m) {
+                    attacked_cache[mask].set(nr * m + nc);
+                    int idx = piece_at[nr][nc];
+                    if (idx != -1 && (mask & (1 << idx))) break;
+                    nr += rdr[k]; nc += rdc[k];
+                }
+            }
+        }
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> n >> m)) return 0;
+    vector<string> grid(n);
+    int king_r = -1, king_c = -1;
+    vector<Piece> pieces;
+
+    for (int i = 0; i < 15; ++i) {
+        for (int j = 0; j < 15; ++j) {
+            piece_at[i][j] = -1;
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        cin >> grid[i];
+        for (int j = 0; j < m; ++j) {
+            if (grid[i][j] == '*') {
+                king_r = i; king_c = j;
+            } else if (grid[i][j] != '.') {
+                piece_at[i][j] = pieces.size();
+                pieces.push_back({i, j, grid[i][j]});
+            }
+        }
+    }
+
+    int num_pieces = pieces.size();
+    if (num_pieces == 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < m; ++j) {
+            for (int k = 0; k < (1 << num_pieces); ++k) {
+                dist[i][j][k] = -1;
+            }
+        }
+    }
+
+    queue<State> q;
+    int initial_mask = (1 << num_pieces) - 1;
+    dist[king_r][king_c][initial_mask] = 0;
+    q.push({king_r, king_c, initial_mask});
+
+    while (!q.empty()) {
+        State curr = q.front(); q.pop();
+        if (curr.mask == 0) {
+            cout << dist[curr.r][curr.c][0] << endl;
+            return 0;
+        }
+
+        if (!cache_computed[curr.mask]) {
+            compute_attacked(curr.mask, num_pieces, pieces);
+            cache_computed[curr.mask] = true;
+        }
+
+        int dr[] = {1, 1, 1, 0, 0, -1, -1, -1};
+        int dc[] = {1, 0, -1, 1, -1, 1, 0, -1};
+
+        for (int i = 0; i < 8; ++i) {
+            int nr = curr.r + dr[i];
+            int nc = curr.c + dc[i];
+
+            if (nr >= 0 && nr < n && nc >= 0 && nc < m) {
+                int idx = piece_at[nr][nc];
+                int nmask = curr.mask;
+                bool is_black_piece = (idx != -1 && (curr.mask & (1 << idx)));
+                if (is_black_piece) {
+                    nmask ^= (1 << idx);
+                }
+
+                if (dist[nr][nc][nmask] == -1) {
+                    // If moving to an empty square, use curr.mask for attack check.
+                    // If capturing a piece, the piece is gone, so use nmask.
+                    if (is_black_piece) {
+                        if (!attacked_cache[nmask].test(nr * m + nc)) {
+                            dist[nr][nc][nmask] = dist[curr.r][curr.c][curr.mask] + 1;
+                            q.push({nr, nc, nmask});
+                        }
+                    } else {
+                        if (!attacked_cache[curr.mask].test(nr * m + nc)) {
+                            dist[nr][nc][nmask] = dist[curr.r][curr.c][curr.mask] + 1;
+                            q.push({nr, nc, nmask});
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    cout << -1 << endl;
+    return 0;
+}
+

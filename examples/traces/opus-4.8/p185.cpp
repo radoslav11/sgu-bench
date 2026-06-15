@@ -1,0 +1,121 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const long long INF=1e18;
+int N,M;
+vector<array<int,2>> adj[405]; // {to, len}
+
+void dijkstra(int src, vector<long long>&dist){
+    dist.assign(N+1,INF);
+    priority_queue<pair<long long,int>,vector<pair<long long,int>>,greater<>> pq;
+    dist[src]=0; pq.push({0,src});
+    while(!pq.empty()){
+        auto[d,u]=pq.top();pq.pop();
+        if(d>dist[u])continue;
+        for(auto&e:adj[u]){
+            if(dist[u]+e[1]<dist[e[0]]){
+                dist[e[0]]=dist[u]+e[1];
+                pq.push({dist[e[0]],e[0]});
+            }
+        }
+    }
+}
+
+// Dinic-style flow on DAG edges
+struct Edge{int to,rev;int cap;};
+vector<Edge> graph[405];
+int level_[405],iter_[405];
+
+void add_edge(int from,int to,int cap){
+    graph[from].push_back({to,(int)graph[to].size(),cap});
+    graph[to].push_back({from,(int)graph[from].size()-1,0});
+}
+
+bool bfs(int s,int t){
+    for(int i=1;i<=N;i++)level_[i]=-1;
+    queue<int>q;level_[s]=0;q.push(s);
+    while(!q.empty()){
+        int u=q.front();q.pop();
+        for(auto&e:graph[u]){
+            if(e.cap>0&&level_[e.to]<0){
+                level_[e.to]=level_[u]+1;
+                q.push(e.to);
+            }
+        }
+    }
+    return level_[t]>=0;
+}
+
+int dfs(int u,int t,int f){
+    if(u==t)return f;
+    for(int&i=iter_[u];i<(int)graph[u].size();i++){
+        Edge&e=graph[u][i];
+        if(e.cap>0&&level_[u]<level_[e.to]){
+            int d=dfs(e.to,t,min(f,e.cap));
+            if(d>0){
+                e.cap-=d;
+                graph[e.to][e.rev].cap+=d;
+                return d;
+            }
+        }
+    }
+    return 0;
+}
+
+int main(){
+    scanf("%d %d",&N,&M);
+    for(int i=0;i<M;i++){
+        int x,y,l;scanf("%d %d %d",&x,&y,&l);
+        adj[x].push_back({y,l});
+        adj[y].push_back({x,l});
+    }
+    vector<long long> d1,dN;
+    dijkstra(1,d1);
+    dijkstra(N,dN);
+    if(d1[N]>=INF){printf("No solution\n");return 0;}
+    long long S=d1[N];
+    // build DAG: edge u->v if d1[u]+L+dN[v]==S
+    for(int u=1;u<=N;u++){
+        for(auto&e:adj[u]){
+            int v=e[0];long long L=e[1];
+            if(d1[u]<INF&&dN[v]<INF&&d1[u]+L+dN[v]==S){
+                add_edge(u,v,1);
+            }
+        }
+    }
+    // max flow from 1 to N, want value 2
+    int flow=0;
+    while(flow<2 && bfs(1,N)){
+        for(int i=1;i<=N;i++)iter_[i]=0;
+        int f;
+        while(flow<2 && (f=dfs(1,N,1))>0) flow+=f;
+    }
+    if(flow<2){printf("No solution\n");return 0;}
+    // decompose: find paths using edges with reverse flow (cap reduced)
+    // For each original DAG edge, it's used if its cap became 0 (started 1)
+    // walk two paths
+    for(int p=0;p<2;p++){
+        vector<int> path;
+        int cur=1;path.push_back(1);
+        while(cur!=N){
+            for(auto&e:graph[cur]){
+                // forward edge used: original cap was 1, now 0, and rev cap>0
+                if(e.cap==0 && e.to!=0){
+                    // check this is a forward edge (rev edge has cap)
+                    Edge&re=graph[e.to][e.rev];
+                    if(re.cap>0){
+                        // use it, consume
+                        re.cap--; // mark consumed
+                        cur=e.to;
+                        path.push_back(cur);
+                        goto next;
+                    }
+                }
+            }
+            break;
+            next:;
+        }
+        for(int i=0;i<(int)path.size();i++)printf("%d%c",path[i]," \n"[i+1==(int)path.size()]);
+    }
+    return 0;
+}

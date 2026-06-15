@@ -1,0 +1,135 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+// A basic BigInt structure to handle large numbers.
+// We use base 10^9 to make the number of digits smaller and operations faster.
+struct BigInt {
+    static const long long BASE = 1000000000; // 10^9
+    vector<long long> digits;
+
+    BigInt(long long v = 0) {
+        if (v == 0) digits.push_back(0);
+        while (v > 0) {
+            digits.push_back(v % BASE);
+            v /= BASE;
+        }
+    }
+
+    // Multiply BigInt by a small integer
+    void multiply(int v) {
+        if (v == 0) {
+            digits = {0};
+            return;
+        }
+        long long carry = 0;
+        for (size_t i = 0; i < digits.size() || carry; ++i) {
+            if (i == digits.size()) digits.push_back(0);
+            long long cur = digits[i] * (long long)v + carry;
+            digits[i] = cur % BASE;
+            carry = cur / BASE;
+        }
+        while (digits.size() > 1 && digits.back() == 0) digits.pop_back();
+    }
+
+    // Add a small integer to BigInt
+    void add(long long v) {
+        long long carry = v;
+        for (size_t i = 0; i < digits.size() || carry; ++i) {
+            if (i == digits.size()) digits.push_back(0);
+            long long cur = digits[i] + carry;
+            digits[i] = cur % BASE;
+            carry = cur / BASE;
+        }
+        while (digits.size() > 1 && digits.back() == 0) digits.pop_back();
+    }
+
+    // Divide BigInt by a small integer
+    void divide(int v) {
+        if (v == 1) return;
+        long long rem = 0;
+        for (int i = (int)digits.size() - 1; i >= 0; --i) {
+            long long cur = digits[i] + rem * BASE;
+            digits[i] = cur / v;
+            rem = cur % v;
+        }
+        while (digits.size() > 1 && digits.back() == 0) digits.pop_back();
+    }
+
+    // Convert the BigInt to a string
+    string toString() const {
+        if (digits.empty()) return "0";
+        string res = to_string(digits.back());
+        for (int i = (int)digits.size() - 2; i >= 0; --i) {
+            string s = to_string(digits[i]);
+            res += string(9 - (int)s.size(), '0') + s;
+        }
+        return res;
+    }
+};
+
+void solve() {
+    int P;
+    if (!(cin >> P)) return;
+    if (P <= 1) {
+        cout << 0 << endl;
+        return;
+    }
+
+    // The number of ways to choose P balls from 2P such that their sum is divisible by P
+    // is given by: (1/P) * ( (2P choose P) + 2*(P-1) ).
+    // We use prime factorization to calculate (2P choose P).
+    vector<int> count(2 * P + 1, 0);
+    for (int k = 1; k <= P; ++k) {
+        int num = P + k;
+        for (int i = 2; i * i <= num; ++i) {
+            while (num % i == 0) {
+                count[i]++;
+                num /= i;
+            }
+        }
+        if (num > 1) count[num]++;
+
+        int den = k;
+        for (int i = 2; i * i <= den; ++i) {
+            while (den % i == 0) {
+                count[i]--;
+                den /= i;
+            }
+        }
+        if (den > 1) count[den]--;
+    }
+
+    // Reconstruct (2P choose P) from its prime factorization
+    BigInt combination(1);
+    for (int i = 2; i <= 2 * P; ++i) {
+        if (count[i] > 0) {
+            for (int j = 0; j < count[i]; ++j) {
+                combination.multiply(i);
+            }
+        }
+    }
+
+    // Compute result = (combination + 2*(P-1)) / P
+    combination.add(2LL * (P - 1));
+    combination.divide(P);
+    cout << combination.toString() << endl;
+}
+
+int main() {
+    // Fast I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+    while (N--) {
+        solve();
+    }
+    return 0;
+}
+

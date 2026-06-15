@@ -1,0 +1,96 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Fenwick {
+    int n;
+    vector<int> bit;
+
+    Fenwick(int n = 0) : n(n), bit(n + 1, 0) {}
+
+    void add(int idx, int val) {
+        ++idx;
+        while (idx <= n) {
+            bit[idx] += val;
+            idx += idx & -idx;
+        }
+    }
+
+    int sumPrefix(int idx) {
+        ++idx;
+        int res = 0;
+        while (idx > 0) {
+            res += bit[idx];
+            idx -= idx & -idx;
+        }
+        return res;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string s;
+    cin >> s;
+
+    int n = (int)s.size();
+
+    vector<int> pos[26];
+    for (int i = 0; i < n; ++i) {
+        pos[s[i] - 'A'].push_back(i);
+    }
+
+    int oddCount = 0;
+    int middle = -1;
+
+    for (int c = 0; c < 26; ++c) {
+        if ((int)pos[c].size() % 2 == 1) {
+            ++oddCount;
+            middle = pos[c][pos[c].size() / 2];
+        }
+    }
+
+    if (oddCount > 1) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<int> mate(n, -1);
+
+    for (int c = 0; c < 26; ++c) {
+        int k = (int)pos[c].size();
+        for (int i = 0; i < k / 2; ++i) {
+            int l = pos[c][i];
+            int r = pos[c][k - 1 - i];
+            mate[l] = r;
+        }
+    }
+
+    vector<int> target(n);
+    int leftPos = 0;
+
+    for (int i = 0; i < n; ++i) {
+        if (mate[i] != -1) {
+            target[i] = leftPos;
+            target[mate[i]] = n - 1 - leftPos;
+            ++leftPos;
+        }
+    }
+
+    if (middle != -1) {
+        target[middle] = n / 2;
+    }
+
+    Fenwick fw(n);
+    long long answer = 0;
+
+    for (int i = 0; i < n; ++i) {
+        int alreadyNotGreater = fw.sumPrefix(target[i]);
+        answer += i - alreadyNotGreater;
+        fw.add(target[i], 1);
+    }
+
+    cout << answer << '\n';
+
+    return 0;
+}

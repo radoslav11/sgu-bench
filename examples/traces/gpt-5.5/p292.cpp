@@ -1,0 +1,40 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+cpp_int readBig(const string& s) {
+    cpp_int x = 0;
+    for (char ch : s) {
+        if (isdigit(ch)) {
+            x *= 10;
+            x += ch - '0';
+        }
+    }
+    return x;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string qs, cs, ns;
+    cin >> qs >> cs >> ns;
+
+    cpp_int q = readBig(qs);
+    cpp_int c = readBig(cs);
+    cpp_int n = readBig(ns);
+
+    cpp_int qDiv = q / n;
+    cpp_int qRem = q % n;
+    cpp_int cDiv = c / n;
+    cpp_int cRem = c % n;
+
+    cpp_int ans1 = qDiv * c + qRem * cDiv;
+    cpp_int ans2 = cDiv * q + cRem * qDiv;
+
+    cout << max(ans1, ans2) << '\n';
+
+    return 0;
+}

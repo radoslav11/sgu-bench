@@ -1,0 +1,77 @@
+#include <bits/stdc++.h>
+using namespace std;
+const int INF=1e9;
+struct Edge{int to,cap,cost,flow;};
+vector<Edge> ed;
+vector<int> g[260];
+int N;
+void addEdge(int u,int v,int cap,int cost){
+    g[u].push_back(ed.size()); ed.push_back({v,cap,cost,0});
+    g[v].push_back(ed.size()); ed.push_back({u,0,-cost,0});
+}
+int dist[260],inq[260],pe[260];
+bool spfa(int s,int t){
+    for(int i=0;i<N;i++){dist[i]=INF;inq[i]=0;pe[i]=-1;}
+    deque<int> q; q.push_back(s); dist[s]=0; inq[s]=1;
+    while(!q.empty()){
+        int u=q.front();q.pop_front();inq[u]=0;
+        for(int id:g[u]){
+            Edge&e=ed[id];
+            if(e.cap-e.flow>0 && dist[u]+e.cost<dist[e.to]){
+                dist[e.to]=dist[u]+e.cost; pe[e.to]=id;
+                if(!inq[e.to]){inq[e.to]=1;q.push_back(e.to);}
+            }
+        }
+    }
+    return dist[t]<INF;
+}
+int main(){
+    int n,m1,m2;
+    scanf("%d %d %d",&n,&m1,&m2);
+    int S=0,T=2*n+1; N=2*n+2;
+    vector<int> gen(n+1,0);
+    // source->left, right->sink, self loops
+    for(int u=1;u<=n;u++){
+        addEdge(S,u,1,0);
+        addEdge(n+u,T,1,0);
+        addEdge(u,n+u,1,0); // self loop cost 0
+    }
+    for(int i=0;i<m1;i++){
+        int a,b; scanf("%d %d",&a,&b);
+        gen[a]=1; gen[b]=2;
+        addEdge(a,n+b,1,-1); // Juan arc man->woman
+    }
+    for(int i=0;i<m2;i++){
+        int a,b; scanf("%d %d",&a,&b);
+        gen[a]=1; gen[b]=2;
+        addEdge(b,n+a,1,-1); // Rosa arc woman->man
+    }
+    // MCMF
+    while(spfa(S,T)){
+        // augment by 1 (all caps 1)
+        int v=T;
+        while(v!=S){
+            int id=pe[v];
+            ed[id].flow+=1;
+            ed[id^1].flow-=1;
+            v=ed[id^1].to;
+        }
+    }
+    // recover
+    vector<pair<int,int>> juan, rosa;
+    for(int u=1;u<=n;u++){
+        for(int id:g[u]){
+            Edge&e=ed[id];
+            if(e.cost<0 && e.flow==1){
+                // real arc u -> (e.to - n)
+                int v=e.to-n;
+                if(gen[u]==1) juan.push_back({u,v});
+                else rosa.push_back({u,v});
+            }
+        }
+    }
+    printf("%d\n",(int)juan.size());
+    for(auto&p:juan) printf("%d %d\n",p.first,p.second);
+    for(auto&p:rosa) printf("%d %d\n",p.first,p.second);
+    return 0;
+}

@@ -1,0 +1,112 @@
+#include <cstdio>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The task is to find a non-empty subset of towns that forms a connected subgraph (a subtree) 
+ * in a given tree such that the sum of the profits of the towns in the subset is maximized.
+ * 
+ * Complexity Analysis:
+ * - Time Complexity: O(N), as we perform a single DFS traversal of the tree.
+ * - Space Complexity: O(N), for storing the tree structure (adjacency list) and the DP array.
+ * 
+ * Constraints:
+ * N <= 16,000; Profits between -1000 and 1000; Time limit 0.25s; Memory limit 4096KB.
+ * The tight time limit (0.25s) suggests using fast I/O and an efficient adjacency list representation.
+ * The tight memory limit (4096KB) requires being careful with data structures.
+ * 
+ * Approach:
+ * Let dp[u] be the maximum profit of a subtree that contains node u and only nodes from the 
+ * subtree rooted at u (in an arbitrary rooting).
+ * The recurrence is: dp[u] = profit[u] + sum over children v of max(0, dp[v]).
+ * The maximum value of dp[u] over all nodes u will give the maximum possible profit for any connected subtree.
+ */
+
+const int MAXN = 16005;
+const int MAXE = 32005;
+
+// Use a manual adjacency list to minimize memory usage and overhead
+int profit[MAXN];
+int head[MAXN], to_node[MAXE], nxt_edge[MAXE], edge_count = 0;
+int dp[MAXN];
+int max_profit = -2000; // Initialized to less than the minimum possible profit
+
+void add_edge(int u, int v) {
+    edge_count++;
+    to_node[edge_count] = v;
+    nxt_edge[edge_count] = head[u];
+    head[u] = edge_count;
+}
+
+// DFS to calculate the maximum profit subtree containing node u
+void dfs(int u, int p) {
+    dp[u] = profit[u];
+    for (int i = head[u]; i != 0; i = nxt_edge[i]) {
+        int v = to_node[i];
+        if (v != p) {
+            dfs(v, u);
+            if (dp[v] > 0) {
+                dp[u] += dp[v];
+            }
+        }
+    }
+    // Update the global maximum profit
+    if (dp[u] > max_profit) {
+        max_profit = dp[u];
+    }
+}
+
+// Fast I/O for reading integers
+inline int readInt() {
+    int x = 0;
+    int f = 1;
+    int ch = getchar();
+    // Skip non-digit and non-minus characters
+    while (ch != EOF && (ch < '0' || ch > '9') && ch != '-') {
+        ch = getchar();
+    }
+    if (ch == EOF) return 0;
+    // Handle negative signs
+    if (ch == '-') {
+        f = -1;
+        ch = getchar();
+    }
+    // Read digits
+    while (ch >= '0' && ch <= '9') {
+        x = x * 10 + (ch - '0');
+        ch = getchar();
+    }
+    return x * f;
+}
+
+int main() {
+    int N = readInt();
+    if (N <= 0) return 0;
+
+    // Read individual town profits
+    for (int i = 1; i <= N; ++i) {
+        profit[i] = readInt();
+    }
+
+    // Read roads and build the adjacency list
+    for (int i = 0; i < N - 1; ++i) {
+        int u = readInt();
+        int v = readInt();
+        add_edge(u, v);
+        add_edge(v, u);
+    }
+
+    // Reset max_profit to a very small value before calculating
+    max_profit = -2000; 
+    
+    // Perform DFS starting from town 1 (assuming the towns are 1-indexed)
+    dfs(1, 0);
+
+    // Output the maximum profit found
+    printf("%d\n", max_profit);
+
+    return 0;
+}
+

@@ -1,0 +1,249 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+#include <map>
+#include <algorithm>
+
+using namespace std;
+
+int N, Q;
+set<pair<int, int>> unocc;
+set<pair<int, int>> active_clusters;
+map<int, int> head_to_size;
+vector<vector<pair<int, int>>> allocated;
+
+void add_unocc_interval(int L, int R) {
+    auto it = unocc.lower_bound({L, -1});
+    if (it != unocc.begin()) {
+        auto prev = it; --prev;
+        if (prev->second + 1 >= L) it = prev;
+    }
+    
+    int new_L = L, new_R = R;
+    vector<pair<int, int>> removed_intervals;
+    auto erase_start = it;
+    while (it != unocc.end() && it->first <= R + 1) {
+        removed_intervals.push_back(*it);
+        new_L = min(new_L, it->first);
+        new_R = max(new_R, it->second);
+        ++it;
+    }
+    auto erase_end = it;
+    
+    vector<int> heads_to_remove;
+    for (auto& p : removed_intervals) {
+        heads_to_remove.push_back(p.first);
+    }
+    
+    int k = unocc.size();
+    if (k > 1) {
+        auto first_it = unocc.begin();
+        auto last_it = unocc.end(); --last_it;
+        if (first_it->first == 1 && last_it->second == N) {
+            bool has_first = false, has_last = false;
+            for (auto& p : removed_intervals) {
+                if (p.first == first_it->first) has_first = true;
+                if (p.first == last_it->first) has_last = true;
+            }
+            if (has_first || has_last) {
+                if (!has_last) {
+                    heads_to_remove.push_back(last_it->first);
+                }
+            }
+        }
+    }
+    
+    for (int h : heads_to_remove) {
+        auto it_sz = head_to_size.find(h);
+        if (it_sz != head_to_size.end()) {
+            active_clusters.erase({it_sz->second, h});
+            head_to_size.erase(it_sz);
+        }
+    }
+    
+    unocc.erase(erase_start, erase_end);
+    unocc.insert({new_L, new_R});
+    
+    k = unocc.size();
+    if (k == 0) return;
+    
+    auto first_it = unocc.begin();
+    auto last_it = unocc.end(); --last_it;
+    
+    if (k == 1) {
+        if (head_to_size.count(new_L)) {
+            int old_sz = head_to_size[new_L];
+            active_clusters.erase({old_sz, new_L});
+        }
+        active_clusters.insert({new_R - new_L + 1, new_L});
+        head_to_size[new_L] = new_R - new_L + 1;
+    } else if (first_it->first == 1 && last_it->second == N) {
+        int size = first_it->second + (N - last_it->first + 1);
+        int head = last_it->first;
+        if (head_to_size.count(head)) {
+            int old_sz = head_to_size[head];
+            active_clusters.erase({old_sz, head});
+        }
+        active_clusters.insert({size, head});
+        head_to_size[head] = size;
+        
+        auto mid_it = first_it; ++mid_it;
+        while (mid_it != last_it) {
+            if (!head_to_size.count(mid_it->first)) {
+                int sz = mid_it->second - mid_it->first + 1;
+                active_clusters.insert({sz, mid_it->first});
+                head_to_size[mid_it->first] = sz;
+            }
+            ++mid_it;
+        }
+    } else {
+        if (head_to_size.count(new_L)) {
+            int old_sz = head_to_size[new_L];
+            active_clusters.erase({old_sz, new_L});
+        }
+        active_clusters.insert({new_R - new_L + 1, new_L});
+        head_to_size[new_L] = new_R - new_L + 1;
+    }
+}
+
+void split_and_remove(int L, int R) {
+    auto it = unocc.lower_bound({L, -1});
+    if (it != unocc.begin()) {
+        auto prev = it; --prev;
+        if (prev->second >= L) it = prev;
+    }
+    
+    vector<pair<int, int>> affected;
+    while (it != unocc.end() && it->first <= R) {
+        affected.push_back(*it);
+        ++it;
+    }
+    
+    vector<int> heads_to_remove;
+    for (auto& p : affected) {
+        heads_to_remove.push_back(p.first);
+    }
+    
+    int k = unocc.size();
+    if (k > 1) {
+        auto first_it = unocc.begin();
+        auto last_it = unocc.end(); --last_it;
+        if (first_it->first == 1 && last_it->second == N) {
+            bool has_first = false, has_last = false;
+            for (auto& p : affected) {
+                if (p.first == first_it->first) has_first = true;
+                if (p.first == last_it->first) has_last = true;
+            }
+            if (has_first || has_last) {
+                if (!has_last) {
+                    heads_to_remove.push_back(last_it->first);
+                }
+            }
+        }
+    }
+    
+    for (int h : heads_to_remove) {
+        auto it_sz = head_to_size.find(h);
+        if (it_sz != head_to_size.end()) {
+            active_clusters.erase({it_sz->second, h});
+            head_to_size.erase(it_sz);
+        }
+    }
+    
+    for (auto& p : affected) {
+        unocc.erase(p);
+    }
+    
+    for (auto& p : affected) {
+        if (p.first < L) {
+            add_unocc_interval(p.first, L - 1);
+        }
+        if (p.second > R) {
+            add_unocc_interval(R + 1, p.second);
+        }
+    }
+}
+
+void park(int S, int query_idx) {
+    auto it = active_clusters.lower_bound({S, 0});
+    if (it == active_clusters.end() || it->first < S) {
+        cout << "NO ROOM\n";
+        return;
+    }
+    
+    int head = it->second;
+    int size = it->first;
+    
+    int end_slot = head + S - 1;
+    vector<pair<int, int>> to_remove;
+    if (end_slot <= N) {
+        to_remove.push_back({head, end_slot});
+    } else {
+        to_remove.push_back({head, N});
+        to_remove.push_back({1, end_slot - N});
+    }
+    
+    sort(to_remove.begin(), to_remove.end());
+    for (auto& p : to_remove) {
+        split_and_remove(p.first, p.second);
+    }
+    
+    string out = "";
+    for (size_t i = 0; i < to_remove.size(); ++i) {
+        if (i > 0) out += ",";
+        if (to_remove[i].first == to_remove[i].second) {
+            out += to_string(to_remove[i].first);
+        } else {
+            out += to_string(to_remove[i].first) + "-" + to_string(to_remove[i].second);
+        }
+    }
+    cout << out << "\n";
+    
+    allocated[query_idx] = to_remove;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    if (!(cin >> N >> Q)) return 0;
+    
+    string s;
+    cin >> s;
+    
+    allocated.resize(Q + 1);
+    
+    int current_L = -1;
+    for (int i = 0; i < N; ++i) {
+        if (s[i] == '.') {
+            if (current_L == -1) current_L = i + 1;
+        } else {
+            if (current_L != -1) {
+                add_unocc_interval(current_L, i);
+                current_L = -1;
+            }
+        }
+    }
+    if (current_L != -1) {
+        add_unocc_interval(current_L, N);
+    }
+    
+    for (int i = 1; i <= Q; ++i) {
+        string type;
+        cin >> type;
+        if (type == "PARK") {
+            int S;
+            cin >> S;
+            park(S, i);
+        } else if (type == "LEAVE") {
+            int qi;
+            cin >> qi;
+            for (auto& p : allocated[qi]) {
+                add_unocc_interval(p.first, p.second);
+            }
+        }
+    }
+    
+    return 0;
+}

@@ -1,0 +1,56 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+typedef vector<int> Big; // base 10000, little endian, with sign separate
+
+Big mulSmall(Big a, int m){
+    long long carry=0;
+    for(size_t i=0;i<a.size();i++){
+        long long cur=(long long)a[i]*m+carry;
+        a[i]=cur%10000;
+        carry=cur/10000;
+    }
+    while(carry){ a.push_back(carry%10000); carry/=10000; }
+    return a;
+}
+
+Big power(int base,int exp){
+    Big r; r.push_back(1);
+    for(int i=0;i<exp;i++) r=mulSmall(r,base);
+    return r;
+}
+
+// compare magnitude
+int cmp(const Big&a,const Big&b){
+    if(a.size()!=b.size()) return a.size()<b.size()?-1:1;
+    for(int i=a.size()-1;i>=0;i--) if(a[i]!=b[i]) return a[i]<b[i]?-1:1;
+    return 0;
+}
+
+Big sub(Big a,const Big&b){ // a>=b
+    int borrow=0;
+    for(size_t i=0;i<a.size();i++){
+        int cur=a[i]-borrow-(i<b.size()?b[i]:0);
+        if(cur<0){cur+=10000;borrow=1;} else borrow=0;
+        a[i]=cur;
+    }
+    while(a.size()>1 && a.back()==0) a.pop_back();
+    return a;
+}
+
+int main(){
+    int a,b; cin>>a>>b;
+    Big x=power(a,b), y=power(b,a);
+    int c=cmp(x,y);
+    bool neg=false;
+    Big res;
+    if(c==0){ res.push_back(0); }
+    else if(c>0){ res=sub(x,y); }
+    else { res=sub(y,x); neg=true; }
+    if(neg) cout<<"-";
+    cout<<res.back();
+    for(int i=(int)res.size()-2;i>=0;i--){
+        cout<<setw(4)<<setfill('0')<<res[i];
+    }
+    cout<<endl;
+}

@@ -1,0 +1,206 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+
+struct Edge {
+    int to, cap, rev, id;
+};
+
+vector<Edge> adj[55];
+int level[55];
+int ptr[55];
+
+void add_edge(int u, int v, int cap, int id) {
+    adj[u].push_back({v, cap, (int)adj[v].size(), id});
+    adj[v].push_back({u, cap, (int)adj[u].size() - 1, id});
+}
+
+bool bfs(int s, int t) {
+    fill(level, level + 55, -1);
+    level[s] = 0;
+    queue<int> q;
+    q.push(s);
+    while (!q.empty()) {
+        int v = q.front();
+        q.pop();
+        for (auto& edge : adj[v]) {
+            if (edge.cap > 0 && level[edge.to] == -1) {
+                level[edge.to] = level[v] + 1;
+                q.push(edge.to);
+            }
+        }
+    }
+    return level[t] != -1;
+}
+
+int dfs(int v, int t, int pushed) {
+    if (pushed == 0) return 0;
+    if (v == t) return pushed;
+    for (int& cid = ptr[v]; cid < adj[v].size(); ++cid) {
+        auto& edge = adj[v][cid];
+        int tr = edge.to;
+        if (level[v] + 1 != level[tr] || edge.cap == 0) continue;
+        int tr_pushed = dfs(tr, t, min(pushed, edge.cap));
+        if (tr_pushed == 0) continue;
+        edge.cap -= tr_pushed;
+        adj[tr][edge.rev].cap += tr_pushed;
+        return tr_pushed;
+    }
+    return 0;
+}
+
+int dinic(int s, int t) {
+    int flow = 0;
+    while (bfs(s, t)) {
+        fill(ptr, ptr + 55, 0);
+        while (int pushed = dfs(s, t, INF)) {
+            flow += pushed;
+        }
+    }
+    return flow;
+}
+
+struct InputEdge {
+    int u, v, w, id;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+    vector<InputEdge> edges;
+    for (int i = 1; i <= M; ++i) {
+        int u, v, w;
+        cin >> u >> v >> w;
+        edges.push_back({u, v, w, i});
+    }
+
+    int min_cost = INF;
+    int best_i = -1, best_s = -1, best_t = -1;
+
+    for (int i = 1; i <= N; ++i) {
+        // Construct G_i by removing city i and all edges incident to it.
+        vector<InputEdge> Gi_edges;
+        for (const auto& e : edges) {
+            if (e.u != i && e.v != i) {
+                Gi_edges.push_back(e);
+            }
+        }
+
+        // Check if Gi is connected
+        vector<int> Gi_adj[55];
+        for (const auto& e : Gi_edges) {
+            Gi_adj[e.u].push_back(e.v);
+            Gi_adj[e.v].push_back(e.u);
+        }
+
+        int start_node = -1;
+        for (int node = 1; node <= N; ++node) {
+            if (node != i) {
+                start_node = node;
+                break;
+            }
+        }
+
+        bool connected = true;
+        if (start_node != -1) {
+            vector<bool> visited(N + 1, false);
+            queue<int> q;
+            q.push(start_node);
+            visited[start_node] = true;
+            int count = 0;
+            while (!q.empty()) {
+                int u = q.front(); q.pop();
+                count++;
+                for (int v : Gi_adj[u]) {
+                    if (!visited[v]) {
+                        visited[v] = true;
+                        q.push(v);
+                    }
+                }
+            }
+            if (count < N - 1) connected = false;
+        }
+
+        if (!connected) {
+            min_cost = 0;
+            best_i = i;
+            best_s = -1;
+            best_t = -1;
+            break;
+        }
+
+        // If connected, find the min-cut of Gi using max-flow
+        for (int t = 1; t <= N; ++t) {
+            if (t == i || t == start_node) continue;
+
+            // Re-initialize Dinic graph for each (s, t)
+            for (int node = 0; node <= N; ++node) adj[node].clear();
+            for (const auto& e : Gi_edges) {
+                add_edge(e.u, e.v, e.w, e.id);
+            }
+
+            int flow = dinic(start_node, t);
+            if (flow < min_cost) {
+                min_cost = flow;
+                best_i = i;
+                best_s = start_node;
+                best_t = t;
+            }
+        }
+    }
+
+    cout << min_cost << endl;
+    if (min_cost == 0) {
+        cout << 0 << endl << endl;
+    } else {
+        // Reconstruct the cut for best_i, best_s, best_t
+        for (int node = 0; node <= N; ++node) adj[node].clear();
+        vector<InputEdge> Gi_edges;
+        for (const auto& e : edges) {
+            if (e.u != best_i && e.v != best_i) {
+                Gi_edges.push_back(e);
+                add_edge(e.u, e.v, e.w, e.id);
+            }
+        }
+        dinic(best_s, best_t);
+
+        // Reachable nodes from best_s in residual graph
+        vector<bool> reachable(N + 1, false);
+        queue<int> q;
+        q.push(best_s);
+        reachable[best_s] = true;
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (auto& edge : adj[u]) {
+                if (edge.cap > 0 && !reachable[edge.to]) {
+                    reachable[edge.to] = true;
+                    q.push(edge.to);
+                }
+            }
+        }
+
+        vector<int> cut_roads;
+        for (const auto& e : Gi_edges) {
+            if (reachable[e.u] != reachable[e.v]) {
+                cut_roads.push_back(e.id);
+            }
+        }
+        sort(cut_roads.begin(), cut_roads.end());
+        cout << cut_roads.size() << endl;
+        for (int j = 0; j < cut_roads.size(); ++j) {
+            cout << cut_roads[j] << (j == cut_roads.size() - 1 ? "" : " ");
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+

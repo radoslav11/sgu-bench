@@ -1,0 +1,334 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+const int MOD1 = 1000000007;
+const int MOD2 = 1000000009;
+const int BASE = 911382323;
+
+struct H {
+    int a, b;
+    H(int _a = 0, int _b = 0) : a(_a), b(_b) {}
+    bool operator==(const H& other) const {
+        return a == other.a && b == other.b;
+    }
+};
+
+int modPow(long long base, long long exp, int mod) {
+    long long res = 1 % mod;
+    base %= mod;
+    while (exp) {
+        if (exp & 1) res = res * base % mod;
+        base = base * base % mod;
+        exp >>= 1;
+    }
+    return (int)res;
+}
+
+H concatHash(const H& x, long long lenY, const H& y) {
+    long long p1 = modPow(BASE, lenY, MOD1);
+    long long p2 = modPow(BASE, lenY, MOD2);
+    return H(
+        (int)((1LL * x.a * p1 + y.a) % MOD1),
+        (int)((1LL * x.b * p2 + y.b) % MOD2)
+    );
+}
+
+H charHash(char c) {
+    int v = c - 'a' + 1;
+    return H(v, v);
+}
+
+struct HashString {
+    string s;
+    vector<H> pref;
+
+    HashString() {}
+
+    HashString(const string& _s) {
+        init(_s);
+    }
+
+    void init(const string& _s) {
+        s = _s;
+        pref.assign(s.size() + 1, H());
+        for (int i = 0; i < (int)s.size(); i++) {
+            pref[i + 1] = concatHash(pref[i], 1, charHash(s[i]));
+        }
+    }
+
+    H substr(int l, int len) const {
+        if (len <= 0) return H();
+
+        long long p1 = modPow(BASE, len, MOD1);
+        long long p2 = modPow(BASE, len, MOD2);
+
+        int x1 = (pref[l + len].a - 1LL * pref[l].a * p1 % MOD1 + MOD1) % MOD1;
+        int x2 = (pref[l + len].b - 1LL * pref[l].b * p2 % MOD2 + MOD2) % MOD2;
+
+        return H(x1, x2);
+    }
+
+    H fullHash() const {
+        return pref.back();
+    }
+};
+
+H repeatHash(H blockHash, long long blockLen, long long cnt) {
+    H res;
+    long long resLen = 0;
+
+    H cur = blockHash;
+    long long curLen = blockLen;
+
+    while (cnt > 0) {
+        if (cnt & 1) {
+            res = concatHash(res, curLen, cur);
+            resLen += curLen;
+        }
+
+        cur = concatHash(cur, curLen, cur);
+        curLen *= 2;
+        cnt >>= 1;
+    }
+
+    return res;
+}
+
+struct Path {
+    string pre, cyc;
+    HashString hp, hc;
+    bool hasCycle = false;
+    long long finiteLen = 0;
+
+    void build() {
+        hp.init(pre);
+        hc.init(cyc);
+        hasCycle = !cyc.empty();
+        if (!hasCycle) finiteLen = pre.size();
+    }
+
+    H cycleSub(long long off, long long len) const {
+        if (len == 0) return H();
+
+        int cLen = (int)cyc.size();
+        off %= cLen;
+
+        H res;
+        long long used = 0;
+
+        int first = min<long long>(len, cLen - off);
+        res = concatHash(res, first, hc.substr((int)off, first));
+        used += first;
+
+        len -= first;
+        if (len == 0) return res;
+
+        long long full = len / cLen;
+        int rem = len % cLen;
+
+        if (full > 0) {
+            H mid = repeatHash(hc.fullHash(), cLen, full);
+            res = concatHash(res, full * cLen, mid);
+            used += full * cLen;
+        }
+
+        if (rem > 0) {
+            H tail = hc.substr(0, rem);
+            res = concatHash(res, rem, tail);
+        }
+
+        return res;
+    }
+
+    H getHash(long long pos, long long len) const {
+        H res;
+
+        if (len == 0) return res;
+
+        long long pLen = pre.size();
+
+        if (pos < pLen) {
+            long long take = min(len, pLen - pos);
+            H part = hp.substr((int)pos, (int)take);
+            res = concatHash(res, take, part);
+            pos += take;
+            len -= take;
+        }
+
+        if (len > 0 && hasCycle) {
+            long long off = (pos - pLen) % (long long)cyc.size();
+            H part = cycleSub(off, len);
+            res = concatHash(res, len, part);
+        }
+
+        return res;
+    }
+};
+
+struct Token {
+    string block;
+    long long cnt;
+    long long len;
+    H hash;
+};
+
+vector<Token> parseQuery(const string& q) {
+    vector<Token> tokens;
+
+    int n = q.size();
+    int i = 0;
+
+    while (i < n) {
+        if (q[i] == '(') {
+            i++;
+            string block;
+            while (q[i] != ')') {
+                block.push_back(q[i]);
+                i++;
+            }
+            i++;
+
+            long long cnt = 0;
+            while (i < n && isdigit(q[i])) {
+                cnt = cnt * 10 + (q[i] - '0');
+                i++;
+            }
+
+            HashString hs(block);
+            Token t;
+            t.block = block;
+            t.cnt = cnt;
+            t.len = (long long)block.size() * cnt;
+            t.hash = repeatHash(hs.fullHash(), block.size(), cnt);
+            tokens.push_back(t);
+        } else {
+            string block;
+            while (i < n && q[i] >= 'a' && q[i] <= 'z') {
+                block.push_back(q[i]);
+                i++;
+            }
+
+            HashString hs(block);
+            Token t;
+            t.block = block;
+            t.cnt = 1;
+            t.len = block.size();
+            t.hash = hs.fullHash();
+            tokens.push_back(t);
+        }
+    }
+
+    return tokens;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int R, C;
+    cin >> R >> C;
+
+    vector<string> dir(R), letters(R);
+    for (int i = 0; i < R; i++) cin >> dir[i];
+    for (int i = 0; i < R; i++) cin >> letters[i];
+
+    int N = R * C;
+
+    auto id = [&](int r, int c) {
+        return r * C + c;
+    };
+
+    vector<int> nxt(N, -1);
+    vector<char> cellLetter(N);
+
+    for (int r = 0; r < R; r++) {
+        for (int c = 0; c < C; c++) {
+            int nr = r, nc = c;
+
+            if (dir[r][c] == '<') nc--;
+            else if (dir[r][c] == '>') nc++;
+            else if (dir[r][c] == '^') nr--;
+            else if (dir[r][c] == 'v') nr++;
+
+            if (nr >= 0 && nr < R && nc >= 0 && nc < C) {
+                nxt[id(r, c)] = id(nr, nc);
+            }
+
+            cellLetter[id(r, c)] = letters[r][c];
+        }
+    }
+
+    vector<Path> paths(N);
+
+    for (int st = 0; st < N; st++) {
+        vector<int> seen(N, -1);
+        vector<char> seq;
+        int cur = st;
+        int step = 0;
+
+        while (cur != -1 && seen[cur] == -1) {
+            seen[cur] = step++;
+            seq.push_back(cellLetter[cur]);
+            cur = nxt[cur];
+        }
+
+        if (cur == -1) {
+            paths[st].pre.assign(seq.begin(), seq.end());
+        } else {
+            int cycStart = seen[cur];
+            paths[st].pre.assign(seq.begin(), seq.begin() + cycStart);
+            paths[st].cyc.assign(seq.begin() + cycStart, seq.end());
+        }
+
+        paths[st].build();
+    }
+
+    int Q;
+    cin >> Q;
+
+    while (Q--) {
+        string q;
+        cin >> q;
+
+        vector<Token> tokens = parseQuery(q);
+
+        long long totalLen = 0;
+        for (auto& t : tokens) totalLen += t.len;
+
+        bool found = false;
+        int ans = -1;
+
+        for (int st = 0; st < N && !found; st++) {
+            const Path& p = paths[st];
+
+            if (!p.hasCycle && totalLen > p.finiteLen) continue;
+
+            long long pos = 0;
+            bool ok = true;
+
+            for (const Token& t : tokens) {
+                H ph = p.getHash(pos, t.len);
+                if (!(ph == t.hash)) {
+                    ok = false;
+                    break;
+                }
+                pos += t.len;
+            }
+
+            if (ok) {
+                found = true;
+                ans = st;
+            }
+        }
+
+        if (found) {
+            cout << "YES (" << ans / C + 1 << "," << ans % C + 1 << ")\n";
+        } else {
+            cout << "NO\n";
+        }
+    }
+
+    return 0;
+}

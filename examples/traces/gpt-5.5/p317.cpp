@@ -1,0 +1,170 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const double INF = 1e100;
+
+struct Line {
+    double m, b; // y = m*x + b
+    double get(double x) const {
+        return m * x + b;
+    }
+};
+
+struct LiChaoSegmentTree {
+    int n;
+    vector<long long> xs;
+    vector<Line> tree;
+    vector<bool> has;
+
+    LiChaoSegmentTree(const vector<long long>& coords) {
+        xs = coords;
+        n = (int)xs.size();
+        tree.resize(4 * n);
+        has.assign(4 * n, false);
+    }
+
+    void addLine(Line nw, int node, int l, int r) {
+        if (!has[node]) {
+            tree[node] = nw;
+            has[node] = true;
+            return;
+        }
+
+        int mid = (l + r) / 2;
+        long long xl = xs[l], xm = xs[mid];
+
+        Line cur = tree[node];
+
+        bool lef = nw.get(xl) < cur.get(xl);
+        bool midBetter = nw.get(xm) < cur.get(xm);
+
+        if (midBetter) {
+            swap(tree[node], nw);
+            cur = tree[node];
+        }
+
+        if (l == r) return;
+
+        if (lef != midBetter) {
+            addLine(nw, node * 2, l, mid);
+        } else {
+            addLine(nw, node * 2 + 1, mid + 1, r);
+        }
+    }
+
+    void addSegment(Line ln, int ql, int qr, int node, int l, int r) {
+        if (ql > r || qr < l) return;
+
+        if (ql <= l && r <= qr) {
+            addLine(ln, node, l, r);
+            return;
+        }
+
+        int mid = (l + r) / 2;
+        addSegment(ln, ql, qr, node * 2, l, mid);
+        addSegment(ln, ql, qr, node * 2 + 1, mid + 1, r);
+    }
+
+    void addSegment(Line ln, int l, int r) {
+        if (l > r) return;
+        addSegment(ln, l, r, 1, 0, n - 1);
+    }
+
+    double query(int idx, int node, int l, int r) {
+        double res = INF;
+
+        if (has[node]) {
+            res = tree[node].get(xs[idx]);
+        }
+
+        if (l == r) return res;
+
+        int mid = (l + r) / 2;
+        if (idx <= mid) {
+            res = min(res, query(idx, node * 2, l, mid));
+        } else {
+            res = min(res, query(idx, node * 2 + 1, mid + 1, r));
+        }
+
+        return res;
+    }
+
+    double query(int idx) {
+        return query(idx, 1, 0, n - 1);
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    long long B;
+    int N;
+    cin >> B >> N;
+
+    map<long long, vector<pair<long long, long long>>> horses;
+    vector<long long> positions;
+
+    positions.push_back(0);
+    positions.push_back(B);
+
+    for (int i = 0; i < N; i++) {
+        long long x;
+        int m;
+        cin >> x >> m;
+
+        positions.push_back(x);
+
+        for (int j = 0; j < m; j++) {
+            long long v, d;
+            cin >> v >> d;
+            horses[x].push_back({v, d});
+        }
+    }
+
+    sort(positions.begin(), positions.end());
+    positions.erase(unique(positions.begin(), positions.end()), positions.end());
+
+    int M = (int)positions.size();
+    int idxB = lower_bound(positions.begin(), positions.end(), B) - positions.begin();
+
+    LiChaoSegmentTree lichao(positions);
+
+    vector<double> dp(M, INF);
+
+    int idx0 = lower_bound(positions.begin(), positions.end(), 0) - positions.begin();
+    dp[idx0] = 0.0;
+
+    for (int i = idx0; i < M; i++) {
+        dp[i] = min(dp[i], lichao.query(i));
+
+        if (dp[i] >= INF / 2) continue;
+
+        long long x = positions[i];
+
+        auto it = horses.find(x);
+        if (it == horses.end()) continue;
+
+        for (auto [v, d] : it->second) {
+            long long reach = x + d;
+            int r = int(upper_bound(positions.begin(), positions.end(), reach) - positions.begin()) - 1;
+
+            if (r <= i) continue;
+
+            double speed = (double)v;
+            Line ln;
+            ln.m = 1.0 / speed;
+            ln.b = dp[i] - (double)x / speed;
+
+            lichao.addSegment(ln, i + 1, r);
+        }
+    }
+
+    if (dp[idxB] >= INF / 2) {
+        cout << -1 << '\n';
+    } else {
+        cout << fixed << setprecision(8) << dp[idxB] << '\n';
+    }
+
+    return 0;
+}

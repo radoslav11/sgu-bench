@@ -1,0 +1,218 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+const double EPS = 1e-7;
+const double PI = acos(-1.0);
+
+struct Point {
+    double x, y;
+    bool operator==(const Point& o) const {
+        return abs(x - o.x) < EPS && abs(y - o.y) < EPS;
+    }
+};
+
+struct Segment {
+    Point p1, p2;
+};
+
+bool is_on_segment(Point p, Point a, Point b) {
+    double cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (abs(cross) > EPS) return false;
+    double dot = (p.x - a.x) * (p.x - b.x) + (p.y - a.y) * (p.y - b.y);
+    if (dot > EPS) return false;
+    return true;
+}
+
+double get_t(Point p, Point a, Point b) {
+    double dx = b.x - a.x;
+    double dy = b.y - a.y;
+    double len2 = dx * dx + dy * dy;
+    if (len2 < 1e-14) return 0.0;
+    return ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+}
+
+struct ForwardEdge {
+    int to, lev_to;
+    double w;
+};
+
+double solve_pass(const vector<vector<ForwardEdge>>& adj, const vector<double>& base_theta, int V) {
+    double max_len = 0.0;
+    vector<pair<double, int>> sorted_nodes;
+    sorted_nodes.reserve(2 * V);
+    for (int i = 0; i < V; i++) {
+        sorted_nodes.push_back({base_theta[i], i * 2});
+        sorted_nodes.push_back({base_theta[i] + 2.0 * PI, i * 2 + 1});
+    }
+    sort(sorted_nodes.begin(), sorted_nodes.end());
+
+    vector<double> dp(2 * V, -1.0);
+    for (int start = 0; start < V; start++) {
+        fill(dp.begin(), dp.end(), -1.0);
+        dp[start * 2] = 0.0;
+        for (auto& node : sorted_nodes) {
+            int u = node.second;
+            if (dp[u] >= 0.0) {
+                for (auto& edge : adj[u]) {
+                    int nxt = edge.to * 2 + edge.lev_to;
+                    if (dp[u] + edge.w > dp[nxt]) {
+                        dp[nxt] = dp[u] + edge.w;
+                    }
+                }
+            }
+        }
+        if (dp[start * 2 + 1] > max_len) {
+            max_len = dp[start * 2 + 1];
+        }
+    }
+    return max_len;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<Segment> segs(N);
+    for (int i = 0; i < N; i++) {
+        cin >> segs[i].p1.x >> segs[i].p1.y >> segs[i].p2.x >> segs[i].p2.y;
+    }
+
+    vector<Point> pts;
+    for (int i = 0; i < N; i++) {
+        pts.push_back(segs[i].p1);
+        pts.push_back(segs[i].p2);
+        for (int j = i + 1; j < N; j++) {
+            Point a1 = segs[i].p1, b1 = segs[i].p2;
+            Point a2 = segs[j].p1, b2 = segs[j].p2;
+            double dx1 = b1.x - a1.x, dy1 = b1.y - a1.y;
+            double dx2 = b2.x - a2.x, dy2 = b2.y - a2.y;
+            double D = dx1 * dy2 - dy1 * dx2;
+            if (abs(D) > EPS) {
+                double t = ((a2.x - a1.x) * dy2 - (a2.y - a1.y) * dx2) / D;
+                double s = ((a2.x - a1.x) * dy1 - (a2.y - a1.y) * dx1) / D;
+                if (t >= -EPS && t <= 1.0 + EPS && s >= -EPS && s <= 1.0 + EPS) {
+                    Point p;
+                    p.x = a1.x + t * dx1;
+                    p.y = a1.y + t * dy1;
+                    pts.push_back(p);
+                }
+            } else {
+                if (is_on_segment(a2, a1, b1)) pts.push_back(a2);
+                if (is_on_segment(b2, a1, b1)) pts.push_back(b2);
+                if (is_on_segment(a1, a2, b2)) pts.push_back(a1);
+                if (is_on_segment(b1, a2, b2)) pts.push_back(b1);
+            }
+        }
+    }
+
+    vector<Point> unique_pts;
+    for (auto& p : pts) {
+        bool found = false;
+        for (auto& up : unique_pts) {
+            if (p == up) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            unique_pts.push_back(p);
+        }
+    }
+
+    int V = unique_pts.size();
+    vector<vector<double>> base_theta(V);
+    for (int i = 0; i < V; i++) {
+        double t = atan2(unique_pts[i].y, unique_pts[i].x);
+        if (t < 0) t += 2.0 * PI;
+        base_theta[i].push_back(t);
+        base_theta[i].push_back(2.0 * PI - t); // For CW
+    }
+
+    vector<vector<int>> seg_valid_ids(N);
+    for (int i = 0; i < N; i++) {
+        vector<pair<double, int>> pt_with_t;
+        for (int j = 0; j < V; j++) {
+            if (is_on_segment(unique_pts[j], segs[i].p1, segs[i].p2)) {
+                double t = get_t(unique_pts[j], segs[i].p1, segs[i].p2);
+                if (t >= -EPS && t <= 1.0 + EPS) {
+                    pt_with_t.push_back({t, j});
+                }
+            }
+        }
+        sort(pt_with_t.begin(), pt_with_t.end());
+        for (auto& pwt : pt_with_t) {
+            seg_valid_ids[i].push_back(pwt.second);
+        }
+    }
+
+    vector<vector<ForwardEdge>> adj_ccw(2 * V);
+    vector<vector<ForwardEdge>> adj_cw(2 * V);
+
+    for (int i = 0; i < N; i++) {
+        for (size_t j = 0; j + 1 < seg_valid_ids[i].size(); j++) {
+            int u = seg_valid_ids[i][j];
+            int v = seg_valid_ids[i][j+1];
+            Point pu = unique_pts[u];
+            Point pv = unique_pts[v];
+            
+            double theta_u = atan2(pu.y, pu.x);
+            if (theta_u < 0) theta_u += 2.0 * PI;
+            double theta_v = atan2(pv.y, pv.x);
+            if (theta_v < 0) theta_v += 2.0 * PI;
+
+            double diff = theta_v - theta_u;
+            if (diff > PI) diff -= 2.0 * PI;
+            if (diff < -PI) diff += 2.0 * PI;
+
+            double w = hypot(pu.x - pv.x, pu.y - pv.y);
+            if (w < EPS) continue;
+
+            if (diff > EPS) { // CCW
+                double unrolled_v = theta_u + diff;
+                int lev_u = 0;
+                int lev_v = (unrolled_v >= 2.0 * PI - EPS) ? 1 : 0;
+                adj_ccw[u * 2 + lev_u].push_back({v, lev_v, w});
+            } else if (diff < -EPS) { // CW
+                double new_theta_u = 2.0 * PI - theta_u;
+                double new_theta_v = 2.0 * PI - theta_v;
+                double n_diff = new_theta_v - new_theta_u;
+                if (n_diff > PI) n_diff -= 2.0 * PI;
+                if (n_diff < -PI) n_diff += 2.0 * PI;
+                
+                if (n_diff > EPS) {
+                    double unrolled_v = new_theta_u + n_diff;
+                    int lev_u = 0;
+                    int lev_v = (unrolled_v >= 2.0 * PI - EPS) ? 1 : 0;
+                    adj_cw[u * 2 + lev_u].push_back({v, lev_v, w});
+                }
+            }
+        }
+    }
+
+    vector<double> base_ccw(V), base_cw(V);
+    for (int i = 0; i < V; i++) {
+        base_ccw[i] = base_theta[i][0];
+        base_cw[i] = base_theta[i][1];
+    }
+
+    double ans_ccw = solve_pass(adj_ccw, base_ccw, V);
+    double ans_cw = solve_pass(adj_cw, base_cw, V);
+
+    double max_len = max(ans_ccw, ans_cw);
+
+    if (max_len < 1e-5) {
+        cout << 0 << "\n";
+    } else {
+        cout << fixed << setprecision(5) << max_len << "\n";
+    }
+
+    return 0;
+}

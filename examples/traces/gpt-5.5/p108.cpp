@@ -1,0 +1,64 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+static inline void setBit(vector<unsigned long long>& bits, int pos) {
+    bits[pos >> 6] |= 1ULL << (pos & 63);
+}
+
+static inline bool getBit(const vector<unsigned long long>& bits, int pos) {
+    return (bits[pos >> 6] >> (pos & 63)) & 1ULL;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, K;
+    cin >> N >> K;
+
+    vector<pair<int, int>> queries(K);
+    for (int i = 0; i < K; ++i) {
+        cin >> queries[i].first;
+        queries[i].second = i;
+    }
+
+    sort(queries.begin(), queries.end());
+
+    vector<unsigned long long> generated((N + 64) >> 6, 0);
+
+    int digitSum = 1;
+    for (int i = 1; i <= N; ++i) {
+        int x = i + digitSum;
+        if (x <= N) setBit(generated, x);
+
+        ++digitSum;
+        int t = i;
+        while (t % 10 == 9) {
+            digitSum -= 9;
+            t /= 10;
+        }
+    }
+
+    vector<int> answers(K);
+    int selfCount = 0;
+    int qptr = 0;
+
+    for (int i = 1; i <= N; ++i) {
+        if (!getBit(generated, i)) {
+            ++selfCount;
+            while (qptr < K && queries[qptr].first == selfCount) {
+                answers[queries[qptr].second] = i;
+                ++qptr;
+            }
+        }
+    }
+
+    cout << selfCount << '\n';
+    for (int i = 0; i < K; ++i) {
+        if (i) cout << ' ';
+        cout << answers[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

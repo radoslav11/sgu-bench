@@ -1,0 +1,53 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T, N;
+    cin >> T >> N;
+
+    vector<double> q(N), prev(N), cur(N), w(N);
+
+    for (int i = 0; i < N; ++i) cin >> q[i];
+
+    double VP = 0.0;
+    for (int i = 0; i < N; ++i) {
+        cin >> prev[i];
+        VP += q[i] * prev[i];
+    }
+
+    for (int i = 0; i < N; ++i) {
+        w[i] = q[i] * prev[i] / VP;
+    }
+
+    double sum = 0.0, sumSq = 0.0;
+
+    for (int t = 1; t <= T; ++t) {
+        for (int i = 0; i < N; ++i) cin >> cur[i];
+
+        double portfolioReturn = 0.0;
+        for (int i = 0; i < N; ++i) {
+            double r = (prev[i] - cur[i]) / cur[i];
+            portfolioReturn += w[i] * r;
+        }
+
+        sum += portfolioReturn;
+        sumSq += portfolioReturn * portfolioReturn;
+
+        prev = cur;
+    }
+
+    double mP = sum / T;
+    double variance = sumSq / T - mP * mP;
+    if (variance < 0 && variance > -1e-15) variance = 0;
+
+    double sP = sqrt(variance);
+
+    double VaR = -VP * (mP - 1.644854 * sP);
+
+    cout << fixed << setprecision(2) << VaR << '\n';
+
+    return 0;
+}

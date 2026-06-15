@@ -1,0 +1,134 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int M;
+    cin >> M;
+
+    vector<unsigned int> B(M);
+    unordered_set<unsigned int> have;
+    have.reserve(M * 4);
+
+    for (int i = 0; i < M; i++) {
+        cin >> B[i];
+        have.insert(B[i]);
+    }
+
+    int N = 0;
+    for (int n = 2; n <= 100; n++) {
+        if (n * (n - 1) / 2 == M) {
+            N = n;
+            break;
+        }
+    }
+
+    vector<unsigned int> C;
+
+    if (N == 2) {
+        C = {0u, B[0]};
+    } else {
+        unsigned int e = B[0];
+
+        vector<pair<unsigned int, unsigned int>> pairs;
+        unordered_set<unsigned int> used;
+        used.reserve(M * 4);
+
+        for (unsigned int x : B) {
+            if (x == e || used.count(x)) continue;
+
+            unsigned int y = x ^ e;
+            if (y != x && y != e && have.count(y)) {
+                pairs.push_back({x, y});
+                used.insert(x);
+                used.insert(y);
+            }
+        }
+
+        int need = N - 2;
+        vector<unsigned int> chosen;
+        vector<unsigned int> star;
+        bool found = false;
+
+        function<void(int)> dfs = [&](int idx) {
+            if (found) return;
+
+            if (idx == need) {
+                star.clear();
+                star.push_back(e);
+                for (unsigned int x : chosen) star.push_back(x);
+
+                unordered_set<unsigned int> gen;
+                gen.reserve(M * 4);
+
+                vector<unsigned int> tmp;
+                tmp.push_back(0u);
+                for (unsigned int x : star) tmp.push_back(x);
+
+                for (int i = 0; i < N; i++) {
+                    for (int j = i + 1; j < N; j++) {
+                        gen.insert(tmp[i] ^ tmp[j]);
+                    }
+                }
+
+                if ((int)gen.size() != M) return;
+
+                for (unsigned int x : B) {
+                    if (!gen.count(x)) return;
+                }
+
+                C = tmp;
+                found = true;
+                return;
+            }
+
+            for (int t = 0; t < 2; t++) {
+                unsigned int val = (t == 0 ? pairs[idx].first : pairs[idx].second);
+
+                bool ok = true;
+                for (unsigned int prev : chosen) {
+                    if (!have.count(prev ^ val)) {
+                        ok = false;
+                        break;
+                    }
+                }
+
+                if (ok) {
+                    chosen.push_back(val);
+                    dfs(idx + 1);
+                    chosen.pop_back();
+                }
+            }
+        };
+
+        dfs(0);
+    }
+
+    unordered_set<unsigned int> forbidden;
+    forbidden.reserve(1 << min(N, 20));
+
+    int total = 1 << N;
+    for (int mask = 0; mask < total; mask++) {
+        int cnt = __builtin_popcount((unsigned)mask);
+        if (cnt >= 3 && (cnt & 1)) {
+            unsigned int xr = 0;
+            for (int i = 0; i < N; i++) {
+                if (mask & (1 << i)) xr ^= C[i];
+            }
+            forbidden.insert(xr);
+        }
+    }
+
+    unsigned int shift = 0;
+    while (forbidden.count(shift)) shift++;
+
+    for (int i = 0; i < N; i++) {
+        if (i) cout << ' ';
+        cout << (C[i] ^ shift);
+    }
+    cout << '\n';
+
+    return 0;
+}

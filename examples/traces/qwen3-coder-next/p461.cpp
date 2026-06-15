@@ -1,0 +1,153 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cctype>
+
+using namespace std;
+
+// Recursive function to process a list of lines with the same marker type
+// Returns the HTML string for the list and the next line index after the list
+string processList(const vector<string>& lines, int start, char marker, int& nextIndex) {
+    string result;
+    
+    if (marker == '#') {
+        result += "<ol>\n";
+    } else {
+        result += "<ul>\n";
+    }
+    
+    int i = start;
+    int n = lines.size();
+    
+    while (i < n) {
+        const string& line = lines[i];
+        // Count how many markers at the beginning
+        int count = 0;
+        while (count < (int)line.size() && line[count] == marker) {
+            count++;
+        }
+        
+        // If this line doesn't start with the same marker, break
+        if (count < 1 || line[count-1] != marker) {
+            break;
+        }
+        
+        // Get the content after the markers
+        string content = (count < (int)line.size()) ? line.substr(count) : "";
+        
+        // Check if the next lines form a nested list with the same marker
+        // A nested list requires at least two consecutive lines starting with the same marker (depth+1)
+        int j = i + 1;
+        int nestedCount = 0;
+        while (j < n) {
+            const string& nextLine = lines[j];
+            int nextCount = 0;
+            while (nextCount < (int)nextLine.size() && nextLine[nextCount] == marker) {
+                nextCount++;
+            }
+            // For a nested list, we need at least 2 lines with the same marker and deeper nesting
+            // Specifically, lines starting with marker+1 or more
+            if (nextCount <= count) {
+                // This line is at the same level or higher, so it's not nested
+                break;
+            }
+            // Check if there's at least one more line with marker depth == count+1
+            if (nestedCount == 0 && nextCount == count + 1) {
+                nestedCount++;
+            } else if (nestedCount > 0) {
+                if (nextCount == count + 1) {
+                    nestedCount++;
+                } else {
+                    break;
+                }
+            }
+            j++;
+        }
+        
+        // If we found at least 2 consecutive lines with deeper nesting, process as nested list
+        if (nestedCount >= 1) {
+            // Process nested list
+            int nextIndexNested;
+            string nestedHTML = processList(lines, i + 1, marker, nextIndexNested);
+            
+            result += "<li>\n";
+            if (!content.empty()) {
+                result += content + "\n";
+            }
+            result += nestedHTML;
+            result += "</li>\n";
+            
+            i = nextIndexNested;
+        } else {
+            // Regular list item
+            result += "<li>\n";
+            result += content;
+            result += "\n</li>\n";
+            i++;
+        }
+    }
+    
+    if (marker == '#') {
+        result += "</ol>\n";
+    } else {
+        result += "</ul>\n";
+    }
+    
+    nextIndex = i;
+    return result;
+}
+
+int main() {
+    vector<string> lines;
+    string line;
+    
+    // Read all lines
+    while (getline(cin, line)) {
+        lines.push_back(line);
+    }
+    
+    string result;
+    int i = 0;
+    int n = lines.size();
+    
+    while (i < n) {
+        const string& currentLine = lines[i];
+        
+        // Check if this line starts with a list marker
+        if (!currentLine.empty() && (currentLine[0] == '*' || currentLine[0] == '#')) {
+            char marker = currentLine[0];
+            
+            // Count consecutive lines with the same marker
+            int j = i + 1;
+            while (j < n && 
+                   !lines[j].empty() && 
+                   lines[j][0] == marker) {
+                j++;
+            }
+            
+            // Only process if at least 2 consecutive lines with the same marker
+            if (j > i + 1) {
+                int nextIndex;
+                result += processList(lines, i, marker, nextIndex);
+                i = nextIndex;
+            } else {
+                // Single line with marker - treat as non-list content
+                result += currentLine + "\n";
+                i++;
+            }
+        } else {
+            // Non-list line
+            result += currentLine + "\n";
+            i++;
+        }
+    }
+    
+    // Remove trailing newline if present
+    if (!result.empty() && result.back() == '\n') {
+        result.pop_back();
+    }
+    
+    cout << result << endl;
+    
+    return 0;
+}

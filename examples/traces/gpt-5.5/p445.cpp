@@ -1,0 +1,186 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Edge {
+    int to, next;
+    double w;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    double vw, vc;
+    cin >> vw >> vc;
+
+    vector<double> x(n), y(n);
+    for (int i = 0; i < n; i++) cin >> x[i] >> y[i];
+
+    if (n <= 1) {
+        cout << fixed << setprecision(10) << 0.0 << '\n';
+        return 0;
+    }
+
+    vector<double> levels = y;
+    sort(levels.begin(), levels.end());
+    levels.erase(unique(levels.begin(), levels.end()), levels.end());
+
+    int L = (int)levels.size();
+
+    vector<int> head;
+    vector<Edge> edges;
+
+    auto newNode = [&]() {
+        head.push_back(-1);
+        return (int)head.size() - 1;
+    };
+
+    auto addEdgeOne = [&](int u, int v, double w) {
+        Edge e{v, head[u], w};
+        head[u] = (int)edges.size();
+        edges.push_back(e);
+    };
+
+    auto addEdge = [&](int u, int v, double w) {
+        addEdgeOne(u, v, w);
+        addEdgeOne(v, u, w);
+    };
+
+    vector<vector<pair<double, int>>> byLevel(L);
+
+    vector<int> vertexLeftNode(n, -1), vertexRightNode(n, -1);
+
+    const double EPS = 1e-10;
+
+    for (int i = 0; i + 1 < n; i++) {
+        vector<pair<double, int>> pts; // parameter t on segment, node id
+
+        if (fabs(y[i] - y[i + 1]) < EPS) {
+            int k = lower_bound(levels.begin(), levels.end(), y[i]) - levels.begin();
+
+            int a = newNode();
+            int b = newNode();
+
+            pts.push_back({0.0, a});
+            pts.push_back({1.0, b});
+
+            byLevel[k].push_back({x[i], a});
+            byLevel[k].push_back({x[i + 1], b});
+
+            vertexRightNode[i] = a;
+            vertexLeftNode[i + 1] = b;
+        } else {
+            double lo = min(y[i], y[i + 1]);
+            double hi = max(y[i], y[i + 1]);
+
+            int l = lower_bound(levels.begin(), levels.end(), lo - EPS) - levels.begin();
+            int r = upper_bound(levels.begin(), levels.end(), hi + EPS) - levels.begin();
+
+            for (int k = l; k < r; k++) {
+                double h = levels[k];
+                if (h + EPS < lo || h - EPS > hi) continue;
+
+                double t = (h - y[i]) / (y[i + 1] - y[i]);
+                if (t < -EPS || t > 1.0 + EPS) continue;
+                t = max(0.0, min(1.0, t));
+
+                double px = x[i] + (x[i + 1] - x[i]) * t;
+
+                int id = newNode();
+                pts.push_back({t, id});
+                byLevel[k].push_back({px, id});
+
+                if (fabs(t) < EPS) vertexRightNode[i] = id;
+                if (fabs(t - 1.0) < EPS) vertexLeftNode[i + 1] = id;
+            }
+        }
+
+        sort(pts.begin(), pts.end());
+
+        for (int j = 0; j + 1 < (int)pts.size(); j++) {
+            double t1 = pts[j].first;
+            double t2 = pts[j + 1].first;
+
+            double dx = (x[i + 1] - x[i]) * (t2 - t1);
+            double dy = (y[i + 1] - y[i]) * (t2 - t1);
+            double len = hypot(dx, dy);
+
+            addEdge(pts[j].second, pts[j + 1].second, len / vw);
+        }
+    }
+
+    for (int i = 1; i + 1 < n; i++) {
+        if (vertexLeftNode[i] != -1 && vertexRightNode[i] != -1)
+            addEdge(vertexLeftNode[i], vertexRightNode[i], 0.0);
+    }
+
+    int start = vertexRightNode[0];
+    int goal = vertexLeftNode[n - 1];
+
+    auto terrainAt = [&](double px) {
+        int idx = int(upper_bound(x.begin(), x.end(), px) - x.begin()) - 1;
+        idx = max(0, min(idx, n - 2));
+
+        double t = (px - x[idx]) / (x[idx + 1] - x[idx]);
+        return y[idx] + (y[idx + 1] - y[idx]) * t;
+    };
+
+    for (int k = 0; k < L; k++) {
+        auto &v = byLevel[k];
+        sort(v.begin(), v.end(), [](const auto &a, const auto &b) {
+            if (fabs(a.first - b.first) > 1e-10) return a.first < b.first;
+            return a.second < b.second;
+        });
+
+        double h = levels[k];
+
+        for (int i = 0; i + 1 < (int)v.size(); i++) {
+            double x1 = v[i].first;
+            double x2 = v[i + 1].first;
+
+            if (fabs(x1 - x2) < EPS) {
+                addEdge(v[i].second, v[i + 1].second, 0.0);
+                continue;
+            }
+
+            double mid = (x1 + x2) / 2.0;
+            double ty = terrainAt(mid);
+
+            if (ty > h + 1e-9) {
+                addEdge(v[i].second, v[i + 1].second, (x2 - x1) / vc);
+            }
+        }
+    }
+
+    int N = (int)head.size();
+    vector<double> dist(N, 1e100);
+
+    priority_queue<pair<double, int>, vector<pair<double, int>>, greater<pair<double, int>>> pq;
+
+    dist[start] = 0.0;
+    pq.push({0.0, start});
+
+    while (!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+
+        if (d != dist[u]) continue;
+        if (u == goal) break;
+
+        for (int e = head[u]; e != -1; e = edges[e].next) {
+            int to = edges[e].to;
+            double nd = d + edges[e].w;
+            if (nd + 1e-12 < dist[to]) {
+                dist[to] = nd;
+                pq.push({nd, to});
+            }
+        }
+    }
+
+    cout << fixed << setprecision(10) << dist[goal] << '\n';
+
+    return 0;
+}

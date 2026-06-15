@@ -1,0 +1,133 @@
+#include <iostream>
+#include <vector>
+#include <stack>
+#include <queue>
+#include <algorithm>
+#include <functional>
+
+using namespace std;
+
+int main() {
+    // Optimize standard I/O operations for speed
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<vector<int>> adj_G(n + 1);
+    vector<vector<int>> adj_G0(n + 1);
+    vector<bool> self_loop_G0(n + 1, false);
+
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        long long w;
+        cin >> u >> v >> w;
+        adj_G[u].push_back(v);
+        if (w == 0) {
+            adj_G0[u].push_back(v);
+            if (u == v) {
+                self_loop_G0[u] = true;
+            }
+        }
+    }
+
+    vector<int> dfn(n + 1, 0), low(n + 1, 0);
+    vector<bool> in_stack(n + 1, false);
+    stack<int> st;
+    int timer = 0;
+    vector<int> scc_id(n + 1, 0);
+    vector<int> scc_size(n + 1, 0);
+    int scc_count = 0;
+
+    function<void(int)> tarjan = [&](int u) {
+        dfn[u] = low[u] = ++timer;
+        st.push(u);
+        in_stack[u] = true;
+        for (int v : adj_G0[u]) {
+            if (!dfn[v]) {
+                tarjan(v);
+                low[u] = min(low[u], low[v]);
+            } else if (in_stack[v]) {
+                low[u] = min(low[u], dfn[v]);
+            }
+        }
+        if (low[u] == dfn[u]) {
+            scc_count++;
+            int sz = 0;
+            while (true) {
+                int v = st.top();
+                st.pop();
+                in_stack[v] = false;
+                scc_id[v] = scc_count;
+                sz++;
+                if (u == v) break;
+            }
+            scc_size[scc_count] = sz;
+        }
+    };
+
+    for (int i = 1; i <= n; i++) {
+        if (!dfn[i]) {
+            tarjan(i);
+        }
+    }
+
+    vector<int> S;
+    for (int i = 1; i <= n; i++) {
+        int id = scc_id[i];
+        if (scc_size[id] > 1) {
+            S.push_back(i);
+        } else if (scc_size[id] == 1 && self_loop_G0[i]) {
+            S.push_back(i);
+        }
+    }
+
+    vector<bool> in_D(n + 1, false);
+    queue<int> Q;
+
+    for (int u : S) {
+        if (!in_D[u]) {
+            queue<int> bq;
+            bq.push(u);
+            in_D[u] = true;
+            while (!bq.empty()) {
+                int curr = bq.front();
+                bq.pop();
+                for (int v : adj_G0[curr]) {
+                    if (!in_D[v]) {
+                        in_D[v] = true;
+                        bq.push(v);
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 1; i <= n; i++) {
+        if (in_D[i]) {
+            Q.push(i);
+        }
+    }
+
+    while (!Q.empty()) {
+        int u = Q.front();
+        Q.pop();
+        for (int v : adj_G[u]) {
+            if (!in_D[v]) {
+                in_D[v] = true;
+                Q.push(v);
+            }
+        }
+    }
+
+    for (int i = 1; i <= n; i++) {
+        if (!in_D[i]) {
+            cout << 1 << "\n";
+        } else {
+            cout << 0 << "\n";
+        }
+    }
+
+    return 0;
+}

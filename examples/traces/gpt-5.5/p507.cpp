@@ -1,0 +1,151 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+static const long long INF = 2147483647LL;
+
+struct FastScanner {
+    static const int BUFSIZE = 1 << 16;
+    int idx = 0, size = 0;
+    char buf[BUFSIZE];
+
+    inline char getChar() {
+        if (idx >= size) {
+            size = (int)fread(buf, 1, BUFSIZE, stdin);
+            idx = 0;
+            if (size == 0) return 0;
+        }
+        return buf[idx++];
+    }
+
+    template <class T>
+    bool readInt(T &out) {
+        char c;
+        T sign = 1;
+        T num = 0;
+
+        c = getChar();
+        if (!c) return false;
+
+        while (c != '-' && (c < '0' || c > '9')) {
+            c = getChar();
+            if (!c) return false;
+        }
+
+        if (c == '-') {
+            sign = -1;
+            c = getChar();
+        }
+
+        while (c >= '0' && c <= '9') {
+            num = num * 10 + (c - '0');
+            c = getChar();
+        }
+
+        out = num * sign;
+        return true;
+    }
+};
+
+int main() {
+    FastScanner fs;
+
+    int n, m;
+    fs.readInt(n);
+    fs.readInt(m);
+
+    vector<vector<int>> children(n + 1);
+
+    for (int i = 2; i <= n; ++i) {
+        int p;
+        fs.readInt(p);
+        children[p].push_back(i);
+    }
+
+    vector<int> value(n + 1);
+    for (int i = n - m + 1; i <= n; ++i) {
+        fs.readInt(value[i]);
+    }
+
+    vector<int> order;
+    order.reserve(n);
+
+    stack<int> stck;
+    stck.push(1);
+
+    while (!stck.empty()) {
+        int v = stck.top();
+        stck.pop();
+        order.push_back(v);
+        for (int to : children[v]) {
+            stck.push(to);
+        }
+    }
+
+    vector<set<int>*> sets(n + 1, nullptr);
+    vector<long long> ans(n + 1, INF);
+
+    auto insertValue = [](set<int> &s, long long &cur, int x) {
+        auto it = s.lower_bound(x);
+
+        if (it != s.end()) {
+            if (*it == x) {
+                cur = 0;
+                return;
+            }
+            cur = min(cur, (long long)*it - x);
+        }
+
+        if (it != s.begin()) {
+            auto prv = it;
+            --prv;
+            cur = min(cur, (long long)x - *prv);
+        }
+
+        s.insert(x);
+    };
+
+    for (int idx = (int)order.size() - 1; idx >= 0; --idx) {
+        int v = order[idx];
+
+        if (v > n - m) {
+            sets[v] = new set<int>();
+            sets[v]->insert(value[v]);
+            ans[v] = INF;
+            continue;
+        }
+
+        int bigChild = -1;
+
+        for (int to : children[v]) {
+            if (bigChild == -1 || sets[to]->size() > sets[bigChild]->size()) {
+                bigChild = to;
+            }
+        }
+
+        sets[v] = sets[bigChild];
+        ans[v] = ans[bigChild];
+
+        for (int to : children[v]) {
+            if (to == bigChild) continue;
+
+            ans[v] = min(ans[v], ans[to]);
+
+            for (int x : *sets[to]) {
+                insertValue(*sets[v], ans[v], x);
+            }
+
+            delete sets[to];
+            sets[to] = nullptr;
+        }
+    }
+
+    for (int i = 1; i <= n - m; ++i) {
+        if (i > 1) putchar(' ');
+        printf("%lld", ans[i]);
+    }
+    putchar('\n');
+
+    if (sets[1]) delete sets[1];
+
+    return 0;
+}

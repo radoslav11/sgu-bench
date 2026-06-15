@@ -1,0 +1,43 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    while (T--) {
+        int N;
+        cin >> N;
+
+        vector<long long> a(N);
+        for (int i = 0; i < N; ++i) cin >> a[i];
+
+        vector<int> leftUp(N, 0), leftDown(N, 0);
+        vector<int> rightUp(N, 0), rightDown(N, 0);
+
+        for (int i = 1; i < N; ++i) {
+            if (a[i - 1] < a[i]) leftUp[i] = leftUp[i - 1] + 1;
+            if (a[i - 1] > a[i]) leftDown[i] = leftDown[i - 1] + 1;
+        }
+
+        for (int i = N - 2; i >= 0; --i) {
+            if (a[i] < a[i + 1]) rightUp[i] = rightUp[i + 1] + 1;
+            if (a[i] > a[i + 1]) rightDown[i] = rightDown[i + 1] + 1;
+        }
+
+        int highestHill = 0;
+        int deepestDale = 0;
+
+        for (int i = 0; i < N; ++i) {
+            highestHill = max(highestHill, min(leftUp[i], rightDown[i]));
+            deepestDale = max(deepestDale, min(leftDown[i], rightUp[i]));
+        }
+
+        cout << highestHill << ' ' << deepestDale << '\n';
+    }
+
+    return 0;
+}

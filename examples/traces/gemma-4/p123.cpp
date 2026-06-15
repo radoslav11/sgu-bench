@@ -1,0 +1,69 @@
+#include <iostream>
+#include <vector>
+
+/**
+ * Problem: The sum of the first K Fibonacci numbers.
+ * Fibonacci sequence: F1 = 1, F2 = 1, Fn+1 = Fn + Fn-1 for n > 1.
+ * K is a natural number with 0 < K < 41.
+ * 
+ * Constraints:
+ * - K < 41, so F40 is at most 102,334,155.
+ * - The sum of the first 40 Fibonacci numbers is around 267,914,295.
+ * - This value fits well within a standard 32-bit signed integer, 
+ *   but we will use 'long long' (64-bit) for safety.
+ * - The time limit is 0.25 sec, which is plenty for an O(K) solution.
+ */
+
+using namespace std;
+
+int main() {
+    // Optimize input and output performance.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int K;
+    // Read K from standard input.
+    if (!(cin >> K)) {
+        return 0;
+    }
+
+    // The problem states 0 < K < 41.
+    // If K were 0, the sum would be 0.
+    if (K <= 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    // Case where K = 1: F1 = 1, sum = 1.
+    if (K == 1) {
+        cout << 1 << endl;
+        return 0;
+    }
+
+    // We use a vector to store Fibonacci numbers up to the K-th term.
+    // Vector size K + 1 to accommodate 1-based indexing.
+    vector<long long> F(K + 1);
+    
+    // Initialize base cases for Fibonacci sequence.
+    F[1] = 1;
+    if (K >= 2) {
+        F[2] = 1;
+    }
+
+    // Compute Fibonacci numbers up to K using dynamic programming.
+    for (int i = 3; i <= K; ++i) {
+        F[i] = F[i - 1] + F[i - 2];
+    }
+
+    // Calculate the sum of the first K Fibonacci numbers.
+    long long S = 0;
+    for (int i = 1; i <= K; ++i) {
+        S += F[i];
+    }
+
+    // Output the sum.
+    cout << S << endl;
+
+    return 0;
+}
+

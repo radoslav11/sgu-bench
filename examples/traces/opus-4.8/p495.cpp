@@ -1,0 +1,8 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    double N,M;
+    cin>>N>>M;
+    double ans=N*(1.0-pow((N-1.0)/N,M));
+    printf("%.6f\n",ans);
+}

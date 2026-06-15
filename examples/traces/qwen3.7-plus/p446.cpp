@@ -1,0 +1,117 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+struct Point {
+    double x, y;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<Point> A(n), B(n);
+    double sum_ax = 0, sum_ay = 0;
+    for (int i = 0; i < n; ++i) {
+        cin >> A[i].x >> A[i].y;
+        sum_ax += A[i].x;
+        sum_ay += A[i].y;
+    }
+
+    double sum_bx = 0, sum_by = 0;
+    for (int i = 0; i < n; ++i) {
+        cin >> B[i].x >> B[i].y;
+        sum_bx += B[i].x;
+        sum_by += B[i].y;
+    }
+
+    double cx_a = sum_ax / n;
+    double cy_a = sum_ay / n;
+    double cx_b = sum_bx / n;
+    double cy_b = sum_by / n;
+
+    vector<Point> A_prime(n), B_prime(n);
+    double max_dist = -1;
+    int idx_A = -1;
+
+    for (int i = 0; i < n; ++i) {
+        A_prime[i].x = A[i].x - cx_a;
+        A_prime[i].y = A[i].y - cy_a;
+        double d = hypot(A_prime[i].x, A_prime[i].y);
+        if (d > max_dist) {
+            max_dist = d;
+            idx_A = i;
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        B_prime[i].x = B[i].x - cx_b;
+        B_prime[i].y = B[i].y - cy_b;
+    }
+
+    if (max_dist < 1e-7) {
+        cout << fixed << setprecision(9) << 0.0 << "\n";
+        return 0;
+    }
+
+    const double PI = acos(-1.0);
+    double best_ans = 1e9;
+
+    for (int idx_B = 0; idx_B < n; ++idx_B) {
+        double d_B = hypot(B_prime[idx_B].x, B_prime[idx_B].y);
+        if (abs(max_dist - d_B) < 1e-6) {
+            double phi = atan2(B_prime[idx_B].y, B_prime[idx_B].x) - atan2(A_prime[idx_A].y, A_prime[idx_A].x);
+            phi = fmod(phi, 2 * PI);
+            if (phi < 0) phi += 2 * PI;
+
+            vector<Point> A_rot(n);
+            double cos_phi = cos(phi);
+            double sin_phi = sin(phi);
+            for (int i = 0; i < n; ++i) {
+                A_rot[i].x = A_prime[i].x * cos_phi - A_prime[i].y * sin_phi;
+                A_rot[i].y = A_prime[i].x * sin_phi + A_prime[i].y * cos_phi;
+            }
+
+            sort(A_rot.begin(), A_rot.end(), [](const Point& a, const Point& b) {
+                if (a.x != b.x) return a.x < b.x;
+                return a.y < b.y;
+            });
+
+            sort(B_prime.begin(), B_prime.end(), [](const Point& a, const Point& b) {
+                if (a.x != b.x) return a.x < b.x;
+                return a.y < b.y;
+            });
+
+            bool valid = true;
+            for (int i = 0; i < n; ++i) {
+                if (abs(A_rot[i].x - B_prime[i].x) > 1e-6 || abs(A_rot[i].y - B_prime[i].y) > 1e-6) {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (valid) {
+                double ans = phi;
+                if (ans > PI) ans = 2 * PI - ans;
+                if (ans < best_ans) {
+                    best_ans = ans;
+                }
+            }
+        }
+    }
+
+    if (best_ans > 1e8) {
+        best_ans = 0.0;
+    }
+
+    cout << fixed << setprecision(9) << best_ans << "\n";
+
+    return 0;
+}

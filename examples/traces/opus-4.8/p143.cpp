@@ -1,0 +1,48 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main(){
+    int n;
+    scanf("%d",&n);
+    vector<int> val(n+1);
+    for(int i=1;i<=n;i++) scanf("%d",&val[i]);
+    vector<vector<int>> adj(n+1);
+    for(int i=0;i<n-1;i++){
+        int a,b; scanf("%d %d",&a,&b);
+        adj[a].push_back(b);
+        adj[b].push_back(a);
+    }
+    vector<long long> dp(n+1,0);
+    long long ans=LLONG_MIN;
+    // iterative dfs
+    vector<int> parent(n+1,0), order;
+    order.reserve(n);
+    vector<int> stk;
+    stk.push_back(1);
+    parent[1]=-1;
+    vector<bool> vis(n+1,false);
+    vis[1]=true;
+    while(!stk.empty()){
+        int u=stk.back(); stk.pop_back();
+        order.push_back(u);
+        for(int w:adj[u]){
+            if(!vis[w]){
+                vis[w]=true;
+                parent[w]=u;
+                stk.push_back(w);
+            }
+        }
+    }
+    for(int i=(int)order.size()-1;i>=0;i--){
+        int u=order[i];
+        dp[u]=val[u];
+        for(int w:adj[u]){
+            if(w!=parent[u]){
+                if(dp[w]>0) dp[u]+=dp[w];
+            }
+        }
+        ans=max(ans,dp[u]);
+    }
+    printf("%lld\n",ans);
+    return 0;
+}

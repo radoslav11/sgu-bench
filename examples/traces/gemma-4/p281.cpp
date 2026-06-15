@@ -1,0 +1,110 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <random>
+
+/**
+ * Problem: 281. Championship
+ * 
+ * The task is to determine the final rating based on two given contest ratings.
+ * If for some M, the first M teams in both contest ratings are the same set,
+ * then this set is the set of the first M teams in the final rating.
+ * The relative order of teams whose order is not determined by the M-rule
+ * is given by alphabetical order.
+ * 
+ * Algorithm:
+ * 1. Find all M such that the set of the first M teams in Contest 1 matches
+ *    the set of the first M teams in Contest 2. 
+ *    We use prefix XOR sums of randomly assigned 64-bit integers to efficiently
+ *    identify these M values.
+ * 2. These M values divide the teams into blocks. Each block consists of teams
+ *    appearing between two consecutive matches (including the interval up to the first match).
+ * 3. For each block, the relative order of teams within it is not determined, 
+ *    so we sort them alphabetically as instructed.
+ * 4. The final rating is the concatenation of these sorted blocks in the order they appear.
+ * 
+ * Complexity:
+ * Time: O(N log N * max_len), where max_len is the maximum length of a team's name.
+ * Memory: O(N * max_len).
+ * 
+ * Given the tight time limit of 0.5 seconds, we use efficient I/O and 
+ * avoid std::map in favor of std::vector with std::lower_bound.
+ */
+
+using namespace std;
+
+int main() {
+    // Fast I/O
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    // Read Contest 1 and Contest 2 ratings
+    vector<string> names1(N), names2(N);
+    for (int i = 0; i < N; ++i) cin >> names1[i];
+    for (int i = 0; i < N; ++i) cin >> names2[i];
+
+    // Map names to unique IDs for efficient processing
+    vector<string> all_names;
+    all_names.reserve(2 * N);
+    for (int i = 0; i < N; ++i) all_names.push_back(names1[i]);
+    for (int i = 0; i < N; ++i) all_names.push_back(names2[i]);
+    sort(all_names.begin(), all_names.end());
+    all_names.erase(unique(all_names.begin(), all_names.end()), all_names.end());
+
+    int num_unique_names = (int)all_names.size();
+    
+    // Assign a random 64-bit value to each unique team name to use in hash comparison
+    vector<uint64_t> val(num_unique_names);
+    mt19937_64 rng(1337);
+    for (int i = 0; i < num_unique_names; ++i) {
+        val[i] = rng();
+    }
+
+    // Store the sequence of IDs for each contest
+    vector<int> id1(N), id2(N);
+    for (int i = 0; i < N; ++i) {
+        id1[i] = lower_bound(all_names.begin(), all_names.end(), names1[i]) - all_names.begin();
+    }
+    for (int i = 0; i < N; ++i) {
+        id2[i] = lower_bound(all_names.begin(), all_names.end(), names2[i]) - all_names.begin();
+    }
+
+    // Compute prefix XOR sums to find M values where sets are identical
+    vector<uint64_t> pref1(N + 1, 0), pref2(N + 1, 0);
+    for (int i = 0; i < N; ++i) {
+        pref1[i + 1] = pref1[i] ^ val[id1[i]];
+    }
+    for (int i = 0; i < N; ++i) {
+        pref2[i + 1] = pref2[i] ^ val[id2[i]];
+    }
+
+    // Collect all M where the set of the first M teams in both rankings is the same
+    vector<int> matches;
+    for (int i = 1; i <= N; ++i) {
+        if (pref1[i] == pref2[i]) {
+            matches.push_back(i);
+        }
+    }
+
+    // Generate the final rating by iterating through blocks and sorting them alphabetically
+    int last_m = 0;
+    for (int m : matches) {
+        vector<string> block;
+        block.reserve(m - last_m);
+        for (int i = last_m; i < m; ++i) {
+            block.push_back(names1[i]);
+        }
+        sort(block.begin(), block.end());
+        for (const string& s : block) {
+            cout << s << "\n";
+        }
+        last_m = m;
+    }
+
+    return 0;
+}
+

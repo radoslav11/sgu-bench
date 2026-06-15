@@ -1,0 +1,114 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * A shot is a ray from (0,0). An animal is hit if the ray intersects its segment.
+ * The sheep segments are closed intervals of angles. Any shot in these intervals
+ * is invalid. For each wolf, we must pick at least one angle in its angular interval
+ * that is not covered by any sheep interval.
+ * 
+ * This is equivalent to a greedy interval covering problem with restricted shot angles.
+ * 1. Merge sheep angular intervals to find the forbidden regions.
+ * 2. For each wolf, find the largest "safe" angle R_j in its angular interval.
+ *    If no such angle exists (wolf interval is completely inside sheep intervals), "No solution".
+ * 3. Sort wolves by their largest safe angle R_j.
+ * 4. Apply greedy strategy: pick R_j as a shot to hit the current unhit wolf, 
+ *    which will hit all other wolves whose angular intervals contain R_j.
+ */
+
+struct Segment {
+    long double start_angle, end_angle;
+};
+
+const long double EPS = 1e-15;
+const long double PI = acosl(-1.0L);
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<Segment> wolves(N);
+    for (int i = 0; i < N; ++i) {
+        long double x1, y1, x2, y2;
+        cin >> x1 >> y1 >> x2 >> y2;
+        long double a1 = atan2l(y1, x1);
+        long double a2 = atan2l(y2, x2);
+        wolves[i] = {min(a1, a2), max(a1, a2)};
+    }
+
+    vector<pair<long double, long double>> sheep_raw(M);
+    for (int i = 0; i < M; ++i) {
+        long double x1, y1, x2, y2;
+        cin >> x1 >> y1 >> x2 >> y2;
+        long double a1 = atan2l(y1, x1);
+        long double a2 = atan2l(y2, x2);
+        sheep_raw[i] = {min(a1, a2), max(a1, a2)};
+    }
+
+    // Merge sheep intervals
+    sort(sheep_raw.begin(), sheep_raw.end());
+    vector<pair<long double, long double>> merged_sheep;
+    for (const auto& s : sheep_raw) {
+        if (merged_sheep.empty() || s.first > merged_sheep.back().second + EPS) {
+            merged_sheep.push_back(s);
+        } else {
+            if (s.second > merged_sheep.back().second) {
+                merged_sheep.back().second = s.second;
+            }
+        }
+    }
+
+    // For each wolf, find the largest safe angle R_j
+    vector<pair<long double, int>> wolf_R(N);
+    for (int i = 0; i < N; ++i) {
+        long double w_end = wolves[i].end_angle;
+        long double w_start = wolves[i].start_angle;
+        long double R_j = w_end;
+
+        // Find if w_end is inside any merged sheep interval
+        auto it = upper_bound(merged_sheep.begin(), merged_sheep.end(), make_pair(w_end, (long double)1e18L));
+        if (it != merged_sheep.begin()) {
+            auto prev_it = prev(it);
+            if (w_end >= prev_it->first - EPS && w_end <= prev_it->second + EPS) {
+                // w_end is in [prev_it->first, prev_it->second]
+                R_j = prev_it->first - 1e-16L; // Slightly less than the start of the sheep interval
+            }
+        }
+
+        if (R_j < w_start - EPS) {
+            cout << "No solution" << endl;
+            return 0;
+        }
+        wolf_R[i] = {R_j, i};
+    }
+
+    // Sort wolves by R_j for greedy strategy
+    sort(wolf_R.begin(), wolf_R.end());
+
+    int shots = 0;
+    long double last_shot = -1e18L;
+
+    for (int i = 0; i < N; ++i) {
+        int idx = wolf_R[i].second;
+        // If current wolf is not hit by the last shot
+        if (last_shot < wolves[idx].start_angle - EPS || last_shot > wolves[idx].end_angle + EPS) {
+            shots++;
+            last_shot = wolf_R[i].first;
+        }
+    }
+
+    cout << shots << endl;
+
+    return 0;
+}
+

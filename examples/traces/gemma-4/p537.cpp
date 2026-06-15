@@ -1,0 +1,148 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <set>
+#include <map>
+#include <numeric>
+
+using namespace std;
+
+/**
+ * Problem: Divisibility
+ * The goal is to find all positive integers that divide every possible number
+ * that can be produced from a given string pattern. A number is formed by 
+ * mapping each distinct letter to a unique digit (0-9), such that no leading 
+ * zero is used for the number represented by the string.
+ * 
+ * Strategy:
+ * 1. Identify all distinct characters in the string.
+ * 2. Assign weights to these characters based on their positions in the string.
+ *    The weight of a character at index i (0-indexed from the left) is 10^(L-1-i).
+ * 3. Generate all valid mappings of characters to distinct digits and find 
+ *    the Greatest Common Divisor (GCD) of all the resulting integers.
+ * 4. Find and output all divisors of this GCD.
+ * 
+ * Constraints:
+ * - String length L: 1 to 14
+ * - Number of distinct characters k: up to 10
+ * - Number of test cases n: up to 100
+ * 
+ * Optimization:
+ * The number of possible mappings is at most 9 * 9! = 3,265,920.
+ * Since n=100, the total number of mappings could be up to 3.2 * 10^8.
+ * We use backtracking with incremental GCD calculation and early exit (if GCD becomes 1).
+ */
+
+typedef long long ll;
+
+// Function to compute GCD of two long long numbers
+ll gcd(ll a, ll b) {
+    while (b) {
+        a %= b;
+        swap(a, b);
+    }
+    return a;
+}
+
+ll G;
+int K;
+ll weights[10];
+bool used[10];
+int mapping[10];
+
+// Backtracking function to generate all valid digit mappings
+void backtrack(int idx, ll current_v) {
+    if (idx == K) {
+        if (G == 0) G = current_v;
+        else G = gcd(G, current_v);
+        return;
+    }
+    if (G == 1) return; // Optimization: If GCD is already 1, we can stop.
+
+    for (int digit = 0; digit <= 9; ++digit) {
+        if (!used[digit]) {
+            // Constraint: The first character cannot be mapped to digit 0
+            if (idx == 0 && digit == 0) continue;
+
+            used[digit] = true;
+            backtrack(idx + 1, current_v + (ll)digit * weights[idx]);
+            used[digit] = false;
+            
+            if (G == 1) return;
+        }
+    }
+}
+
+void solve(int caseNum) {
+    string s;
+    if (!(cin >> s)) return;
+
+    map<char, ll> charWeights;
+    vector<char> distinctChars;
+    
+    // Map each character to its contribution weight
+    ll powerOf10 = 1;
+    for (int i = (int)s.length() - 1; i >= 0; --i) {
+        if (charWeights.find(s[i]) == charWeights.end()) {
+            charWeights[s[i]] = 0;
+            distinctChars.push_back(s[i]);
+        }
+        charWeights[s[i]] += powerOf10;
+        powerOf10 *= 10;
+    }
+
+    // The first character in the string is the one that cannot be zero.
+    // In our logic, we want to pick it as the first element in the distinctChars vector.
+    char firstChar = s[0];
+    vector<char> orderedChars;
+    orderedChars.push_back(firstChar);
+    for (char c : distinctChars) {
+        if (c != firstChar) orderedChars.push_back(c);
+    }
+
+    K = orderedChars.size();
+    for (int i = 0; i < K; ++i) {
+        weights[i] = charWeights[orderedChars[i]];
+    }
+
+    // Reset for backtracking
+    G = 0;
+    for (int i = 0; i < 10; ++i) used[i] = false;
+
+    backtrack(0, 0);
+
+    // Find and print all divisors of the computed GCD
+    vector<ll> divisors;
+    if (G > 0) {
+        for (ll i = 1; i * i <= G; ++i) {
+            if (G % i == 0) {
+                divisors.push_back(i);
+                if (i * i != G) {
+                    divisors.push_back(G / i);
+                }
+            }
+        }
+    }
+    sort(divisors.begin(), divisors.end());
+
+    cout << "Case " << caseNum << ":";
+    for (ll d : divisors) {
+        cout << " " << d;
+    }
+    cout << endl;
+}
+
+int main() {
+    // Optimization for fast I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+    for (int i = 1; i <= n; ++i) {
+        solve(i);
+    }
+    return 0;
+}
+

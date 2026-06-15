@@ -1,0 +1,110 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * We need to maximize the number of problems solved within a given time T.
+ * If multiple solutions exist for the maximum number of problems, we need to
+ * minimize the penalty time (sum of completion times).
+ * 
+ * Constraints:
+ * - Each constraint (a, b) means problem a must be solved before problem b.
+ * - It is guaranteed that the time to solve 'a' is less than or equal to the time for 'b' (ta <= tb).
+ * 
+ * Greedy Strategy:
+ * 1. Use Kahn's algorithm to identify all problems that can be potentially solved.
+ *    A problem can be solved if it is not part of a cycle and all its predecessors can be solved.
+ * 2. Use a priority queue to always pick the available problem with the smallest time (ti)
+ *    among all currently available problems (those whose predecessors have been solved).
+ * 3. This strategy works because:
+ *    - Picking the smallest ti maximizes the number of problems that can be solved (standard knapsack with equal values).
+ *    - The dependency property ta <= tb ensures that the topological order and the 
+ *      non-decreasing order of ti are consistent, minimizing the penalty sum(Ci).
+ * 
+ * Time Complexity: O(M + N log N)
+ * Space Complexity: O(N + M)
+ */
+
+int main() {
+    // Use faster I/O to meet the strict 0.25s time limit.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    long long T;
+    if (!(cin >> N >> T)) return 0;
+
+    vector<int> t(N + 1);
+    for (int i = 1; i <= N; ++i) {
+        cin >> t[i];
+    }
+
+    int M;
+    if (!(cin >> M)) M = 0;
+
+    vector<vector<int>> adj(N + 1);
+    vector<int> in_degree(N + 1, 0);
+    for (int i = 0; i < M; ++i) {
+        int u, v;
+        cin >> u >> v;
+        // Constraints are given as (a, b), where a must be solved before b.
+        // Here u=a and v=b.
+        adj[u].push_back(v);
+        in_degree[v]++;
+    }
+
+    // A priority queue to always pick the problem with the smallest t_i among available ones.
+    // We store pairs of {time, index} and use the min-priority queue (greater<pair<int, int>>).
+    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
+    for (int i = 1; i <= N; ++i) {
+        if (in_degree[i] == 0) {
+            pq.push({t[i], i});
+        }
+    }
+
+    long long current_time = 0;
+    long long penalty = 0;
+    vector<int> solved_problems;
+
+    while (!pq.empty()) {
+        pair<int, int> top = pq.top();
+        pq.pop();
+        int u = top.second;
+        int weight = top.first;
+
+        // Check if we can solve the problem within the training duration T.
+        if (current_time + weight <= T) {
+            current_time += weight;
+            penalty += current_time;
+            solved_problems.push_back(u);
+
+            // After solving problem u, update in-degrees of its descendants.
+            for (int v : adj[u]) {
+                in_degree[v]--;
+                if (in_degree[v] == 0) {
+                    pq.push({t[v], v});
+                }
+            }
+        } else {
+            // Since u has the smallest time among all available problems,
+            // any other problem in the pq will also have a time >= weight.
+            // Therefore, no other problem currently in the queue can be solved.
+            break;
+        }
+    }
+
+    // Output the maximal number of problems solved and the minimal penalty.
+    cout << solved_problems.size() << " " << penalty << "\n";
+    // Output the order in which they should be solved.
+    for (int i = 0; i < (int)solved_problems.size(); ++i) {
+        cout << solved_problems[i] << (i == (int)solved_problems.size() - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

@@ -1,0 +1,26 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    vector<int> medians;
+    for (int i = 0; i < 3; ++i) {
+        vector<int> a(3);
+        if (cin >> a[0] >> a[1] >> a[2]) {
+            sort(a.begin(), a.end());
+            medians.push_back(a[1]);
+        }
+    }
+    
+    if (medians.size() == 3) {
+        sort(medians.begin(), medians.end());
+        cout << medians[1] << "\n";
+    }
+    
+    return 0;
+}

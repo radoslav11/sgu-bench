@@ -1,0 +1,204 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <queue>
+
+using namespace std;
+
+// Global variables for the grid and part-related data
+int H, W;
+vector<string> grid;
+vector<pair<int, int>> X_cells;
+vector<int> adj[9];
+int partition_arr[9];
+int K_target;
+
+// Structure to hold translation data for a shape in the 3x3 square
+struct PossibleTranslation {
+    int mask;
+    pair<int, int> v;
+};
+
+vector<PossibleTranslation> possible_translations[9];
+pair<int, int> best_v[9];
+vector<pair<int, int>> normalized_shapes[9];
+
+// Function to check if a given subset of X_cells is connected in the original grid
+bool is_connected(const vector<int>& part_cells) {
+    if (part_cells.empty()) return true;
+    int n = part_cells.size();
+    if (n == 1) return true;
+
+    int visited_mask = 0;
+    queue<int> q;
+    q.push(0);
+    visited_mask |= (1 << 0);
+    int count = 1;
+
+    while (!q.empty()) {
+        int u_idx = q.front();
+        q.pop();
+        int u = part_cells[u_idx];
+
+        for (int v : adj[u]) {
+            int v_idx = -1;
+            for (int i = 0; i < n; ++i) {
+                if (part_cells[i] == v) {
+                    v_idx = i;
+                    break;
+                }
+            }
+            if (v_idx != -1 && !(visited_mask & (1 << v_idx))) {
+                visited_mask |= (1 << v_idx);
+                count++;
+                q.push(v_idx);
+            }
+        }
+    }
+    return count == n;
+}
+
+// Backtracking to check if the current set of shapes can tile a 3x3 square
+bool can_tile(int part_idx, int mask) {
+    if (part_idx == K_target) return mask == (1 << 9) - 1;
+    for (auto& pt : possible_translations[part_idx]) {
+        if ((mask & pt.mask) == 0) {
+            if (can_tile(part_idx + 1, mask | pt.mask)) {
+                best_v[part_idx] = pt.v;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Checks a given partition of the 9 'X' cells
+void check_partition() {
+    vector<vector<int>> parts(K_target);
+    for (int i = 0; i < 9; ++i) {
+        parts[partition_arr[i]].push_back(i);
+    }
+
+    for (int i = 0; i < K_target; ++i) {
+        if (!is_connected(parts[i])) return;
+    }
+
+    for (int i = 0; i < K_target; ++i) {
+        possible_translations[i].clear();
+        normalized_shapes[i].clear();
+        int min_r = 10, min_c = 10;
+        for (int idx : parts[i]) {
+            min_r = min(min_r, X_cells[idx].first);
+            min_c = min(min_c, X_cells[idx].second);
+        }
+        for (int idx : parts[i]) {
+            normalized_shapes[i].push_back({X_cells[idx].first - min_r, X_cells[idx].second - min_c});
+        }
+
+        // Find all translations for this shape that fit in a 3x3 grid
+        for (int dr = -3; dr <= 3; ++dr) {
+            for (int dc = -3; dc <= 3; ++dc) {
+                int mask = 0;
+                bool ok = true;
+                for (auto& p : normalized_shapes[i]) {
+                    int nr = p.first + dr;
+                    int nc = p.second + dc;
+                    if (nr >= 0 && nr < 3 && nc >= 0 && nc < 3) {
+                        mask |= (1 << (nr * 3 + nc));
+                    } else {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok) {
+                    possible_translations[i].push_back({mask, {dr, dc}});
+                }
+            }
+        }
+    }
+
+    // If shapes can tile the 3x3 square, output the results and exit
+    if (can_tile(0, 0)) {
+        cout << K_target << endl;
+        vector<string> output_grid = grid;
+        for (int i = 0; i < 9; ++i) {
+            output_grid[X_cells[i].first][X_cells[i].second] = 'A' + partition_arr[i];
+        }
+        for (int i = 0; i < H; ++i) {
+            cout << output_grid[i] << endl;
+        }
+        cout << endl;
+        char res[3][3];
+        for (int r = 0; r < 3; ++r) for (int c = 0; c < 3; ++c) res[r][c] = '.';
+        for (int i = 0; i < K_target; ++i) {
+            for (auto& p : normalized_shapes[i]) {
+                int nr = p.first + best_v[i].first;
+                int nc = p.second + best_v[i].second;
+                res[nr][nc] = 'A' + i;
+            }
+        }
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) cout << res[r][c];
+            cout << endl;
+        }
+        exit(0);
+    }
+}
+
+// Generates all possible partitions of the 9 cells into K parts
+void generate_partitions(int cell_idx, int num_parts) {
+    if (cell_idx == 9) {
+        if (num_parts == K_target) {
+            check_partition();
+        }
+        return;
+    }
+    // Pruning if too few cells left to reach target K
+    if (num_parts + (9 - cell_idx) < K_target) return;
+    // Pruning if current parts already exceed target K
+    if (num_parts > K_target) return;
+
+    for (int i = 0; i < num_parts; ++i) {
+        partition_arr[cell_idx] = i;
+        generate_partitions(cell_idx + 1, num_parts);
+    }
+    if (num_parts < K_target) {
+        partition_arr[cell_idx] = num_parts;
+        generate_partitions(cell_idx + 1, num_parts + 1);
+    }
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> H >> W)) return 0;
+    grid.resize(H);
+    for (int i = 0; i < H; ++i) {
+        cin >> grid[i];
+        for (int j = 0; j < W; ++j) {
+            if (grid[i][j] == 'X') {
+                X_cells.push_back({i, j});
+            }
+        }
+    }
+
+    // Pre-calculate adjacency for the 9 'X' cells
+    for (int i = 0; i < 9; ++i) {
+        for (int j = i + 1; j < 9; ++j) {
+            if (abs(X_cells[i].first - X_cells[j].first) + abs(X_cells[i].second - X_cells[j].second) == 1) {
+                adj[i].push_back(j);
+                adj[j].push_back(i);
+            }
+        }
+    }
+
+    // Try each possible number of parts K starting from 1
+    for (K_target = 1; K_target <= 9; ++K_target) {
+        generate_partitions(0, 0);
+    }
+
+    return 0;
+}
+

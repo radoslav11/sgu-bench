@@ -1,0 +1,183 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+map<string, string> vars;
+
+void skipSpaces(const string& s, size_t& p) {
+    while (p < s.size() && isspace((unsigned char)s[p])) p++;
+}
+
+bool startsWith(const string& s, size_t p, const string& t) {
+    return s.compare(p, t.size(), t) == 0;
+}
+
+string parseName(const string& s, size_t& p) {
+    skipSpaces(s, p);
+    string res;
+    while (p < s.size()) {
+        unsigned char c = s[p];
+        if (isalnum(c) || c == '_' || c == '$') {
+            res += s[p++];
+        } else {
+            break;
+        }
+    }
+    return res;
+}
+
+int parseInt(const string& s, size_t& p) {
+    skipSpaces(s, p);
+    int sign = 1;
+    if (p < s.size() && (s[p] == '+' || s[p] == '-')) {
+        if (s[p] == '-') sign = -1;
+        p++;
+    }
+    skipSpaces(s, p);
+    int x = 0;
+    while (p < s.size() && isdigit((unsigned char)s[p])) {
+        x = x * 10 + (s[p] - '0');
+        p++;
+    }
+    return sign * x;
+}
+
+struct SubstrSpec {
+    string name;
+    int offset;
+    bool hasCount;
+    int count;
+};
+
+SubstrSpec parseSubstrSpec(const string& s, size_t& p) {
+    skipSpaces(s, p);
+    p += 6; // "substr"
+    skipSpaces(s, p);
+    if (p < s.size() && s[p] == '(') p++;
+
+    SubstrSpec spec;
+    spec.name = parseName(s, p);
+
+    skipSpaces(s, p);
+    if (p < s.size() && s[p] == ',') p++;
+
+    spec.offset = parseInt(s, p);
+    spec.hasCount = false;
+    spec.count = 0;
+
+    skipSpaces(s, p);
+    if (p < s.size() && s[p] == ',') {
+        p++;
+        spec.hasCount = true;
+        spec.count = parseInt(s, p);
+    }
+
+    skipSpaces(s, p);
+    if (p < s.size() && s[p] == ')') p++;
+
+    return spec;
+}
+
+pair<int, int> getRange(const string& str, const SubstrSpec& spec) {
+    int n = (int)str.size();
+
+    int start;
+    if (spec.offset >= 0) start = spec.offset;
+    else start = n + spec.offset;
+
+    int len;
+    if (!spec.hasCount) {
+        len = n - start;
+    } else if (spec.count >= 0) {
+        len = spec.count;
+    } else {
+        int end = n + spec.count;
+        len = end - start;
+    }
+
+    return {start, len};
+}
+
+string evalSubstr(const SubstrSpec& spec) {
+    string& str = vars[spec.name];
+    auto [start, len] = getRange(str, spec);
+    return str.substr(start, len);
+}
+
+string evalExpr(const string& s, size_t& p) {
+    skipSpaces(s, p);
+    if (startsWith(s, p, "substr")) {
+        SubstrSpec spec = parseSubstrSpec(s, p);
+        return evalSubstr(spec);
+    } else {
+        string name = parseName(s, p);
+        return vars[name];
+    }
+}
+
+void replaceSubstr(const SubstrSpec& spec, const string& value) {
+    string& str = vars[spec.name];
+    auto [start, len] = getRange(str, spec);
+    str.replace(start, len, value);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    string line;
+    getline(cin, line);
+
+    for (int i = 0; i < N; i++) {
+        getline(cin, line);
+
+        size_t p = 0;
+        string name = parseName(line, p);
+
+        size_t q1 = line.find('"');
+        size_t q2 = line.rfind('"');
+
+        string value;
+        if (q1 != string::npos && q2 != string::npos && q2 > q1) {
+            value = line.substr(q1 + 1, q2 - q1 - 1);
+        }
+
+        vars[name] = value;
+    }
+
+    for (int i = 0; i < M; i++) {
+        getline(cin, line);
+
+        size_t p = 0;
+        skipSpaces(line, p);
+
+        if (startsWith(line, p, "print")) {
+            p += 5;
+            skipSpaces(line, p);
+            if (p < line.size() && line[p] == '(') p++;
+
+            string value = evalExpr(line, p);
+            cout << value << '\n';
+        } else if (startsWith(line, p, "substr")) {
+            SubstrSpec lhs = parseSubstrSpec(line, p);
+
+            skipSpaces(line, p);
+            if (p < line.size() && line[p] == '=') p++;
+
+            string rhs = evalExpr(line, p);
+            replaceSubstr(lhs, rhs);
+        } else {
+            string lhs = parseName(line, p);
+
+            skipSpaces(line, p);
+            if (p < line.size() && line[p] == '=') p++;
+
+            string rhs = evalExpr(line, p);
+            vars[lhs] = rhs;
+        }
+    }
+
+    return 0;
+}

@@ -1,0 +1,46 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+struct City {
+    long long x, p;
+    bool operator<(const City& other) const {
+        if (x != other.x) return x < other.x;
+        return p < other.p;
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    if (!(cin >> n)) return 0;
+    
+    vector<City> cities(n);
+    long long total_p = 0;
+    for (int i = 0; i < n; ++i) {
+        cin >> cities[i].x >> cities[i].p;
+        total_p += cities[i].p;
+    }
+    
+    sort(cities.begin(), cities.end());
+    
+    long long current_p = 0;
+    double ans_x = 0;
+    double target = total_p / 2.0;
+    for (int i = 0; i < n; ++i) {
+        current_p += cities[i].p;
+        if (current_p >= target) {
+            ans_x = cities[i].x;
+            break;
+        }
+    }
+    
+    cout << fixed << setprecision(5) << ans_x << "\n";
+    
+    return 0;
+}

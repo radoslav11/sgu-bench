@@ -1,0 +1,198 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Fraction {
+    long long num, den; // den > 0, value = num / den
+};
+
+int cmpFrac(const Fraction& a, const Fraction& b) {
+    __int128 l = (__int128)a.num * b.den;
+    __int128 r = (__int128)b.num * a.den;
+    if (l < r) return -1;
+    if (l > r) return 1;
+    return 0;
+}
+
+bool operator<(const Fraction& a, const Fraction& b) {
+    return cmpFrac(a, b) < 0;
+}
+
+bool eqFrac(const Fraction& a, const Fraction& b) {
+    return cmpFrac(a, b) == 0;
+}
+
+int cmpFracInt(const Fraction& a, long long v) {
+    __int128 l = a.num;
+    __int128 r = (__int128)v * a.den;
+    if (l < r) return -1;
+    if (l > r) return 1;
+    return 0;
+}
+
+long double toLongDouble(const Fraction& f) {
+    return (long double)f.num / (long double)f.den;
+}
+
+struct Event {
+    Fraction x;
+    int start = 0;
+    int finish = 0;
+};
+
+struct Light {
+    int x, r, g, d;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, s, vmin, vmax;
+    cin >> n >> s >> vmin >> vmax;
+
+    vector<Light> lights(n);
+    for (int i = 0; i < n; i++) {
+        cin >> lights[i].x >> lights[i].r >> lights[i].g >> lights[i].d;
+    }
+
+    vector<Event> events;
+
+    int pointVmin = 0;
+    int pointVmax = 0;
+    int active = 0; // count on interval immediately to the right of vmin
+
+    auto lessFracInt = [&](const Fraction& f, int v) {
+        return cmpFracInt(f, v) < 0;
+    };
+    auto greaterFracInt = [&](const Fraction& f, int v) {
+        return cmpFracInt(f, v) > 0;
+    };
+    auto leFracInt = [&](const Fraction& f, int v) {
+        return cmpFracInt(f, v) <= 0;
+    };
+
+    for (const auto& light : lights) {
+        int x = light.x;
+        int r = light.r;
+        int g = light.g;
+        int d = light.d;
+        int C = r + g;
+
+        long double tmax = (long double)x / vmin;
+        int maxK = (int)(tmax / C) + 3;
+
+        for (int k = -1; k <= maxK; k++) {
+            int A = d + k * C;
+            int B = A + r;
+
+            if (B <= 0) continue;
+
+            // red interval in time: (A, B)
+            // speed interval: (x / B, x / A), if A > 0
+            Fraction L{ x, B };
+
+            bool Rinf = (A <= 0);
+            Fraction R{ 1, 1 };
+            if (!Rinf) R = Fraction{ x, A };
+
+            // Intersect with [vmin, vmax]
+            bool intersects =
+                (Rinf || greaterFracInt(R, vmin)) &&
+                lessFracInt(L, vmax);
+
+            if (!intersects) continue;
+
+            // Is vmin red?
+            if (lessFracInt(L, vmin) && (Rinf || greaterFracInt(R, vmin))) {
+                pointVmin++;
+            }
+
+            // Is vmax red?
+            if (lessFracInt(L, vmax) && (Rinf || greaterFracInt(R, vmax))) {
+                pointVmax++;
+            }
+
+            // Active immediately to the right of vmin
+            if (leFracInt(L, vmin) && (Rinf || greaterFracInt(R, vmin))) {
+                active++;
+            }
+
+            // Start event
+            if (greaterFracInt(L, vmin) && lessFracInt(L, vmax)) {
+                events.push_back({L, 1, 0});
+            }
+
+            // Finish event
+            if (!Rinf && greaterFracInt(R, vmin) && lessFracInt(R, vmax)) {
+                events.push_back({R, 0, 1});
+            }
+        }
+    }
+
+    sort(events.begin(), events.end(), [](const Event& a, const Event& b) {
+        return a.x < b.x;
+    });
+
+    vector<Event> grouped;
+    for (auto &e : events) {
+        if (grouped.empty() || !eqFrac(grouped.back().x, e.x)) {
+            grouped.push_back(e);
+        } else {
+            grouped.back().start += e.start;
+            grouped.back().finish += e.finish;
+        }
+    }
+
+    Fraction best{vmin, 1};
+    int bestCnt = pointVmin;
+
+    auto relax = [&](const Fraction& v, int cnt) {
+        if (cnt < bestCnt || (cnt == bestCnt && cmpFrac(v, best) > 0)) {
+            bestCnt = cnt;
+            best = v;
+        }
+    };
+
+    Fraction prev{vmin, 1};
+
+    for (auto &e : grouped) {
+        // At the event point itself, intervals ending here are not red,
+        // intervals starting here are not red.
+        int pointCnt = active - e.finish;
+        relax(e.x, pointCnt);
+
+        active = active - e.finish + e.start;
+        prev = e.x;
+    }
+
+    relax(Fraction{vmax, 1}, pointVmax);
+
+    vector<int> switched;
+
+    for (int i = 0; i < n; i++) {
+        const auto& light = lights[i];
+
+        // arrival time = x / best = x * best.den / best.num
+        __int128 tNum = (__int128)light.x * best.den;
+        __int128 tDen = best.num;
+
+        int C = light.r + light.g;
+
+        __int128 q = tNum / ((__int128)tDen * C);
+        __int128 remNum = tNum - q * tDen * C; // remainder numerator over tDen
+
+        bool red =
+            remNum > (__int128)light.d * tDen &&
+            remNum < (__int128)(light.d + light.r) * tDen;
+
+        if (red) switched.push_back(i + 1);
+    }
+
+    cout.setf(ios::fixed);
+    cout << setprecision(10) << (double)toLongDouble(best) << '\n';
+    cout << switched.size() << '\n';
+    for (int id : switched) cout << id << ' ';
+    if (!switched.empty()) cout << '\n';
+
+    return 0;
+}

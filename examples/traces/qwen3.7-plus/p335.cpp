@@ -1,0 +1,48 @@
+#include <iostream>
+#include <algorithm>
+#include <cmath>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    long long H, W;
+    if (!(cin >> H >> W)) return 0;
+
+    long long Rc, Cc;
+    cin >> Rc >> Cc;
+
+    long long Rt, Ct;
+    cin >> Rt >> Ct;
+
+    char first;
+    cin >> first;
+
+    long long max_dist = max({
+        abs(Rc - 1) + abs(Cc - 1),
+        abs(Rc - 1) + abs(Cc - W),
+        abs(Rc - H) + abs(Cc - 1),
+        abs(Rc - H) + abs(Cc - W)
+    });
+
+    int parity_c = (Rc + Cc) % 2;
+    int parity_t = (Rt + Ct) % 2;
+
+    if (first == 'C') {
+        if (parity_c == parity_t) {
+            cout << 0 << "\n";
+        } else {
+            cout << max(1LL, 2 * max_dist - 3) << "\n";
+        }
+    } else {
+        if (parity_c != parity_t) {
+            cout << 0 << "\n";
+        } else {
+            cout << max(2LL, 2 * max_dist - 2) << "\n";
+        }
+    }
+
+    return 0;
+}

@@ -1,0 +1,44 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string text, msg;
+    cin >> text >> msg;
+
+    int n = (int)text.size();
+
+    vector<array<int, 26>> nxt(n + 1);
+    for (int c = 0; c < 26; ++c) nxt[n][c] = n;
+
+    for (int i = n - 1; i >= 0; --i) {
+        nxt[i] = nxt[i + 1];
+        nxt[i][text[i] - 'a'] = i;
+    }
+
+    long long ans = 0;
+
+    for (int left = 0; left < n; ++left) {
+        int pos = left;
+        bool ok = true;
+
+        for (char ch : msg) {
+            int found = nxt[pos][ch - 'a'];
+            if (found == n) {
+                ok = false;
+                break;
+            }
+            pos = found + 1;
+        }
+
+        if (!ok) break;
+
+        ans += n - pos + 1;
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

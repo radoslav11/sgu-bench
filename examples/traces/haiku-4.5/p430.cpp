@@ -1,0 +1,136 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int n, m;
+vector<pair<int,int>> edges;
+set<pair<int,int>> edgeSet;
+vector<pair<double,double>> coords;
+
+const double EPS = 1e-6;
+const double DIST_EPS = 1e-2;
+
+bool isConnected(int u, int v) {
+    if(u > v) swap(u, v);
+    return edgeSet.count({u, v});
+}
+
+bool checkValid() {
+    for(int i = 0; i < n; i++) {
+        for(int j = i+1; j < n; j++) {
+            double dx = coords[i].first - coords[j].first;
+            double dy = coords[i].second - coords[j].second;
+            double dist = sqrt(dx*dx + dy*dy);
+            
+            if(isConnected(i, j)) {
+                if(abs(dist - 1.0) > 1e-7) return false;
+            } else {
+                if(abs(dist - 1.0) < DIST_EPS) return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool solve(int vertex) {
+    if(vertex == n) {
+        return checkValid();
+    }
+    
+    if(vertex == 0) {
+        coords[0] = {0, 0};
+        return solve(1);
+    }
+    
+    if(vertex == 1) {
+        if(isConnected(0, 1)) {
+            coords[1] = {1, 0};
+            return solve(2);
+        } else {
+            coords[1] = {2, 0};
+            return solve(2);
+        }
+    }
+    
+    // For vertex >= 2, try to find valid positions
+    // Try multiple candidate positions
+    vector<pair<double,double>> candidates;
+    
+    // Generate candidates from neighbors at distance 1
+    bool hasConstraint = false;
+    for(int i = 0; i < vertex; i++) {
+        if(isConnected(i, vertex)) {
+            hasConstraint = true;
+            // Place at distance 1 from vertex i
+            for(double angle = 0; angle < 2*M_PI; angle += M_PI/6) {
+                double x = coords[i].first + cos(angle);
+                double y = coords[i].second + sin(angle);
+                candidates.push_back({x, y});
+            }
+        }
+    }
+    
+    if(!hasConstraint) {
+        for(double x = -2; x <= 2; x += 0.5) {
+            for(double y = -2; y <= 2; y += 0.5) {
+                candidates.push_back({x, y});
+            }
+        }
+    }
+    
+    for(auto& cand : candidates) {
+        coords[vertex] = cand;
+        bool valid = true;
+        
+        for(int i = 0; i < vertex; i++) {
+            double dx = coords[i].first - cand.first;
+            double dy = coords[i].second - cand.second;
+            double dist = sqrt(dx*dx + dy*dy);
+            
+            if(isConnected(i, vertex)) {
+                if(abs(dist - 1.0) > 1e-6) {
+                    valid = false;
+                    break;
+                }
+            } else {
+                if(abs(dist - 1.0) < DIST_EPS) {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        
+        if(valid && solve(vertex + 1)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cin >> n >> m;
+    coords.resize(n);
+    
+    for(int i = 0; i < m; i++) {
+        int u, v;
+        cin >> u >> v;
+        if(u > v) swap(u, v);
+        edgeSet.insert({u, v});
+        edges.push_back({u, v});
+    }
+    
+    if(solve(0)) {
+        cout << "Yes\n";
+        cout << fixed << setprecision(10);
+        for(int i = 0; i < n; i++) {
+            cout << coords[i].first << " " << coords[i].second << "\n";
+        }
+    } else {
+        cout << "No\n";
+    }
+    
+    return 0;
+}

@@ -1,0 +1,135 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ull = unsigned long long;
+const ull INF = ULLONG_MAX;
+
+int N, M;
+ull dp[65][66];
+int splitK[65][66];
+
+ull add_sat(ull a, ull b) {
+    __uint128_t s = (__uint128_t)a + b;
+    return s > INF ? INF : (ull)s;
+}
+
+ull mul2_sat(ull a) {
+    __uint128_t s = (__uint128_t)a * 2;
+    return s > INF ? INF : (ull)s;
+}
+
+vector<vector<int>> pegStack;
+
+void doMove(int disc, int from, int to) {
+    pegStack[from].pop_back();
+
+    cout << "move " << disc << " from " << from << " to " << to;
+    if (!pegStack[to].empty()) {
+        cout << " atop " << pegStack[to].back();
+    }
+    cout << '\n';
+
+    pegStack[to].push_back(disc);
+}
+
+void solveHanoi3(int n, int offset, int from, int to, const vector<int>& pegs) {
+    if (n == 0) return;
+
+    int aux = -1;
+    for (int p : pegs) {
+        if (p != from && p != to) {
+            aux = p;
+            break;
+        }
+    }
+
+    solveHanoi3(n - 1, offset, from, aux, pegs);
+    doMove(offset + n, from, to);
+    solveHanoi3(n - 1, offset, aux, to, pegs);
+}
+
+void solve(int n, int offset, int from, int to, const vector<int>& pegs) {
+    if (n == 0) return;
+
+    int m = (int)pegs.size();
+
+    if (n == 1) {
+        doMove(offset + 1, from, to);
+        return;
+    }
+
+    if (m == 3) {
+        solveHanoi3(n, offset, from, to, pegs);
+        return;
+    }
+
+    int k = splitK[n][m];
+
+    int tmp = -1;
+    for (int p : pegs) {
+        if (p != from && p != to) {
+            tmp = p;
+            break;
+        }
+    }
+
+    vector<int> withoutTmp;
+    for (int p : pegs) {
+        if (p != tmp) withoutTmp.push_back(p);
+    }
+
+    solve(k, offset, from, tmp, pegs);
+    solve(n - k, offset + k, from, to, withoutTmp);
+    solve(k, offset, tmp, to, pegs);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> N >> M;
+
+    for (int m = 0; m <= 65; ++m) {
+        dp[0][m] = 0;
+        dp[1][m] = 1;
+    }
+
+    for (int n = 2; n <= 64; ++n) {
+        dp[n][3] = INF;
+        for (int i = 0; i < n; ++i) {
+            dp[n][3] = mul2_sat(dp[n - 1][3]);
+            if (dp[n][3] != INF) dp[n][3]++;
+            break;
+        }
+        splitK[n][3] = n - 1;
+    }
+
+    for (int n = 2; n <= 64; ++n) {
+        for (int m = 4; m <= 65; ++m) {
+            dp[n][m] = INF;
+            splitK[n][m] = 1;
+
+            for (int k = 1; k < n; ++k) {
+                ull cur = add_sat(mul2_sat(dp[k][m]), dp[n - k][m - 1]);
+                if (cur < dp[n][m]) {
+                    dp[n][m] = cur;
+                    splitK[n][m] = k;
+                }
+            }
+        }
+    }
+
+    cout << dp[N][M] << '\n';
+
+    pegStack.assign(M + 1, {});
+    for (int d = N; d >= 1; --d) {
+        pegStack[1].push_back(d);
+    }
+
+    vector<int> pegs;
+    for (int i = 1; i <= M; ++i) pegs.push_back(i);
+
+    solve(N, 0, 1, M, pegs);
+
+    return 0;
+}

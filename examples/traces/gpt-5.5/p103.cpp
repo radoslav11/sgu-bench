@@ -1,0 +1,160 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Node {
+    char init;
+    long long rem, tb, tp;
+};
+
+struct Edge {
+    int to;
+    long long w;
+};
+
+struct LightState {
+    char color;
+    long long nextSwitch;
+};
+
+const long long INF = (1LL << 60);
+
+int s, d, N, M;
+vector<Node> nodes;
+vector<vector<Edge>> graph;
+
+LightState getState(int v, long long t) {
+    const Node &nd = nodes[v];
+
+    if (t < nd.rem) {
+        return {nd.init, nd.rem};
+    }
+
+    long long cycle = nd.tb + nd.tp;
+    long long x = (t - nd.rem) % cycle;
+
+    if (nd.init == 'B') {
+        // After initial blue, purple starts.
+        if (x < nd.tp) {
+            return {'P', t + (nd.tp - x)};
+        } else {
+            return {'B', t + (cycle - x)};
+        }
+    } else {
+        // After initial purple, blue starts.
+        if (x < nd.tb) {
+            return {'B', t + (nd.tb - x)};
+        } else {
+            return {'P', t + (cycle - x)};
+        }
+    }
+}
+
+long long gcdll(long long a, long long b) {
+    while (b) {
+        long long t = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+long long lcmll(long long a, long long b) {
+    return a / gcdll(a, b) * b;
+}
+
+long long earliestDeparture(int u, int v, long long t) {
+    long long periodU = nodes[u].tb + nodes[u].tp;
+    long long periodV = nodes[v].tb + nodes[v].tp;
+    long long limit = max(t, max(nodes[u].rem, nodes[v].rem)) + lcmll(periodU, periodV) + 5;
+
+    long long cur = t;
+
+    while (cur <= limit) {
+        LightState su = getState(u, cur);
+        LightState sv = getState(v, cur);
+
+        if (su.color == sv.color) {
+            return cur;
+        }
+
+        cur = min(su.nextSwitch, sv.nextSwitch);
+    }
+
+    return INF;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> s >> d;
+    cin >> N >> M;
+
+    nodes.assign(N + 1, Node());
+
+    for (int i = 1; i <= N; i++) {
+        cin >> nodes[i].init >> nodes[i].rem >> nodes[i].tb >> nodes[i].tp;
+    }
+
+    graph.assign(N + 1, vector<Edge>());
+
+    for (int k = 0; k < M; k++) {
+        int u, v;
+        long long w;
+        cin >> u >> v >> w;
+        graph[u].push_back({v, w});
+        graph[v].push_back({u, w});
+    }
+
+    vector<long long> dist(N + 1, INF);
+    vector<int> parent(N + 1, -1);
+
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
+
+    dist[s] = 0;
+    pq.push({0, s});
+
+    while (!pq.empty()) {
+        auto [curDist, u] = pq.top();
+        pq.pop();
+
+        if (curDist != dist[u]) continue;
+        if (u == d) break;
+
+        for (const Edge &e : graph[u]) {
+            int v = e.to;
+
+            long long depart = earliestDeparture(u, v, curDist);
+            if (depart == INF) continue;
+
+            long long ndist = depart + e.w;
+
+            if (ndist < dist[v]) {
+                dist[v] = ndist;
+                parent[v] = u;
+                pq.push({ndist, v});
+            }
+        }
+    }
+
+    if (dist[d] == INF) {
+        cout << 0 << '\n';
+        return 0;
+    }
+
+    cout << dist[d] << '\n';
+
+    vector<int> path;
+    for (int v = d; v != -1; v = parent[v]) {
+        path.push_back(v);
+    }
+    reverse(path.begin(), path.end());
+
+    for (size_t i = 0; i < path.size(); i++) {
+        if (i) cout << ' ';
+        cout << path[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

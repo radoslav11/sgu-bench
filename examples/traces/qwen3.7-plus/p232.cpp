@@ -1,0 +1,105 @@
+#include <iostream>
+#include <string>
+#include <algorithm>
+#include <numeric>
+
+using namespace std;
+
+int get_max_rotation(const string& s) {
+    int n = s.length();
+    int i = 0, j = 1, k = 0;
+    while (i < n && j < n && k < n) {
+        int idx1 = i + k;
+        if (idx1 >= n) idx1 -= n;
+        int idx2 = j + k;
+        if (idx2 >= n) idx2 -= n;
+        
+        char c1 = s[idx1];
+        char c2 = s[idx2];
+        if (c1 == c2) {
+            k++;
+        } else {
+            if (c1 > c2) {
+                j = j + k + 1;
+            } else {
+                i = i + k + 1;
+            }
+            if (i == j) {
+                j++;
+            }
+            k = 0;
+        }
+    }
+    return min(i, j);
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    long long k_in;
+    if (!(cin >> n >> k_in)) return 0;
+    
+    string s;
+    cin >> s;
+    
+    int k = k_in % n;
+    int g = std::gcd(n, k);
+    int l = n / g;
+    
+    int best_start = -1;
+    
+    for (int r = 0; r < g; ++r) {
+        string c(l, '0');
+        int curr = r;
+        for (int j = 0; j < l; ++j) {
+            c[j] = s[curr];
+            curr += k;
+            if (curr >= n) curr -= n;
+        }
+        
+        int m = get_max_rotation(c);
+        int i_cand = r;
+        for (int j = 0; j < m; ++j) {
+            i_cand += k;
+            if (i_cand >= n) i_cand -= n;
+        }
+        
+        if (best_start == -1) {
+            best_start = i_cand;
+        } else {
+            bool better = false;
+            int curr1 = i_cand;
+            int curr2 = best_start;
+            for (int step = 0; step < l; ++step) {
+                if (s[curr1] > s[curr2]) {
+                    better = true;
+                    break;
+                } else if (s[curr1] < s[curr2]) {
+                    break;
+                }
+                curr1 += k;
+                if (curr1 >= n) curr1 -= n;
+                curr2 += k;
+                if (curr2 >= n) curr2 -= n;
+            }
+            if (better) {
+                best_start = i_cand;
+            }
+        }
+    }
+    
+    string result;
+    result.reserve(n);
+    int curr = best_start;
+    for (int step = 0; step < n; ++step) {
+        result += s[curr];
+        curr += k;
+        if (curr >= n) curr -= n;
+    }
+    
+    cout << result << "\n";
+    
+    return 0;
+}

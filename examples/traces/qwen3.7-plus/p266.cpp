@@ -1,0 +1,73 @@
+#include <iostream>
+#include <cmath>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    double R;
+    if (!(cin >> R)) return 0;
+    
+    double x1, y1, z1;
+    cin >> x1 >> y1 >> z1;
+    
+    double x2, y2, z2;
+    cin >> x2 >> y2 >> z2;
+    
+    double D1 = sqrt(x1*x1 + y1*y1 + z1*z1);
+    double D2 = sqrt(x2*x2 + y2*y2 + z2*z2);
+    
+    double h1_norm = R / D1;
+    double h2_norm = R / D2;
+    
+    double cos_alpha = (x1*x2 + y1*y2 + z1*z2) / (D1 * D2);
+    cos_alpha = max(-1.0, min(1.0, cos_alpha));
+    double alpha = acos(cos_alpha);
+    
+    double theta1 = acos(h1_norm);
+    double theta2 = acos(h2_norm);
+    
+    double A_int = 0;
+    const double PI = acos(-1.0);
+    
+    if (theta1 + theta2 <= alpha + 1e-11) {
+        A_int = 0;
+    } else if (theta1 >= alpha + theta2 - 1e-11) {
+        A_int = 2 * PI * R * R * (1 - h2_norm);
+    } else if (theta2 >= alpha + theta1 - 1e-11) {
+        A_int = 2 * PI * R * R * (1 - h1_norm);
+    } else {
+        double sin_alpha = sin(alpha);
+        if (sin_alpha < 1e-11) {
+            A_int = 0;
+        } else {
+            double cos_phi1 = (h2_norm - h1_norm * cos_alpha) / (sin_alpha * sqrt(1 - h1_norm * h1_norm));
+            double cos_phi2 = (h1_norm - h2_norm * cos_alpha) / (sin_alpha * sqrt(1 - h2_norm * h2_norm));
+            double cos_beta = (cos_alpha - h1_norm * h2_norm) / (sqrt(1 - h1_norm * h1_norm) * sqrt(1 - h2_norm * h2_norm));
+            
+            cos_phi1 = max(-1.0, min(1.0, cos_phi1));
+            cos_phi2 = max(-1.0, min(1.0, cos_phi2));
+            cos_beta = max(-1.0, min(1.0, cos_beta));
+            
+            double phi1 = acos(cos_phi1);
+            double phi2 = acos(cos_phi2);
+            double beta = acos(cos_beta);
+            
+            A_int = R * R * (2 * PI - 2 * h1_norm * phi1 - 2 * h2_norm * phi2 - 2 * beta);
+        }
+    }
+    
+    double A1 = 2 * PI * R * R * (1 - h1_norm);
+    double A2 = 2 * PI * R * R * (1 - h2_norm);
+    
+    double ans = A1 + A2 - A_int;
+    ans = max(0.0, min(4 * PI * R * R, ans));
+    
+    cout << fixed << setprecision(3) << ans << "\n";
+    
+    return 0;
+}

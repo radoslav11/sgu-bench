@@ -1,0 +1,93 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int parent_[200005];
+int rel_[200005];
+
+int findRoot(int x){
+    // path with parity
+    vector<int> path;
+    while(parent_[x]!=x){ path.push_back(x); x=parent_[x]; }
+    int root=x;
+    int p=0;
+    // recompute parity from each node to root
+    for(int i=(int)path.size()-1;i>=0;i--){
+        int node=path[i];
+        // rel_[node] is relative to old parent; accumulate
+    }
+    // simpler: do standard recursion-like
+    return root;
+}
+
+// We'll implement find that returns root and updates rel to be relative to root.
+int findr(int x){
+    if(parent_[x]==x) return x;
+    int root=findr(parent_[x]);
+    rel_[x]^=rel_[parent_[x]];
+    parent_[x]=root;
+    return root;
+}
+
+int main(){
+    int n,m;
+    if(scanf("%d %d",&n,&m)!=2) return 0;
+    for(int i=1;i<=n;i++){parent_[i]=i;rel_[i]=0;}
+    bool ok=true;
+    for(int i=0;i<m;i++){
+        int a,b,d1,d2;
+        scanf("%d %d %d %d",&a,&b,&d1,&d2);
+        // good edge if d1*d2==-1 => need s_a==s_b (diff 0); else need diff 1
+        int need = (d1*d2==-1)?0:1;
+        int ra=findr(a), rb=findr(b);
+        if(ra==rb){
+            if((rel_[a]^rel_[b])!=need) ok=false;
+        } else {
+            // attach rb under ra
+            int p = need ^ rel_[a] ^ rel_[b];
+            parent_[rb]=ra;
+            rel_[rb]=p;
+        }
+    }
+    if(!ok){
+        printf("NO\n");
+        return 0;
+    }
+    // compress all
+    for(int i=1;i<=n;i++) findr(i);
+    // group by root, count rel 0 and 1
+    // map root -> (cnt0,cnt1)
+    unordered_map<int,pair<int,int>> cnt;
+    cnt.reserve(n*2);
+    for(int i=1;i<=n;i++){
+        int r=parent_[i];
+        if(r==i) continue; // handle below uniformly
+    }
+    // include roots themselves; iterate all vertices, root via findr
+    for(int i=1;i<=n;i++){
+        int r=findr(i);
+        auto &pr=cnt[r];
+        if(rel_[i]==0) pr.first++; else pr.second++;
+    }
+    // decide for each component: choose to set root value = 0 or 1.
+    // if root value =0, vertices in S are those with rel=1 => count = cnt1
+    // if root value =1, S are those with rel=0 => count = cnt0
+    // choose min, record choice (rootValue) per root
+    unordered_map<int,int> rootVal;
+    rootVal.reserve(n*2);
+    for(auto &kv:cnt){
+        int r=kv.first;
+        int c0=kv.second.first, c1=kv.second.second;
+        if(c1<=c0) rootVal[r]=0; else rootVal[r]=1;
+    }
+    vector<int> res;
+    for(int i=1;i<=n;i++){
+        int r=findr(i);
+        int rv=rootVal[r];
+        int s = rel_[i]^rv; // value of vertex
+        if(s==1) res.push_back(i);
+    }
+    printf("YES\n");
+    printf("%d\n",(int)res.size());
+    for(int v:res) printf("%d\n",v);
+    return 0;
+}

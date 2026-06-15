@@ -1,0 +1,41 @@
+#include <iostream>
+#include <cmath>
+
+using namespace std;
+
+void solve() {
+    long long M;
+    cin >> M;
+    if (M < 2) {
+        cout << "NO\n";
+        return;
+    }
+    long long S = 8 * M - 7;
+    long long root = sqrt(S);
+    // Adjust to find the exact integer square root safely
+    while ((root + 1) * (root + 1) <= S) {
+        root++;
+    }
+    while (root * root > S) {
+        root--;
+    }
+    if (root * root == S) {
+        cout << "YES\n";
+    } else {
+        cout << "NO\n";
+    }
+}
+
+int main() {
+    // Optimize standard I/O operations for performance
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N;
+    if (cin >> N) {
+        while (N--) {
+            solve();
+        }
+    }
+    return 0;
+}

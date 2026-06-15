@@ -1,0 +1,84 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+/**
+ * Problem: Totalizator
+ * Description: Calculate the total score of n participants based on their predictions of m football matches.
+ * Rules for each match and prediction (a, b) vs (ap, bp):
+ * 1. If the participant correctly predicts the winner or a tie: +2 points.
+ *    - Winner/tie is correctly predicted if:
+ *      (a > b and ap > bp) OR (a < b and ap < bp) OR (a == b and ap == bp)
+ * 2. If the participant correctly predicts the goal difference: +3 points.
+ *    - Difference is |a - b| == |ap - bp|.
+ * 3. If the participant correctly predicts the first team's goals: +1 point (ap == a).
+ * 4. If the participant correctly predicts the second team's goals: +1 point (bp == b).
+ * 
+ * The score for a single prediction is the sum of all rules that apply.
+ */
+
+int main() {
+    // Speed up input and output operations
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    // Read n (number of participants) and m (number of matches)
+    if (!(cin >> n >> m)) return 0;
+
+    // Array to store the total score for each participant
+    vector<int> scores(n, 0);
+
+    // Process each of the m matches
+    for (int i = 0; i < m; ++i) {
+        int a, b;
+        // Actual match score for the first and second team
+        if (!(cin >> a >> b)) break;
+
+        // Process each participant's prediction for the current match
+        for (int j = 0; j < n; ++j) {
+            int ap, bp;
+            // Participant j's predicted goals for the first and second team
+            if (!(cin >> ap >> bp)) break;
+
+            int match_points = 0;
+
+            // Rule 1: Correct winner or tie prediction
+            // If a > b, team 1 won. If a < b, team 2 won. If a == b, it was a tie.
+            if ((a > b && ap > bp) || (a < b && ap < bp) || (a == b && ap == bp)) {
+                match_points += 2;
+            }
+
+            // Rule 2: Correct goal difference prediction
+            // The difference is the absolute difference between the two scores.
+            int diff_actual = (a > b) ? (a - b) : (b - a);
+            int diff_pred = (ap > bp) ? (ap - bp) : (bp - ap);
+            if (diff_actual == diff_pred) {
+                match_points += 3;
+            }
+
+            // Rule 3: Correct number of goals scored by the first team
+            if (ap == a) {
+                match_points += 1;
+            }
+
+            // Rule 4: Correct number of goals scored by the second team
+            if (bp == b) {
+                match_points += 1;
+            }
+
+            // Accumulate the points for the current participant
+            scores[j] += match_points;
+        }
+    }
+
+    // Output the total scores of all participants separated by a space
+    for (int i = 0; i < n; ++i) {
+        cout << scores[i] << (i == n - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

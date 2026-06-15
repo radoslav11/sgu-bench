@@ -1,0 +1,35 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    int best = 0;
+    int bestCnt = INT_MAX;
+
+    for (int c = 0; c < 3; ++c) {
+        int cnt = 0;
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < M; ++j) {
+                if ((i + j) % 3 == c) cnt++;
+            }
+        }
+        if (cnt < bestCnt) {
+            bestCnt = cnt;
+            best = c;
+        }
+    }
+
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < M; ++j) {
+            cout << (((i + j) % 3 == best) ? '#' : '0');
+        }
+        cout << '\n';
+    }
+
+    return 0;
+}

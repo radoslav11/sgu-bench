@@ -1,0 +1,102 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+    --M;
+
+    vector<vector<int>> win(N, vector<int>(N));
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) cin >> win[i][j];
+    }
+
+    int H = 0;
+    while ((1 << H) < N) ++H;
+
+    int SZ = 1 << N;
+    vector<int> pc(SZ, 0);
+    for (int mask = 1; mask < SZ; ++mask) {
+        pc[mask] = pc[mask >> 1] + (mask & 1);
+    }
+
+    using Arr = array<unsigned long long, 16>;
+    vector<Arr> dp(SZ), ndp(SZ);
+
+    for (int mask = 0; mask < SZ; ++mask) dp[mask].fill(0);
+
+    for (int i = 0; i < N; ++i) {
+        dp[1 << i][i] = 1;
+    }
+
+    for (int level = 1; level <= H; ++level) {
+        for (int mask = 0; mask < SZ; ++mask) ndp[mask].fill(0);
+
+        for (int i = 0; i < N; ++i) {
+            ndp[1 << i][i] = 1;
+        }
+
+        vector<Arr> beatSum(SZ);
+        for (int mask = 0; mask < SZ; ++mask) beatSum[mask].fill(0);
+
+        for (int mask = 1; mask < SZ; ++mask) {
+            int b = __builtin_ctz(mask);
+            int prevMask = mask ^ (1 << b);
+            beatSum[mask] = beatSum[prevMask];
+            for (int i = 0; i < N; ++i) {
+                if (win[i][b]) beatSum[mask][i] += dp[1 << b][b];
+            }
+            for (int i = 0; i < N; ++i) {
+                if (win[i][b]) {
+                    beatSum[mask][i] = beatSum[prevMask][i] + dp[mask & -mask][b];
+                }
+            }
+        }
+
+        // Recompute beatSum directly; N <= 16, this is small and avoids subtle incremental issues.
+        for (int mask = 0; mask < SZ; ++mask) {
+            beatSum[mask].fill(0);
+            for (int j = 0; j < N; ++j) {
+                if (!(mask & (1 << j))) continue;
+                if (dp[mask][j] == 0) continue;
+                for (int i = 0; i < N; ++i) {
+                    if (win[i][j]) beatSum[mask][i] += dp[mask][j];
+                }
+            }
+        }
+
+        int cap = 1 << (level - 1);
+        int maxLeaves = 1 << level;
+
+        for (int S = 1; S < SZ; ++S) {
+            if (pc[S] < 2 || pc[S] > maxLeaves) continue;
+
+            int lowbit = S & -S;
+
+            for (int A = (S - 1) & S; A; A = (A - 1) & S) {
+                if (!(A & lowbit)) continue;
+
+                int B = S ^ A;
+                if (B == 0) continue;
+                if (pc[A] > cap || pc[B] > cap) continue;
+
+                for (int i = 0; i < N; ++i) {
+                    if (dp[A][i]) {
+                        ndp[S][i] += dp[A][i] * beatSum[B][i];
+                    }
+                    if (dp[B][i]) {
+                        ndp[S][i] += dp[B][i] * beatSum[A][i];
+                    }
+                }
+            }
+        }
+
+        dp.swap(ndp);
+    }
+
+    cout << dp[SZ - 1][M] << '\n';
+    return 0;
+}

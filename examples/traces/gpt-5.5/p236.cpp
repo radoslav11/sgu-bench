@@ -1,0 +1,105 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Edge {
+    int u, v;
+    int c, t;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    vector<Edge> edges;
+    edges.reserve(M);
+
+    for (int i = 0; i < M; ++i) {
+        int A, B, C, T;
+        cin >> A >> B >> C >> T;
+        --A; --B;
+        edges.push_back({A, B, C, T});
+    }
+
+    auto findPositiveCycle = [&](double ratio) -> vector<int> {
+        const double EPS = 1e-12;
+
+        vector<double> dist(N, 0.0);
+        vector<int> parent(N, -1);
+
+        int last = -1;
+
+        for (int iter = 0; iter < N; ++iter) {
+            last = -1;
+
+            for (const Edge &e : edges) {
+                double w = (double)e.c - ratio * (double)e.t;
+
+                if (dist[e.v] < dist[e.u] + w - EPS) {
+                    dist[e.v] = dist[e.u] + w;
+                    parent[e.v] = e.u;
+                    last = e.v;
+                }
+            }
+        }
+
+        if (last == -1) return {};
+
+        int x = last;
+        for (int i = 0; i < N; ++i) {
+            x = parent[x];
+            if (x == -1) return {};
+        }
+
+        vector<int> cycle;
+        int cur = x;
+        do {
+            cycle.push_back(cur);
+            cur = parent[cur];
+        } while (cur != x && cur != -1);
+
+        if (cur == -1) return {};
+
+        reverse(cycle.begin(), cycle.end());
+        return cycle;
+    };
+
+    if (findPositiveCycle(0.0).empty()) {
+        cout << 0 << '\n';
+        return 0;
+    }
+
+    double low = 0.0, high = 101.0;
+
+    for (int it = 0; it < 80; ++it) {
+        double mid = (low + high) / 2.0;
+
+        if (!findPositiveCycle(mid).empty()) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    vector<int> answer = findPositiveCycle(max(0.0, low - 1e-9));
+
+    if (answer.empty()) {
+        answer = findPositiveCycle(low - 1e-7);
+    }
+
+    if (answer.empty()) {
+        cout << 0 << '\n';
+        return 0;
+    }
+
+    cout << answer.size() << '\n';
+    for (int i = 0; i < (int)answer.size(); ++i) {
+        if (i) cout << ' ';
+        cout << answer[i] + 1;
+    }
+    cout << '\n';
+
+    return 0;
+}

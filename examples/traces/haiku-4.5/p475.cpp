@@ -1,0 +1,102 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int n, m;
+    cin >> n >> m;
+    
+    vector<int> w(n), t(n), s(n);
+    for(int i = 0; i < n; i++){
+        cin >> w[i] >> t[i] >> s[i];
+    }
+    
+    vector<int> c(m), D(m), d(m);
+    for(int i = 0; i < m; i++){
+        cin >> c[i] >> D[i] >> d[i];
+    }
+    
+    // State: (time, riffle_index, bitmask of people on raft)
+    map<pair<int,int>, long long> dist;
+    priority_queue<tuple<long long, int, int>, vector<tuple<long long, int, int>>, greater<tuple<long long, int, int>>> pq;
+    
+    // Start: at riffle 0, everyone on bank (mask = 0)
+    pq.push({0, 0, 0});
+    dist[{0, 0}] = 0;
+    
+    long long answer = LLONG_MAX;
+    
+    while(!pq.empty()){
+        auto [time, riffle, on_raft] = pq.top();
+        pq.pop();
+        
+        if(riffle == m){
+            // At finish, everyone must be on bank
+            if(on_raft == 0){
+                answer = min(answer, time);
+            }
+            continue;
+        }
+        
+        auto state = make_pair(riffle, on_raft);
+        if(dist.count(state) && dist[state] < time) continue;
+        
+        // Try all possible next states (who gets on/off at current point)
+        for(int next_mask = 0; next_mask < (1 << n); next_mask++){
+            // next_mask: who will be on raft for next riffle
+            
+            // Calculate time to go from current point to next point
+            int raft_weight = 0;
+            int max_walk_time = 0;
+            int swap_time = 0;
+            
+            // People getting on/off
+            for(int i = 0; i < n; i++){
+                bool was_on = (on_raft >> i) & 1;
+                bool will_be_on = (next_mask >> i) & 1;
+                
+                if(was_on != will_be_on){
+                    swap_time += s[i];
+                }
+            }
+            
+            // Calculate raft weight and walking time for next segment
+            for(int i = 0; i < n; i++){
+                if((next_mask >> i) & 1){
+                    raft_weight += w[i];
+                }else{
+                    max_walk_time = max(max_walk_time, t[i]);
+                }
+            }
+            
+            // Check if raft is valid (not empty and has at least one person for non-final riffles)
+            if(next_mask == 0 && riffle < m - 1) continue; // Can't have empty raft
+            
+            // Calculate travel time through riffle
+            long long travel_time;
+            if(next_mask == 0){
+                // Empty raft at finish
+                travel_time = 0;
+            } else if(raft_weight > c[riffle]){
+                travel_time = D[riffle];
+            } else {
+                travel_time = d[riffle];
+            }
+            
+            long long total_time = max(travel_time, (long long)max_walk_time) + swap_time;
+            long long new_time = time + total_time;
+            
+            auto next_state = make_pair(riffle + 1, next_mask);
+            if(!dist.count(next_state) || dist[next_state] > new_time){
+                dist[next_state] = new_time;
+                pq.push({new_time, riffle + 1, next_mask});
+            }
+        }
+    }
+    
+    cout << answer << endl;
+    
+    return 0;
+}

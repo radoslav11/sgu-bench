@@ -1,0 +1,127 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstdint>
+
+using namespace std;
+
+const uint64_t INF = UINT64_MAX;
+uint64_t dp[65][66];
+int best_k[65][66];
+
+vector<int> pegs[66];
+
+void print_move(int disk, int src, int dest) {
+    cout << "move " << disk << " from " << src << " to " << dest;
+    if (!pegs[dest].empty()) {
+        cout << " atop " << pegs[dest].back();
+    }
+    cout << "\n";
+    pegs[dest].push_back(disk);
+    pegs[src].pop_back();
+}
+
+void solve_hanoi(int min_disk, int max_disk, int m, int src, int dest, const vector<int>& available_pegs) {
+    int n = max_disk - min_disk + 1;
+    if (n == 1) {
+        print_move(min_disk, src, dest);
+        return;
+    }
+    
+    int k = best_k[n][m];
+    
+    if (k == n) {
+        vector<int> new_pegs = available_pegs;
+        for (size_t i = 0; i < new_pegs.size(); ++i) {
+            if (new_pegs[i] != src && new_pegs[i] != dest) {
+                new_pegs.erase(new_pegs.begin() + i);
+                break;
+            }
+        }
+        solve_hanoi(min_disk, max_disk, m - 1, src, dest, new_pegs);
+        return;
+    }
+    
+    int aux_peg = -1;
+    for (int p : available_pegs) {
+        if (p != src && p != dest) {
+            aux_peg = p;
+            break;
+        }
+    }
+    
+    solve_hanoi(min_disk, min_disk + n - k - 1, m, src, aux_peg, available_pegs);
+    
+    vector<int> new_pegs2;
+    for (int p : available_pegs) {
+        if (p != aux_peg) {
+            new_pegs2.push_back(p);
+        }
+    }
+    solve_hanoi(min_disk + n - k, max_disk, m - 1, src, dest, new_pegs2);
+    
+    solve_hanoi(min_disk, min_disk + n - k - 1, m, aux_peg, dest, available_pegs);
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+    
+    for (int i = 0; i <= 64; ++i) {
+        for (int j = 0; j <= 65; ++j) {
+            dp[i][j] = INF;
+        }
+    }
+    
+    for (int j = 3; j <= 65; ++j) {
+        dp[0][j] = 0;
+        dp[1][j] = 1;
+        best_k[1][j] = 1;
+    }
+    
+    for (int i = 2; i <= 64; ++i) {
+        if (i == 64) {
+            dp[i][3] = UINT64_MAX;
+        } else {
+            dp[i][3] = (1ULL << i) - 1;
+        }
+        best_k[i][3] = 1;
+    }
+    
+    for (int j = 4; j <= 65; ++j) {
+        for (int i = 2; i <= 64; ++i) {
+            for (int k = 1; k <= i; ++k) {
+                if (dp[i - k][j] != INF && dp[k][j - 1] != INF) {
+                    uint64_t val = dp[i - k][j];
+                    if (val > INF / 2) continue;
+                    val = 2 * val + dp[k][j - 1];
+                    if (val < dp[i][j]) {
+                        dp[i][j] = val;
+                        best_k[i][j] = k;
+                    }
+                }
+            }
+        }
+    }
+    
+    vector<int> initial_pegs;
+    for (int i = 1; i <= M; ++i) {
+        initial_pegs.push_back(i);
+    }
+    
+    pegs[1].clear();
+    for (int i = N; i >= 1; --i) {
+        pegs[1].push_back(i);
+    }
+    for (int i = 2; i <= M; ++i) {
+        pegs[i].clear();
+    }
+    
+    cout << dp[N][M] << "\n";
+    solve_hanoi(1, N, M, 1, M, initial_pegs);
+    
+    return 0;
+}

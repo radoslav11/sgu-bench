@@ -1,0 +1,162 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: 482. Impudent Thief
+ * Goal: Maximize the total height of stolen boards such that the remaining boards
+ * form a fence with perimeter P' >= P/2, where P is the original fence's perimeter.
+ * 
+ * Constraints: n <= 50, h_i <= 100.
+ * Perimeter P = 2n + h[0] + h[n-1] + sum|h[i]-h[i+1]|.
+ * Remaining perimeter P' = 2m + h[i_1] + sum|h[i_j]-h[i_{j+1}]| + h[i_m],
+ * where m is the number of remaining boards and i_1, ..., i_m are their indices.
+ * 
+ * We'll use dynamic programming:
+ * dp[m][i][v] = minimum height sum of m boards, ending at index i, 
+ * where v = h[i_1] + sum_{j=1 to m-1} |h[i_j] - h[i_{j+1}]|.
+ * Total perimeter P' = 2m + v + h[i].
+ * 
+ * Complexity: O(n^3 * max_v), with n=50 and max_v=5000, which is approx 3e8 operations.
+ * This is tight for 0.25s, but with a compact loop, it should pass.
+ */
+
+// Use short to stay within memory limits (64 MB)
+// dp[51][50][5201] takes approx 26 MB.
+short dp[51][50][5201];
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<int> h(n);
+    int total_h_sum = 0;
+    for (int i = 0; i < n; ++i) {
+        cin >> h[i];
+        total_h_sum += h[i];
+    }
+
+    // Calculate original perimeter
+    int P = 2 * n + h[0] + h[n - 1];
+    for (int i = 0; i < n - 1; ++i) {
+        P += abs(h[i] - h[i + 1]);
+    }
+
+    // Initialize DP table
+    const short INF = 30000;
+    for (int m = 0; m <= n; ++m) {
+        for (int i = 0; i < n; ++i) {
+            for (int v = 0; v <= 5200; ++v) {
+                dp[m][i][v] = INF;
+            }
+        }
+    }
+
+    // Base case: 1 board remaining
+    for (int i = 0; i < n; ++i) {
+        dp[1][i][h[i]] = (short)h[i];
+    }
+
+    // Fill DP table
+    for (int m = 1; m < n; ++m) {
+        for (int i = 0; i < n; ++i) {
+            for (int next_idx = i + 1; next_idx < n; ++next_idx) {
+                int diff = abs(h[i] - h[next_idx]);
+                int h_next = h[next_idx];
+                // Making the innermost loop on v for cache efficiency
+                // and only checking valid states to save time.
+                // However, the current structure works fine for small n.
+                // We'll try to optimize the loop order.
+                // The number of (m, i, v) states is limited.
+            }
+        }
+    }
+    
+    // Re-structured DP filling to maximize speed
+    for (int m = 1; m < n; ++m) {
+        for (int i = 0; i < n; ++i) {
+            for (int v = 0; v <= 5100; ++v) {
+                if (dp[m][i][v] == INF) continue;
+                int cur_sum = dp[m][i][v];
+                for (int next_idx = i + 1; next_idx < n; ++next_idx) {
+                    int next_v = v + abs(h[i] - h[next_idx]);
+                    if (next_v <= 5200) {
+                        int next_sum = cur_sum + h[next_idx];
+                        if (dp[m + 1][next_idx][next_v] > next_sum) {
+                            dp[m + 1][next_idx][next_v] = (short)next_sum;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    int min_h_rem = INF;
+    int best_m = -1, best_i = -1, best_v = -1;
+
+    for (int m = 1; m <= n; ++m) {
+        for (int i = 0; i < n; ++i) {
+            for (int v = 0; v <= 5200; ++v) {
+                if (dp[m][i][v] != INF) {
+                    int P_prime = 2 * m + v + h[i];
+                    if (2 * P_prime >= P) {
+                        if (dp[m][i][v] < min_h_rem) {
+                            min_h_rem = dp[m][i][v];
+                            best_m = m;
+                            best_i = i;
+                            best_v = v;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Reconstruct the indices of the remaining boards
+    vector<int> remaining_indices;
+    int curr_m = best_m, curr_i = best_i, curr_v = best_v;
+    while (curr_m > 0) {
+        remaining_indices.push_back(curr_i + 1);
+        if (curr_m == 1) break;
+        bool found = false;
+        for (int prev_i = 0; prev_i < curr_i; ++prev_i) {
+            int diff = abs(h[prev_i] - h[curr_i]);
+            int prev_v = curr_v - diff;
+            if (prev_v >= 0 && dp[curr_m - 1][prev_i][prev_v] != INF &&
+                dp[curr_m - 1][prev_i][prev_v] + h[curr_i] == dp[curr_m][curr_i][curr_v]) {
+                curr_m--;
+                curr_i = prev_i;
+                curr_v = prev_v;
+                found = true;
+                break;
+            }
+        }
+        if (!found) break; // Should not happen
+    }
+
+    // Determine stolen boards
+    vector<bool> keep(n, false);
+    for (int idx : remaining_indices) keep[idx - 1] = true;
+
+    vector<int> stolen;
+    for (int i = 0; i < n; ++i) {
+        if (!keep[i]) stolen.push_back(i + 1);
+    }
+
+    // Output results
+    cout << total_h_sum - min_h_rem << "\n";
+    cout << stolen.size() << "\n";
+    for (int i = 0; i < (int)stolen.size(); ++i) {
+        cout << stolen[i] << (i == (int)stolen.size() - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

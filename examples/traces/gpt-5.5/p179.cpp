@@ -1,0 +1,43 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string s;
+    cin >> s;
+
+    int n = (int)s.size();
+    vector<int> pref(n + 1, 0);
+
+    for (int i = 0; i < n; ++i) {
+        pref[i + 1] = pref[i] + (s[i] == '(' ? 1 : -1);
+    }
+
+    for (int i = n - 1; i >= 0; --i) {
+        if (s[i] == '(') {
+            int balanceAfterChange = pref[i] - 1;
+            int remaining = n - i - 1;
+
+            if (balanceAfterChange >= 0 &&
+                remaining >= balanceAfterChange &&
+                (remaining - balanceAfterChange) % 2 == 0) {
+
+                int openCnt = (remaining - balanceAfterChange) / 2;
+                int closeCnt = remaining - openCnt;
+
+                string ans = s.substr(0, i);
+                ans += ')';
+                ans += string(openCnt, '(');
+                ans += string(closeCnt, ')');
+
+                cout << ans << '\n';
+                return 0;
+            }
+        }
+    }
+
+    cout << "No solution\n";
+    return 0;
+}

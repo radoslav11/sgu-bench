@@ -1,0 +1,139 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Ans {
+    long long area;
+    string path;
+    bool ok;
+};
+
+char dirChar(int dx, int dy) {
+    if (dx == 1) return 'E';
+    if (dx == -1) return 'W';
+    if (dy == 1) return 'N';
+    return 'S';
+}
+
+string moveSteps(char c, int k) {
+    return string(max(0, k), c);
+}
+
+Ans solveOrient(const vector<pair<int,int>>& pts, int sx, int sy) {
+    // Transform: X = sx * (x - x0), Y = sy * (y - y0)
+    // Need all points in the first quadrant.
+    int maxX = 0, maxY = 0;
+    vector<pair<int,int>> p;
+    for (auto [x, y] : pts) {
+        int X = sx * x;
+        int Y = sy * y;
+        if (X < 0 || Y < 0) return {0, "", false};
+        p.push_back({X, Y});
+        maxX = max(maxX, X);
+        maxY = max(maxY, Y);
+    }
+
+    Ans best{(long long)4e18, "", false};
+
+    for (int W = max(1, maxX); W <= max(1, maxX) + 2; W++) {
+        for (int H = max(1, maxY); H <= max(1, maxY) + 2; H++) {
+            vector<int> U(W, 1), L(W, H - 1);
+
+            for (int i = 0; i < W; i++) {
+                for (auto [x, y] : p) {
+                    if (x <= i) U[i] = max(U[i], y);
+                    if (x > i) L[i] = min(L[i], y);
+                }
+            }
+
+            U[W - 1] = H;
+            L[0] = 0;
+
+            for (int i = 1; i < W; i++) U[i] = max(U[i], U[i - 1]);
+            for (int i = W - 2; i >= 0; i--) L[i] = min(L[i], L[i + 1]);
+
+            bool ok = true;
+            for (int i = 0; i < W; i++) {
+                if (U[i] > H || L[i] < 0 || L[i] >= U[i]) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (!ok) continue;
+
+            long long area = 0;
+            for (int i = 0; i < W; i++) area += U[i] - L[i];
+
+            if (area >= best.area) continue;
+
+            char posX = dirChar(sx, 0);
+            char negX = dirChar(-sx, 0);
+            char posY = dirChar(0, sy);
+            char negY = dirChar(0, -sy);
+
+            string path;
+
+            // Upper chain: from (0,0) to (W,H)
+            int cy = 0;
+            path += moveSteps(posY, U[0] - cy);
+            cy = U[0];
+
+            for (int i = 0; i < W; i++) {
+                path += posX;
+                if (i + 1 < W) {
+                    path += moveSteps(posY, U[i + 1] - cy);
+                    cy = U[i + 1];
+                }
+            }
+
+            // Now at (W,H). Return along lower chain backwards.
+            cy = H;
+            path += moveSteps(negY, cy - L[W - 1]);
+            cy = L[W - 1];
+
+            for (int i = W - 1; i >= 0; i--) {
+                path += negX;
+                if (i - 1 >= 0) {
+                    path += moveSteps(negY, cy - L[i - 1]);
+                    cy = L[i - 1];
+                }
+            }
+
+            best = {area, path, true};
+        }
+    }
+
+    return best;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, x0, y0;
+    cin >> n >> x0 >> y0;
+
+    vector<pair<int,int>> wells(n);
+    for (auto &w : wells) {
+        cin >> w.first >> w.second;
+        w.first -= x0;
+        w.second -= y0;
+    }
+
+    Ans best{(long long)4e18, "", false};
+
+    for (int sx : {-1, 1}) {
+        for (int sy : {-1, 1}) {
+            Ans cur = solveOrient(wells, sx, sy);
+            if (cur.ok && cur.area < best.area) best = cur;
+        }
+    }
+
+    if (!best.ok) {
+        cout << -1 << '\n';
+    } else {
+        cout << best.area << '\n';
+        cout << best.path << '\n';
+    }
+
+    return 0;
+}

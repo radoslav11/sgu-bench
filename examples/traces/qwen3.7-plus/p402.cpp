@@ -1,0 +1,143 @@
+#include <iostream>
+#include <vector>
+#include <numeric>
+
+using namespace std;
+
+struct Edge {
+    int u, v, w, id;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<Edge> edges(M);
+    vector<vector<int>> adj_weight(N + 1, vector<int>(N + 1, 0));
+    for (int i = 0; i < M; ++i) {
+        cin >> edges[i].u >> edges[i].v >> edges[i].w;
+        edges[i].id = i + 1;
+        adj_weight[edges[i].u][edges[i].v] = edges[i].w;
+        adj_weight[edges[i].v][edges[i].u] = edges[i].w;
+    }
+
+    int global_min_cut = 1e9;
+    vector<int> global_best_edges;
+
+    for (int c = 1; c <= N; ++c) {
+        vector<int> V_prime;
+        for (int i = 1; i <= N; ++i) {
+            if (i != c) V_prime.push_back(i);
+        }
+        int n_prime = V_prime.size();
+        if (n_prime <= 1) continue;
+
+        vector<vector<int>> members(n_prime);
+        for (int i = 0; i < n_prime; ++i) {
+            members[i] = {V_prime[i]};
+        }
+
+        vector<int> active(n_prime);
+        iota(active.begin(), active.end(), 0);
+
+        vector<vector<int>> graph(n_prime, vector<int>(n_prime, 0));
+        for (int i = 0; i < n_prime; ++i) {
+            for (int j = i + 1; j < n_prime; ++j) {
+                int u = V_prime[i];
+                int v = V_prime[j];
+                graph[i][j] = adj_weight[u][v];
+                graph[j][i] = adj_weight[u][v];
+            }
+        }
+
+        int cur_n = n_prime;
+        int min_cut = 1e9;
+        vector<int> best_edges;
+
+        while (cur_n > 1) {
+            vector<bool> in_A(cur_n, false);
+            vector<int> weight_to_A(cur_n, 0);
+            int last = -1, prev_last = -1;
+            int cut_weight = 0;
+
+            for (int step = 0; step < cur_n; ++step) {
+                int max_w = -1;
+                int next_v = -1;
+                for (int i = 0; i < cur_n; ++i) {
+                    if (!in_A[i] && weight_to_A[i] > max_w) {
+                        max_w = weight_to_A[i];
+                        next_v = i;
+                    }
+                }
+
+                in_A[next_v] = true;
+                if (step == cur_n - 1) {
+                    cut_weight = max_w;
+                    last = next_v;
+                } else {
+                    prev_last = next_v;
+                    for (int i = 0; i < cur_n; ++i) {
+                        if (!in_A[i]) {
+                            weight_to_A[i] += graph[next_v][i];
+                        }
+                    }
+                }
+            }
+
+            if (cut_weight < min_cut) {
+                min_cut = cut_weight;
+                best_edges.clear();
+                vector<bool> in_t(N + 1, false);
+                for (int v_orig : members[last]) {
+                    in_t[v_orig] = true;
+                }
+                for (const auto& e : edges) {
+                    if (e.u == c || e.v == c) continue;
+                    if (in_t[e.u] != in_t[e.v]) {
+                        best_edges.push_back(e.id);
+                    }
+                }
+            }
+
+            int idx_prev = -1, idx_last = -1;
+            for (int i = 0; i < cur_n; ++i) {
+                if (active[i] == prev_last) idx_prev = i;
+                if (active[i] == last) idx_last = i;
+            }
+
+            int p = active[idx_prev];
+            int l = active[idx_last];
+            
+            for (int i = 0; i < cur_n; ++i) {
+                int other = active[i];
+                if (other != p && other != l) {
+                    graph[p][other] += graph[l][other];
+                    graph[other][p] += graph[l][other];
+                }
+            }
+            
+            members[p].insert(members[p].end(), members[l].begin(), members[l].end());
+
+            active[idx_last] = active.back();
+            active.pop_back();
+            cur_n--;
+        }
+
+        if (min_cut < global_min_cut) {
+            global_min_cut = min_cut;
+            global_best_edges = best_edges;
+        }
+    }
+
+    cout << global_min_cut << "\n";
+    cout << global_best_edges.size() << "\n";
+    for (int i = 0; i < (int)global_best_edges.size(); ++i) {
+        cout << global_best_edges[i] << (i + 1 == (int)global_best_edges.size() ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

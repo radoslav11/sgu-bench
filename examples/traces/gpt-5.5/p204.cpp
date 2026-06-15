@@ -1,0 +1,59 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+static const double INF = 1e100;
+
+double jump_speed(double before, double after, double b, double t, double g) {
+    if (before <= 0.0 || after <= 0.0) return INF;
+
+    double R = before + after;
+    double A = before * after;
+
+    // For trajectory y = k*x*(R-x), wall height y is chosen in [b,t].
+    // Speed^2 = g/2 * (A/y + R^2*y/A), minimized at y = A/R.
+    double y = A / R;
+    if (y < b) y = b;
+    if (y > t) y = t;
+
+    double v2 = g * 0.5 * (A / y + R * R * y / A);
+    return sqrt(v2);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    double b1, t1, b2, t2, l, ds, df, g;
+
+    cout.setf(ios::fixed);
+    cout << setprecision(4);
+
+    while (cin >> b1 >> t1 >> b2 >> t2 >> l >> ds >> df >> g) {
+        auto need = [&](double z) {
+            double v1 = jump_speed(ds, z, b1, t1, g);
+            double v2 = jump_speed(l - z, df, b2, t2, g);
+            return max(v1, v2);
+        };
+
+        double lo = 0.0, hi = l;
+
+        for (int it = 0; it < 200; ++it) {
+            double m1 = lo + (hi - lo) / 3.0;
+            double m2 = hi - (hi - lo) / 3.0;
+
+            if (need(m1) < need(m2))
+                hi = m2;
+            else
+                lo = m1;
+        }
+
+        double ans = need((lo + hi) / 2.0);
+
+        if (!isfinite(ans) || ans >= INF / 2)
+            cout << -1 << '\n';
+        else
+            cout << ans + 1e-9 << '\n';
+    }
+
+    return 0;
+}

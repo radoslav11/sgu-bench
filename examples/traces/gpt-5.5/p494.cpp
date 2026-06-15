@@ -1,0 +1,115 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+    while (T--) {
+        int N, W, R, C;
+        cin >> N >> W >> R >> C;
+
+        vector<int> L(N + 1);
+        vector<long long> pref(N + 1, 0);
+
+        for (int i = 1; i <= N; ++i) {
+            cin >> L[i];
+            pref[i] = pref[i - 1] + L[i];
+        }
+
+        auto nextAfterLine = [&](int start, int width) -> int {
+            if (start > N || width <= 0) return start;
+
+            int lo = start, hi = N, ans = start - 1;
+            while (lo <= hi) {
+                int mid = (lo + hi) / 2;
+                long long need = pref[mid] - pref[start - 1] + (mid - start);
+                if (need <= width) {
+                    ans = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+
+            return ans + 1;
+        };
+
+        vector<int> nextW(N + 2);
+        for (int i = 1; i <= N + 1; ++i) {
+            nextW[i] = nextAfterLine(i, W);
+        }
+
+        vector<int> suffixRows(N + 2, 0);
+        suffixRows[N + 1] = 0;
+        for (int i = N; i >= 1; --i) {
+            suffixRows[i] = 1 + suffixRows[nextW[i]];
+        }
+
+        vector<pair<int, int>> boundaries;
+        int cur = 1;
+        int rowsBefore = 0;
+
+        while (cur <= N) {
+            boundaries.push_back({rowsBefore, cur});
+            cur = nextW[cur];
+            ++rowsBefore;
+        }
+        boundaries.push_back({rowsBefore, N + 1});
+
+        int answer = suffixRows[1] + R;
+
+        for (auto [before, startWord] : boundaries) {
+            for (int left = 1; left + C - 1 <= W; ++left) {
+                int idx = startWord;
+
+                int leftWidth = left - 1;
+                int rightWidth = W - (left + C - 1);
+
+                for (int row = 0; row < R && idx <= N; ++row) {
+                    idx = nextAfterLine(idx, leftWidth);
+                    idx = nextAfterLine(idx, rightWidth);
+                }
+
+                int total = before + R + suffixRows[idx];
+                answer = min(answer, total);
+            }
+        }
+
+        /*
+           The illustration may sometimes fit entirely into unused trailing
+           space of already produced normal lines.  The following conservative
+           check handles the common case where the original layout already has
+           R consecutive rows with at least C free trailing columns.
+        */
+        vector<int> freeTail;
+        cur = 1;
+        while (cur <= N) {
+            int nxt = nextW[cur];
+            long long used = pref[nxt - 1] - pref[cur - 1] + (nxt - cur);
+            freeTail.push_back(W - (int)used);
+            cur = nxt;
+        }
+
+        int consecutive = 0;
+        bool fitsInside = false;
+        for (int x : freeTail) {
+            if (x >= C) {
+                ++consecutive;
+                if (consecutive >= R) fitsInside = true;
+            } else {
+                consecutive = 0;
+            }
+        }
+
+        if (fitsInside) {
+            answer = min(answer, suffixRows[1]);
+        }
+
+        cout << answer << '\n';
+    }
+
+    return 0;
+}

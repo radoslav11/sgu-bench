@@ -1,0 +1,37 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int n, k;
+long long count_ways;
+long long result;
+
+// We'll do DFS placing queens, allowing rows to be skipped
+long long total;
+
+bool colUsed[20];
+bool diag1[40]; // r+c
+bool diag2[40]; // r-c+n
+
+long long solve(int row, int placed) {
+    if (placed == k) return 1;
+    if (row == n) return 0;
+    long long ways = 0;
+    // place a queen in this row at some column
+    for (int c = 0; c < n; c++) {
+        if (!colUsed[c] && !diag1[row+c] && !diag2[row-c+n]) {
+            colUsed[c] = diag1[row+c] = diag2[row-c+n] = true;
+            ways += solve(row+1, placed+1);
+            colUsed[c] = diag1[row+c] = diag2[row-c+n] = false;
+        }
+    }
+    // skip this row
+    ways += solve(row+1, placed);
+    return ways;
+}
+
+int main(){
+    cin >> n >> k;
+    if (k == 0) { cout << 1 << endl; return 0; }
+    cout << solve(0, 0) << endl;
+    return 0;
+}

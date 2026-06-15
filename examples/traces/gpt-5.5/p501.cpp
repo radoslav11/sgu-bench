@@ -1,0 +1,211 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct KeyHash {
+    size_t operator()(const __uint128_t &x) const {
+        uint64_t lo = (uint64_t)x;
+        uint64_t hi = (uint64_t)(x >> 64);
+        return lo * 11995408973635179863ULL ^ hi * 10150724397891781847ULL;
+    }
+};
+
+int n;
+int idU[8][4][4], idD[8][4][4];
+vector<unsigned __int128> adjMask;
+vector<int> colorWhite;
+unordered_map<__uint128_t, unsigned long long, KeyHash> memo;
+
+int getU(int f, int i, int j) { return idU[f][i][j]; }
+int getD(int f, int i, int j) { return idD[f][i][j]; }
+
+void addEdge(int a, int b) {
+    if (a == b) return;
+    adjMask[a] |= ((__uint128_t)1 << b);
+    adjMask[b] |= ((__uint128_t)1 << a);
+}
+
+struct SegKey {
+    int a, b, s;
+    bool operator<(const SegKey& other) const {
+        if (a != other.a) return a < other.a;
+        if (b != other.b) return b < other.b;
+        return s < other.s;
+    }
+};
+
+int segIndex(int x, int y, int t) {
+    if (x < y) return t;
+    return n - 1 - t;
+}
+
+unsigned long long solve(__uint128_t rem) {
+    if (rem == 0) return 1;
+
+    auto it = memo.find(rem);
+    if (it != memo.end()) return it->second;
+
+    int best = -1, bestDeg = 1000;
+
+    __uint128_t tmp = rem;
+    while (tmp) {
+        int v = __builtin_ctzll((uint64_t)tmp);
+        if ((uint64_t)tmp == 0) {
+            v = 64 + __builtin_ctzll((uint64_t)(tmp >> 64));
+        }
+
+        int deg = __builtin_popcountll((uint64_t)(adjMask[v] & rem)) +
+                  __builtin_popcountll((uint64_t)((adjMask[v] & rem) >> 64));
+
+        if (deg < bestDeg) {
+            bestDeg = deg;
+            best = v;
+            if (deg == 0) break;
+        }
+
+        tmp &= tmp - 1;
+    }
+
+    if (bestDeg == 0) return memo[rem] = 0;
+
+    unsigned long long ans = 0;
+    __uint128_t cand = adjMask[best] & rem;
+    rem &= ~((__uint128_t)1 << best);
+
+    while (cand) {
+        int u = __builtin_ctzll((uint64_t)cand);
+        if ((uint64_t)cand == 0) {
+            u = 64 + __builtin_ctzll((uint64_t)(cand >> 64));
+        }
+
+        ans += solve(rem & ~((__uint128_t)1 << u));
+        cand &= cand - 1;
+    }
+
+    return memo[((rem | ((__uint128_t)1 << best)))] = ans;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> n;
+
+    memset(idU, -1, sizeof(idU));
+    memset(idD, -1, sizeof(idD));
+
+    int cnt = 0;
+    for (int f = 0; f < 8; f++) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j + i < n; j++) {
+                idU[f][i][j] = cnt++;
+            }
+        }
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j + i < n - 1; j++) {
+                idD[f][i][j] = cnt++;
+            }
+        }
+    }
+
+    adjMask.assign(cnt, 0);
+    colorWhite.assign(cnt, 0);
+
+    for (int f = 0; f < 8; f++) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; i + j < n; j++) {
+                int u = getU(f, i, j);
+
+                if (i + j < n - 1) addEdge(u, getD(f, i, j));
+                if (i > 0) addEdge(u, getD(f, i - 1, j));
+                if (j > 0) addEdge(u, getD(f, i, j - 1));
+            }
+        }
+    }
+
+    const int T = 0, B = 1, L = 2, F = 3, R = 4, K = 5;
+
+    int face[8][3] = {
+        {T, L, F},
+        {T, F, R},
+        {T, R, K},
+        {T, K, L},
+        {B, L, F},
+        {B, F, R},
+        {B, R, K},
+        {B, K, L}
+    };
+
+    map<SegKey, vector<int>> boundary;
+
+    auto addBoundary = [&](int a, int b, int t, int tri) {
+        SegKey key{min(a, b), max(a, b), segIndex(a, b, t)};
+        boundary[key].push_back(tri);
+    };
+
+    for (int f = 0; f < 8; f++) {
+        int A = face[f][0], X = face[f][1], Y = face[f][2];
+
+        for (int t = 0; t < n; t++) {
+            addBoundary(A, X, t, getU(f, t, 0));
+            addBoundary(A, Y, t, getU(f, 0, t));
+            addBoundary(X, Y, t, getU(f, n - 1 - t, t));
+        }
+    }
+
+    for (auto &p : boundary) {
+        if (p.second.size() == 2) {
+            addEdge(p.second[0], p.second[1]);
+        }
+    }
+
+    for (int layer = 0; layer < 2 * n; layer++) {
+        string s;
+        cin >> s;
+
+        int pos = 0;
+
+        if (layer < n) {
+            int row = layer + 1;
+
+            for (int f = 0; f < 4; f++) {
+                for (int q = 0; q < row; q++) {
+                    int i = row - 1 - q;
+                    int j = q;
+                    colorWhite[getU(f, i, j)] = (s[pos++] == '.');
+
+                    if (q + 1 < row) {
+                        colorWhite[getD(f, i - 1, j)] = (s[pos++] == '.');
+                    }
+                }
+            }
+        } else {
+            int row = 2 * n - layer;
+
+            for (int f = 4; f < 8; f++) {
+                for (int q = 0; q < row; q++) {
+                    int i = row - 1 - q;
+                    int j = q;
+                    colorWhite[getU(f, i, j)] = (s[pos++] == '.');
+
+                    if (q + 1 < row) {
+                        colorWhite[getD(f, i - 1, j)] = (s[pos++] == '.');
+                    }
+                }
+            }
+        }
+    }
+
+    __uint128_t initial = 0;
+    for (int i = 0; i < cnt; i++) {
+        if (colorWhite[i]) initial |= ((__uint128_t)1 << i);
+    }
+
+    if (__builtin_popcountll((uint64_t)initial) +
+        __builtin_popcountll((uint64_t)(initial >> 64)) & 1) {
+        cout << 0 << '\n';
+        return 0;
+    }
+
+    cout << solve(initial) << '\n';
+    return 0;
+}

@@ -1,0 +1,107 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <bitset>
+
+using namespace std;
+
+/**
+ * Problem: Square
+ * Description: We are given an NxN grid initially all white. There are M repaintings 
+ * that change a rectangular area to either black ('b') or white ('w'). 
+ * We need to find the number of white cells after all repaintings.
+ * 
+ * Constraints: N <= 1000, M <= 5000. 
+ * Total cells = 1,000,000.
+ * Naive approach: O(M * N^2) = 5000 * 1,000,000 = 5 * 10^9 operations.
+ * This is too slow for a 1.25s time limit.
+ * 
+ * Optimized Approach: Use a bitset for each row to manage cell colors.
+ * A bitset can speed up range operations by a factor of about 64.
+ * Complexity: O(M * N * (N/64)) = 5000 * 1000 * 16 = 8 * 10^7 operations.
+ * This should easily pass within the 1.25s limit.
+ * 
+ * Bitset representation:
+ * - Black cells are represented by bit 1.
+ * - White cells are represented by bit 0.
+ * - Initial state: all cells are white (all bits 0).
+ * - For black operation on [min_x, max_x] and [min_y, max_y]:
+ *   For each x from min_x to max_x, grid[x] |= mask, where mask has 1s in [min_y, max_y].
+ * - For white operation on [min_x, max_x] and [min_y, max_y]:
+ *   For each x from min_x to max_x, grid[x] &= ~mask.
+ */
+
+int main() {
+    // Speed up standard I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    // grid[x] stores which columns in row x are black (1).
+    // We use 1001 to handle indices from 1 to N comfortably.
+    vector<bitset<1001>> grid(N + 1);
+    
+    // prefix_masks[i] will have bits from 1 up to i set to 1.
+    // This allows us to create a range mask in O(1) bitwise operations.
+    vector<bitset<1001>> prefix_masks(N + 1);
+    for (int i = 1; i <= N; ++i) {
+        prefix_masks[i] = prefix_masks[i - 1];
+        prefix_masks[i].set(i);
+    }
+
+    for (int i = 0; i < M; ++i) {
+        int x1, y1, x2, y2;
+        char c;
+        if (!(cin >> x1 >> y1 >> x2 >> y2 >> c)) break;
+
+        // Determine rectangle boundaries regardless of corner order
+        int min_x = min(x1, x2);
+        int max_x = max(x1, x2);
+        int min_y = min(y1, y2);
+        int max_y = max(y1, y2);
+
+        // Clamp boundaries within the grid range [1, N]
+        min_x = max(1, min_x);
+        max_x = min(N, max_x);
+        min_y = max(1, min_y);
+        max_y = min(N, max_y);
+
+        // If boundaries are invalid, skip this operation
+        if (min_x > max_x || min_y > max_y) continue;
+
+        // Create a mask where bits in [min_y, max_y] are 1.
+        // (prefix_masks[max_y] ^ prefix_masks[min_y - 1]) works because prefix_masks[max_y]
+        // has bits 1 to max_y, and prefix_masks[min_y-1] has bits 1 to min_y-1.
+        bitset<1001> mask = prefix_masks[max_y] ^ prefix_masks[min_y - 1];
+
+        if (c == 'b') {
+            // Repaint to black: set bits in range [min_y, max_y] to 1
+            for (int x = min_x; x <= max_x; ++x) {
+                grid[x] |= mask;
+            }
+        } else {
+            // Repaint to white: set bits in range [min_y, max_y] to 0
+            // bitset's ~ operator flips all bits in the entire 1001-bit set.
+            // Since we only care about bits 1 to N and our mask only has bits
+            // 1 to N set, the ~mask will effectively allow us to clear only [min_y, max_y].
+            for (int x = min_x; x <= max_x; ++x) {
+                grid[x] &= ~mask;
+            }
+        }
+    }
+
+    // Calculate total number of black cells
+    long long black_cells = 0;
+    for (int i = 1; i <= N; ++i) {
+        black_cells += grid[i].count();
+    }
+
+    // White cells = Total cells - Black cells
+    long long total_cells = (long long)N * N;
+    cout << total_cells - black_cells << endl;
+
+    return 0;
+}
+

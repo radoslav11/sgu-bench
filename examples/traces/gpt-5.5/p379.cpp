@@ -1,0 +1,67 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    int64 C, P, T;
+    cin >> N >> C >> P >> T;
+
+    vector<int64> A(N + 1);
+    int64 total = 0;
+    for (int i = 1; i <= N; ++i) {
+        cin >> A[i];
+        total += A[i];
+    }
+
+    int64 budget = T / (2 * P);
+
+    auto minCost = [&](int64 k) -> int64 {
+        if (k == 0) return 0;
+
+        int64 r = k % C;
+        int64 firstEndpoint = (r == 0 ? C : r);
+
+        auto countEndpointsUpTo = [&](int64 x) -> int64 {
+            if (x < firstEndpoint) return 0LL;
+            return (x - firstEndpoint) / C + 1;
+        };
+
+        int64 cost = 0;
+        int64 pos = 0;
+        int64 remaining = k;
+
+        for (int floor = 1; floor <= N && remaining > 0; ++floor) {
+            int64 take = min(A[floor], remaining);
+
+            int64 l = pos + 1;
+            int64 rr = pos + take;
+
+            int64 cnt = countEndpointsUpTo(rr) - countEndpointsUpTo(l - 1);
+            cost += cnt * floor;
+
+            pos += take;
+            remaining -= take;
+        }
+
+        return cost;
+    };
+
+    int64 lo = 0, hi = total;
+    while (lo < hi) {
+        int64 mid = (lo + hi + 1) / 2;
+        if (minCost(mid) <= budget) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    cout << lo << '\n';
+
+    return 0;
+}

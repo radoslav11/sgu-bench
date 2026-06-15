@@ -1,0 +1,98 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ull = unsigned long long;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    ull l, r;
+    int k;
+    cin >> l >> r >> k;
+
+    const int MAXM = 18;
+    const int MAXC = 400;
+
+    vector<ull> pow10(MAXM + 1, 1);
+    for (int i = 1; i <= MAXM; ++i) pow10[i] = pow10[i - 1] * 10ULL;
+
+    auto digit_sum = [](ull x) {
+        int s = 0;
+        while (x > 0) {
+            s += int(x % 10);
+            x /= 10;
+        }
+        return s;
+    };
+
+    int C = MAXC + 1;
+    size_t totalSize = size_t(MAXM + 1) * C * k;
+
+    vector<ull> cnt(totalSize, 0);
+    vector<unsigned short> nxt(totalSize, 0);
+
+    auto id = [&](int m, int c, int state) -> size_t {
+        return (size_t(m) * C + c) * k + state;
+    };
+
+    for (int c = 0; c <= MAXC; ++c) {
+        for (int s = 0; s < k; ++s) {
+            size_t idx = id(0, c, s);
+            if (s + c >= k) {
+                cnt[idx] = 1;
+                nxt[idx] = 0;
+            } else {
+                cnt[idx] = 0;
+                nxt[idx] = (unsigned short)(s + c);
+            }
+        }
+    }
+
+    for (int m = 1; m <= MAXM; ++m) {
+        for (int c = 0; c <= MAXC - 9; ++c) {
+            for (int s = 0; s < k; ++s) {
+                int curState = s;
+                ull curCnt = 0;
+
+                for (int d = 0; d <= 9; ++d) {
+                    size_t sub = id(m - 1, c + d, curState);
+                    curCnt += cnt[sub];
+                    curState = nxt[sub];
+                }
+
+                size_t idx = id(m, c, s);
+                cnt[idx] = curCnt;
+                nxt[idx] = (unsigned short)curState;
+            }
+        }
+    }
+
+    ull ans = 0;
+    int state = 0;
+    ull cur = l;
+
+    while (cur <= r) {
+        int best = 0;
+
+        for (int m = MAXM; m >= 0; --m) {
+            ull len = pow10[m];
+            if (cur % len == 0 && cur + len - 1 <= r) {
+                best = m;
+                break;
+            }
+        }
+
+        int c = digit_sum(cur / pow10[best]);
+        size_t idx = id(best, c, state);
+
+        ans += cnt[idx];
+        state = nxt[idx];
+
+        cur += pow10[best];
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

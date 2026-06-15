@@ -1,0 +1,110 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstring>
+
+using namespace std;
+
+int N;
+int n1, n2, n3, n4;
+
+struct Transition {
+    int nmask;
+    int dc1, dc2, dc3, dc4;
+    long long ways;
+};
+
+vector<Transition> trans[6][32];
+long long memo[6][32][26][26][26];
+
+int get_type(int c0, int c1, int c2) {
+    int sum = c0 + c1 + c2;
+    if (sum == 0) return 1;
+    if (sum == 3) return 2;
+    if (sum == 1) return 3;
+    return 4;
+}
+
+struct State {
+    int nmask, dc1, dc2, dc3, dc4;
+    bool operator<(const State& o) const {
+        if (nmask != o.nmask) return nmask < o.nmask;
+        if (dc1 != o.dc1) return dc1 < o.dc1;
+        if (dc2 != o.dc2) return dc2 < o.dc2;
+        if (dc3 != o.dc3) return dc3 < o.dc3;
+        return dc4 < o.dc4;
+    }
+    bool operator==(const State& o) const {
+        return nmask == o.nmask && dc1 == o.dc1 && dc2 == o.dc2 && dc3 == o.dc3 && dc4 == o.dc4;
+    }
+};
+
+void precompute() {
+    for (int r = 0; r < N; ++r) {
+        for (int mask = 0; mask < (1 << r); ++mask) {
+            vector<State> states;
+            int limit = 1 << (3 * r + 3);
+            states.reserve(limit);
+            for (int bits = 0; bits < limit; ++bits) {
+                int dc1 = 0, dc2 = 0, dc3 = 0, dc4 = 0;
+                for (int c = 0; c < r; ++c) {
+                    int t = (mask >> c) & 1;
+                    int l = (bits >> (1 + c)) & 1;
+                    int ri = (bits >> (1 + r + c)) & 1;
+                    int type = get_type(t, l, ri);
+                    if (type == 1) dc1++;
+                    else if (type == 2) dc2++;
+                    else if (type == 3) dc3++;
+                    else dc4++;
+                }
+                for (int c = 0; c <= r; ++c) {
+                    int l = (c == 0) ? ((bits >> 0) & 1) : ((bits >> (1 + r + c - 1)) & 1);
+                    int ri = (c == r) ? ((bits >> (1 + 2 * r)) & 1) : ((bits >> (1 + c)) & 1);
+                    int b = (bits >> (2 + 2 * r + c)) & 1;
+                    int type = get_type(l, ri, b);
+                    if (type == 1) dc1++;
+                    else if (type == 2) dc2++;
+                    else if (type == 3) dc3++;
+                    else dc4++;
+                }
+                int nmask = 0;
+                for (int c = 0; c <= r; ++c) {
+                    nmask |= ((bits >> (2 + 2 * r + c)) & 1) << c;
+                }
+                states.push_back({nmask, dc1, dc2, dc3, dc4});
+            }
+            sort(states.begin(), states.end());
+            for (size_t i = 0; i < states.size(); ) {
+                size_t j = i;
+                while (j < states.size() && states[j] == states[i]) j++;
+                trans[r][mask].push_back({states[i].nmask, states[i].dc1, states[i].dc2, states[i].dc3, states[i].dc4, (long long)(j - i)});
+                i = j;
+            }
+        }
+    }
+}
+
+long long solve(int r, int mask, int c1, int c2, int c3) {
+    if (r == N) {
+        return (c1 == n1 && c2 == n2 && c3 == n3) ? 1 : 0;
+    }
+    if (memo[r][mask][c1][c2][c3] != -1) return memo[r][mask][c1][c2][c3];
+    long long res = 0;
+    int c4 = r * r - c1 - c2 - c3;
+    for (const auto& tr : trans[r][mask]) {
+        if (c1 + tr.dc1 <= n1 && c2 + tr.dc2 <= n2 && c3 + tr.dc3 <= n3 && c4 + tr.dc4 <= n4) {
+            res += tr.ways * solve(r + 1, tr.nmask, c1 + tr.dc1, c2 + tr.dc2, c3 + tr.dc3);
+        }
+    }
+    return memo[r][mask][c1][c2][c3] = res;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    if (!(cin >> N >> n1 >> n2 >> n3 >> n4)) return 0;
+    memset(memo, -1, sizeof(memo));
+    precompute();
+    cout << solve(0, 0, 0, 0, 0) << "\n";
+    return 0;
+}

@@ -1,0 +1,216 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Pt {
+    int x, y;
+};
+
+long long cross(const Pt& a, const Pt& b, const Pt& c) {
+    return 1LL * (b.x - a.x) * (c.y - a.y) - 1LL * (b.y - a.y) * (c.x - a.x);
+}
+
+struct Event {
+    int pos;
+    int dp, dm;
+    bool operator<(const Event& other) const {
+        return pos < other.pos;
+    }
+};
+
+struct GroupKey {
+    int type, key;
+    bool operator<(const GroupKey& o) const {
+        if (type != o.type) return type < o.type;
+        return key < o.key;
+    }
+};
+
+static map<GroupKey, vector<Event>> groups;
+
+void add_segment(Pt a, Pt b) {
+    int type, key, l, r;
+    int dx = b.x - a.x;
+    int dy = b.y - a.y;
+
+    int cdx, cdy;
+
+    if (a.y == b.y) {
+        type = 0;
+        key = a.y;
+        l = min(a.x, b.x);
+        r = max(a.x, b.x);
+        cdx = 1; cdy = 0;
+    } else if (a.x == b.x) {
+        type = 1;
+        key = a.x;
+        l = min(a.y, b.y);
+        r = max(a.y, b.y);
+        cdx = 0; cdy = 1;
+    } else if (a.x + a.y == b.x + b.y) {
+        type = 2;
+        key = a.x + a.y;
+        if (a.x < b.x) {
+            l = a.x; r = b.x;
+        } else {
+            l = b.x; r = a.x;
+        }
+        cdx = 1; cdy = -1;
+    } else {
+        type = 3;
+        key = a.x - a.y;
+        if (a.x < b.x) {
+            l = a.x; r = b.x;
+        } else {
+            l = b.x; r = a.x;
+        }
+        cdx = 1; cdy = 1;
+    }
+
+    bool same_dir = (dx == cdx * abs(dx == 0 ? dy : dx) &&
+                     dy == cdy * abs(dx == 0 ? dy : dx));
+
+    int side = same_dir ? 1 : -1;
+
+    GroupKey g{type, key};
+    if (side == 1) {
+        groups[g].push_back({l, +1, 0});
+        groups[g].push_back({r, -1, 0});
+    } else {
+        groups[g].push_back({l, 0, +1});
+        groups[g].push_back({r, 0, -1});
+    }
+}
+
+bool valid_axis_right_iso(Pt a, Pt b, Pt c) {
+    Pt p[3] = {a, b, c};
+
+    for (int i = 0; i < 3; ++i) {
+        Pt o = p[i], u = p[(i + 1) % 3], v = p[(i + 2) % 3];
+
+        int ux = u.x - o.x, uy = u.y - o.y;
+        int vx = v.x - o.x, vy = v.y - o.y;
+
+        long long du = 1LL * ux * ux + 1LL * uy * uy;
+        long long dv = 1LL * vx * vx + 1LL * vy * vy;
+
+        if (du == 0 || dv == 0 || du != dv) continue;
+        if (1LL * ux * vx + 1LL * uy * vy != 0) continue;
+
+        bool one_h = (uy == 0 && vx == 0);
+        bool one_v = (ux == 0 && vy == 0);
+
+        if (one_h || one_v) return true;
+    }
+
+    return false;
+}
+
+bool is_boundary_interval(int n, const GroupKey& g, int l, int r, int& need_side) {
+    if (g.type == 0 && g.key == 0 && l >= 0 && r <= n) {
+        need_side = 1;  // y = 0, interior is above
+        return true;
+    }
+    if (g.type == 1 && g.key == 0 && l >= 0 && r <= n) {
+        need_side = -1; // x = 0, interior is to the right
+        return true;
+    }
+    if (g.type == 2 && g.key == n && l >= 0 && r <= n) {
+        need_side = -1; // x + y = n, interior is below-left
+        return true;
+    }
+    return false;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    while (T--) {
+        int n, m;
+        cin >> n >> m;
+
+        groups.clear();
+
+        bool ok = true;
+        long long area2_sum = 0;
+
+        for (int i = 0; i < m; ++i) {
+            Pt p[3];
+            cin >> p[0].x >> p[0].y >> p[1].x >> p[1].y >> p[2].x >> p[2].y;
+
+            if (!valid_axis_right_iso(p[0], p[1], p[2])) ok = false;
+
+            for (int j = 0; j < 3; ++j) {
+                if (p[j].x < 0 || p[j].y < 0 || p[j].x + p[j].y > n) ok = false;
+            }
+
+            long long cr = cross(p[0], p[1], p[2]);
+            if (cr == 0) ok = false;
+            area2_sum += llabs(cr);
+
+            if (cr < 0) swap(p[1], p[2]);
+
+            for (int j = 0; j < 3; ++j) {
+                Pt a = p[j];
+                Pt b = p[(j + 1) % 3];
+
+                int dx = abs(a.x - b.x);
+                int dy = abs(a.y - b.y);
+
+                bool good_edge = (dx == 0 || dy == 0 || dx == dy);
+                if (!good_edge) ok = false;
+
+                add_segment(a, b);
+            }
+        }
+
+        if (area2_sum != 1LL * n * n) ok = false;
+
+        for (auto& it : groups) {
+            const GroupKey& g = it.first;
+            vector<Event>& ev = it.second;
+            sort(ev.begin(), ev.end());
+
+            int cp = 0, cm = 0;
+            int prev = ev.empty() ? 0 : ev[0].pos;
+            size_t idx = 0;
+
+            while (idx < ev.size()) {
+                int pos = ev[idx].pos;
+
+                if (prev < pos) {
+                    int need_side = 0;
+                    bool boundary = is_boundary_interval(n, g, prev, pos, need_side);
+
+                    if (boundary) {
+                        if (need_side == 1) {
+                            if (!(cp == 1 && cm == 0)) ok = false;
+                        } else {
+                            if (!(cp == 0 && cm == 1)) ok = false;
+                        }
+                    } else {
+                        if (!((cp == 0 && cm == 0) || (cp == 1 && cm == 1))) ok = false;
+                    }
+                }
+
+                while (idx < ev.size() && ev[idx].pos == pos) {
+                    cp += ev[idx].dp;
+                    cm += ev[idx].dm;
+                    ++idx;
+                }
+
+                if (cp < 0 || cm < 0) ok = false;
+                prev = pos;
+            }
+
+            if (cp != 0 || cm != 0) ok = false;
+        }
+
+        cout << (ok ? "YES" : "NO") << '\n';
+    }
+
+    return 0;
+}

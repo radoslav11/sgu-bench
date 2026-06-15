@@ -1,0 +1,100 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Vec3 {
+    double x, y, z;
+    Vec3(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
+    
+    Vec3 operator+(const Vec3& v) const { return Vec3(x + v.x, y + v.y, z + v.z); }
+    Vec3 operator-(const Vec3& v) const { return Vec3(x - v.x, y - v.y, z - v.z); }
+    Vec3 operator*(double s) const { return Vec3(x * s, y * s, z * s); }
+    
+    double dot(const Vec3& v) const { return x * v.x + y * v.y + z * v.z; }
+    Vec3 cross(const Vec3& v) const {
+        return Vec3(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x);
+    }
+    
+    double norm() const { return sqrt(x * x + y * y + z * z); }
+    Vec3 normalize() const {
+        double n = norm();
+        return Vec3(x / n, y / n, z / n);
+    }
+};
+
+Vec3 rotateAroundAxis(Vec3 v, Vec3 axis, double angleDeg) {
+    // Rodrigues' rotation formula
+    // v_rot = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
+    // where k is the unit axis vector
+    
+    double angleRad = angleDeg * M_PI / 180.0;
+    axis = axis.normalize();
+    
+    double cosA = cos(angleRad);
+    double sinA = sin(angleRad);
+    
+    Vec3 kCrossV = axis.cross(v);
+    double kDotV = axis.dot(v);
+    
+    return v * cosA + kCrossV * sinA + axis * (kDotV * (1.0 - cosA));
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cout << fixed << setprecision(2);
+    
+    int n;
+    cin >> n;
+    
+    vector<tuple<char, Vec3, double>> spells;
+    
+    for (int i = 0; i < n; i++) {
+        char type;
+        cin >> type;
+        
+        if (type == 'T') {
+            double x, y, z;
+            cin >> x >> y >> z;
+            spells.push_back(make_tuple(type, Vec3(x, y, z), 0.0));
+        } else if (type == 'S') {
+            double x, y, z;
+            cin >> x >> y >> z;
+            spells.push_back(make_tuple(type, Vec3(x, y, z), 0.0));
+        } else if (type == 'R') {
+            double x, y, z, a;
+            cin >> x >> y >> z >> a;
+            spells.push_back(make_tuple(type, Vec3(x, y, z), a));
+        }
+    }
+    
+    int m;
+    cin >> m;
+    
+    for (int i = 0; i < m; i++) {
+        double x, y, z;
+        cin >> x >> y >> z;
+        Vec3 vertex(x, y, z);
+        
+        // Apply all spells in order
+        for (const auto& spell : spells) {
+            char type = get<0>(spell);
+            Vec3 param = get<1>(spell);
+            double angle = get<2>(spell);
+            
+            if (type == 'T') {
+                vertex = vertex + param;
+            } else if (type == 'S') {
+                vertex.x *= param.x;
+                vertex.y *= param.y;
+                vertex.z *= param.z;
+            } else if (type == 'R') {
+                vertex = rotateAroundAxis(vertex, param, angle);
+            }
+        }
+        
+        cout << vertex.x << " " << vertex.y << " " << vertex.z << "\n";
+    }
+    
+    return 0;
+}

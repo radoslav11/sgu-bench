@@ -1,0 +1,102 @@
+#include <cstdio>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+/**
+ * Problem: eXam
+ * 
+ * Goal: 
+ * We have N subjects and M pupils. Each pupil selects two different subjects.
+ * We need to schedule all exams into two days such that for each pupil, 
+ * their two selected subjects are on different days.
+ * This means we need to partition the N subjects into two sets, S1 (Day 1) 
+ * and S2 (Day 2), such that no two subjects chosen by the same pupil are 
+ * in the same set.
+ * 
+ * This is equivalent to checking if the graph, where subjects are vertices 
+ * and each pupil's subject pair is an edge, is bipartite.
+ * 
+ * Constraints:
+ * N <= 200
+ * M <= 30000
+ * Time limit: 0.25 seconds
+ * Memory limit: 4096 KB
+ * 
+ * Complexity Analysis:
+ * Building the adjacency list: O(M)
+ * BFS/DFS for bipartiteness check: O(N + M)
+ * Total time complexity: O(N + M), which is around 30,200 operations.
+ * This should comfortably pass within the 0.25s time limit in C++.
+ */
+
+const int MAXN = 205;
+vector<int> adj[MAXN];
+int color[MAXN]; // 0: unvisited, 1: Day 1, 2: Day 2
+
+int main() {
+    int N, M;
+    // Use scanf for faster input due to the tight time limit
+    if (scanf("%d %d", &N, &M) != 2) return 0;
+
+    for (int i = 0; i < M; ++i) {
+        int u, v;
+        if (scanf("%d %d", &u, &v) != 2) break;
+        // Only process if subjects are within valid range
+        if (u >= 1 && u <= N && v >= 1 && v <= N) {
+            adj[u].push_back(v);
+            adj[v].push_back(u);
+        }
+    }
+
+    bool possible = true;
+    // Check every connected component for bipartiteness
+    for (int i = 1; i <= N; ++i) {
+        if (color[i] == 0) {
+            queue<int> q;
+            q.push(i);
+            color[i] = 1; // Assign first node in component to Day 1
+            while (!q.empty()) {
+                int u = q.front();
+                q.pop();
+                for (int v : adj[u]) {
+                    if (color[v] == 0) {
+                        // Assign neighbor to the opposite day
+                        color[v] = 3 - color[u];
+                        q.push(v);
+                    } else if (color[v] == color[u]) {
+                        // Found an edge between vertices of the same color (odd cycle)
+                        possible = false;
+                        break;
+                    }
+                }
+                if (!possible) break;
+            }
+        }
+        if (!possible) break;
+    }
+
+    if (possible) {
+        printf("yes\n");
+        vector<int> s1;
+        for (int i = 1; i <= N; ++i) {
+            if (color[i] == 1) {
+                s1.push_back(i);
+            }
+        }
+        // Output number of exams on the first day
+        printf("%d\n", (int)s1.size());
+        // Output subject IDs on the first day
+        for (int i = 0; i < (int)s1.size(); ++i) {
+            if (i > 0) printf(" ");
+            printf("%d", s1[i]);
+        }
+        printf("\n");
+    } else {
+        printf("no\n");
+    }
+
+    return 0;
+}
+

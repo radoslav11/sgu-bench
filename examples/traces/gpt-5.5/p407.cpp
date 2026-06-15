@@ -1,0 +1,30 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+
+    if (m == 0) {
+        cout << 1 << '\n';
+        return 0;
+    }
+
+    cpp_int a_prev = 1; // a[0]
+    cpp_int a_cur = 0;  // a[1]
+
+    for (int i = 2; i <= m; ++i) {
+        cpp_int a_next = 2 * a_cur + n * a_prev;
+        a_prev = a_cur;
+        a_cur = a_next;
+    }
+
+    cout << a_cur << '\n';
+    return 0;
+}

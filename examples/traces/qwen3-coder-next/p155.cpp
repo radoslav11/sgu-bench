@@ -1,0 +1,226 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <stack>
+#include <utility>
+
+using namespace std;
+
+struct Node {
+    int k; // main key (for BST property)
+    int a; // auxiliary key (for heap property)
+    int index; // original index (1-based)
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    vector<Node> nodes(n);
+    for (int i = 0; i < n; i++) {
+        cin >> nodes[i].k >> nodes[i].a;
+        nodes[i].index = i + 1;
+    }
+
+    // Sort nodes by main key (k) to get the BST inorder sequence
+    vector<int> indices(n);
+    for (int i = 0; i < n; i++) indices[i] = i;
+    
+    sort(indices.begin(), indices.end(), [&](int i, int j) {
+        return nodes[i].k < nodes[j].k;
+    });
+
+    // Now we need to build a Cartesian tree on the sorted array by auxiliary keys
+    // such that it satisfies: 
+    // - BST property by main key (already satisfied by inorder traversal)
+    // - Min-heap property by auxiliary key (parent.a < children.a)
+    
+    // We can build the Cartesian tree using a stack in O(n)
+    // The idea: traverse the sorted array, and for each element, pop from stack
+    // until we find a node with smaller auxiliary key (to maintain heap property),
+    // then set the last popped node as left child of current node,
+    // and current node as right child of the node at top of stack.
+    
+    vector<int> parent(n + 1, 0);
+    vector<int> left(n + 1, 0);
+    vector<int> right(n + 1, 0);
+
+    stack<int> st; // store indices in the sorted array
+
+    for (int i = 0; i < n; i++) {
+        int curr = indices[i];
+        int last = -1; // index in sorted array of last popped node
+
+        // Pop nodes while heap property is violated (current.a < top.a)
+        while (!st.empty() && nodes[curr].a < nodes[st.top()].a) {
+            last = st.top();
+            st.pop();
+        }
+
+        // Set left child: last popped node becomes left child of current
+        if (last != -1) {
+            int last_node = indices[last];
+            left[nodes[curr].index] = nodes[last_node].index;
+            parent[nodes[last_node].index] = nodes[curr].index;
+        }
+
+        // Set right child: current node becomes right child of top of stack
+        if (!st.empty()) {
+            int top_node = indices[st.top()];
+            right[nodes[top_node].index] = nodes[curr].index;
+            parent[nodes[curr].index] = nodes[top_node].index;
+        }
+
+        st.push(i);
+    }
+
+    // Now check if the resulting structure is a valid Cartesian tree
+    // We need to verify BST and heap properties
+    
+    // However, note: the algorithm above always produces a valid Cartesian tree
+    // if a Cartesian tree exists, but does one always exist?
+    // Actually, for any set of distinct (k, a), we can always build a Cartesian tree:
+    // - sort by k (to satisfy BST)
+    // - build Cartesian tree by a (min-heap) using the algorithm above
+    // So the answer should always be YES?
+    
+    // But wait: the problem says "detect that it is not possible". 
+    // However, with distinct k and a, a Cartesian tree always exists.
+    // The standard Cartesian tree construction (sort by first key, build min-heap by second key)
+    // always works when keys are distinct.
+    
+    // So we should always output YES.
+    
+    // However, let me double-check: 
+    // In a Cartesian tree, we need a binary search tree with respect to k and a min-heap with respect to a.
+    // Given distinct k and a, we can always build such a tree:
+    // 1. Sort nodes by k: this defines the inorder traversal of the BST.
+    // 2. Build a min-heap on a: find the node with minimum a as root, then recursively build left and right subtrees.
+    // The standard stack-based algorithm does exactly that in O(n).
+    
+    // So we'll output YES and the tree.
+    
+    // But let me check the sample: 
+    // Input: 
+    // 7
+    // 5 4
+    // 2 2
+    // 3 9
+    // 0 5
+    // 1 3
+    // 6 6
+    // 4 11
+    
+    // Sorted by k:
+    // k: 0,1,2,3,4,5,6
+    // a: 5,3,2,9,11,4,6
+    // indices: 4,5,1,3,7,2,6
+    
+    // Build Cartesian tree by a:
+    // Start with node k=0 (a=5, idx=4)
+    // Then k=1 (a=3, idx=5): 3<5, so pop 4, 5 becomes root, 4 becomes left child of 5
+    // Then k=2 (a=2, idx=1): 2<3, pop 5, 1 becomes root, 5 becomes left child of 1
+    // Then k=3 (a=9, idx=3): 9>2, so 3 becomes right child of 1
+    // Then k=4 (a=11, idx=7): 11>9, so 7 becomes right child of 3
+    // Then k=5 (a=4, idx=2): 4<11, pop 7; 4<9, pop 3; 4>2, so 2 becomes right child of 1? 
+    // Actually after popping 7 and 3, top is 1 (a=2), so 2 becomes right child of 1, but 3 was right child of 1.
+    // Correction: after popping 7 and 3, top is 1 (a=2). Then 2 (a=4) becomes right child of 1, and the last popped (3) becomes left child of 2.
+    // Then k=6 (a=6, idx=6): 6>4, so becomes right child of 2.
+    
+    // Let's build the parent/child relationships:
+    // Root is node 1 (k=2, a=2)
+    // Left child of 1: node 5 (k=1, a=3) [since 5 was popped when 1 was added]
+    // Right child of 1: node 2 (k=5, a=4)
+    // Left child of 2: node 3 (k=3, a=9)
+    // Right child of 2: node 6 (k=6, a=6)
+    // Left child of 3: node 7 (k=4, a=11)
+    
+    // But sample output:
+    // 2 3 6  -> node1: parent=2, left=3, right=6
+    // 0 5 1  -> node2: parent=0, left=5, right=1
+    // 1 0 7  -> node3: parent=1, left=0, right=7
+    // 5 0 0  -> node4: parent=5, left=0, right=0
+    // 2 4 0  -> node5: parent=2, left=4, right=0
+    // 1 0 0  -> node6: parent=1, left=0, right=0
+    // 3 0 0  -> node7: parent=3, left=0, right=0
+    
+    // Let me reindex the sample input:
+    // node1: (5,4)
+    // node2: (2,2)
+    // node3: (3,9)
+    // node4: (0,5)
+    // node5: (1,3)
+    // node6: (6,6)
+    // node7: (4,11)
+    
+    // Sorted by k:
+    // k: 0 (node4), 1 (node5), 2 (node2), 3 (node3), 4 (node7), 5 (node1), 6 (node6)
+    // a: 5,3,2,9,11,4,6
+    
+    // Build Cartesian tree:
+    // i=0: node4 (a=5) -> stack: [0]
+    // i=1: node5 (a=3) < 5 -> pop 0, last=0; stack empty, so node5 becomes root? 
+    //        left[child of node5] = node4; parent[node4]=5.
+    //        stack: [1]
+    // i=2: node2 (a=2) < 3 -> pop 1, last=1; stack empty, so node2 becomes root.
+    //        left[child of node2] = node5; parent[node5]=2.
+    //        stack: [2]
+    // i=3: node3 (a=9) > 2 -> stack not empty, top=2 (node2), so right[node2]=node3; parent[node3]=2.
+    //        stack: [2,3]
+    // i=4: node7 (a=11) > 9 -> right[node3]=node7; parent[node7]=3.
+    //        stack: [2,3,4]
+    // i=5: node1 (a=4) < 11 -> pop 4, last=4; a=4 < 9 -> pop 3, last=3; a=4 > 2 -> stop.
+    //        right[node2] = node1? But right[node2] was already set to node3.
+    //        Correction: we should set left[node1] = last_popped (node7? no, last_popped is node3).
+    //        Actually last = 3 (node3), so left[node1] = node3; parent[node3] = node1.
+    //        Then since stack not empty (top=2, node2), right[node2] = node1; parent[node1] = node2.
+    //        But wait, node3 was already a child of node2. Now we're making node3 the left child of node1, 
+    //        and node1 the right child of node2. That means node2's right child becomes node1, 
+    //        and node1's left child becomes node3.
+    //        Then stack: [2,5]
+    // i=6: node6 (a=6) > 4 -> right[node1]=node6; parent[node6]=node1.
+    //        stack: [2,5,6]
+    
+    // Now let's list the tree:
+    // node2: parent=0, left= node5, right= node1
+    // node5: parent= node2, left= node4, right= ? (we didn't set right for node5)
+    // node1: parent= node2, left= node3, right= node6
+    // node3: parent= node1, left= ? (we didn't set left for node3), right= ? 
+    //        But earlier we set left[node1]=node3, and parent[node3]=node1.
+    //        But initially we had right[node2]=node3, but then changed to node1.
+    //        Also, we need to check if node3's left and right are set correctly.
+    //        When we popped node3 at i=5, last=3, and then we set left[node1]=node3.
+    //        But what about the children of node3? 
+    //        node3 was right child of node2, and then node7 was right child of node3.
+    //        When we popped node3, we don't change its children, but we change its parent.
+    //        So node3's parent becomes node1, but its children remain: 
+    //        Initially, when i=4, we set right[node3]=node7, so node7's parent=node3.
+    //        So node3's left=0, right= node7.
+    
+    // Now let's write the tree in node index order (1-7):
+    // node1: parent=2, left=3, right=6
+    // node2: parent=0, left=5, right=1
+    // node3: parent=1, left=0, right=7
+    // node4: parent=5, left=0, right=0
+    // node5: parent=2, left=4, right=0  (we didn't set right for node5, so 0)
+    // node6: parent=1, left=0, right=0
+    // node7: parent=3, left=0, right=0
+    
+    // This matches the sample output exactly!
+    
+    // Therefore, the algorithm is correct, and a Cartesian tree always exists for distinct keys.
+    // So we always output "YES".
+    
+    cout << "YES" << '\n';
+    
+    for (int i = 1; i <= n; i++) {
+        cout << parent[i] << " " << left[i] << " " << right[i] << '\n';
+    }
+
+    return 0;
+}

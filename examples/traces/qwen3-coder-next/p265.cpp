@@ -1,0 +1,148 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
+
+using namespace std;
+
+const double PI = acos(-1.0);
+
+struct Point {
+    double x, y, z;
+    Point() : x(0), y(0), z(0) {}
+    Point(double x, double y, double z) : x(x), y(y), z(z) {}
+};
+
+// Rotation matrix for rotating around an arbitrary axis (ux, uy, uz) by angle theta (in radians)
+// Using Rodrigues' rotation formula
+struct Matrix4x4 {
+    double m[4][4];
+    
+    Matrix4x4() {
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                m[i][j] = (i == j) ? 1.0 : 0.0;
+    }
+    
+    static Matrix4x4 identity() {
+        Matrix4x4 mat;
+        return mat;
+    }
+    
+    static Matrix4x4 translation(double dx, double dy, double dz) {
+        Matrix4x4 mat = identity();
+        mat.m[0][3] = dx;
+        mat.m[1][3] = dy;
+        mat.m[2][3] = dz;
+        return mat;
+    }
+    
+    static Matrix4x4 scaling(double sx, double sy, double sz) {
+        Matrix4x4 mat = identity();
+        mat.m[0][0] = sx;
+        mat.m[1][1] = sy;
+        mat.m[2][2] = sz;
+        return mat;
+    }
+    
+    static Matrix4x4 rotation(double ux, double uy, double uz, double angleDeg) {
+        // Normalize the axis vector
+        double len = sqrt(ux*ux + uy*uy + uz*uz);
+        ux /= len;
+        uy /= len;
+        uz /= len;
+        
+        double angleRad = angleDeg * PI / 180.0;
+        double c = cos(angleRad);
+        double s = sin(angleRad);
+        double t = 1 - c;
+        
+        Matrix4x4 mat = identity();
+        
+        // Rodrigues' rotation matrix
+        mat.m[0][0] = t*ux*ux + c;
+        mat.m[0][1] = t*ux*uy - s*uz;
+        mat.m[0][2] = t*ux*uz + s*uy;
+        
+        mat.m[1][0] = t*ux*uy + s*uz;
+        mat.m[1][1] = t*uy*uy + c;
+        mat.m[1][2] = t*uy*uz - s*ux;
+        
+        mat.m[2][0] = t*ux*uz - s*uy;
+        mat.m[2][1] = t*uy*uz + s*ux;
+        mat.m[2][2] = t*uz*uz + c;
+        
+        return mat;
+    }
+    
+    Matrix4x4 multiply(const Matrix4x4& other) const {
+        Matrix4x4 result;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                result.m[i][j] = 0.0;
+                for (int k = 0; k < 4; ++k) {
+                    result.m[i][j] += m[i][k] * other.m[k][j];
+                }
+            }
+        }
+        return result;
+    }
+    
+    Point apply(const Point& p) const {
+        double x = m[0][0]*p.x + m[0][1]*p.y + m[0][2]*p.z + m[0][3];
+        double y = m[1][0]*p.x + m[1][1]*p.y + m[1][2]*p.z + m[1][3];
+        double z = m[2][0]*p.x + m[2][1]*p.y + m[2][2]*p.z + m[2][3];
+        return Point(x, y, z);
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int N;
+    cin >> N;
+    
+    Matrix4x4 transform = Matrix4x4::identity();
+    
+    for (int i = 0; i < N; ++i) {
+        char type;
+        cin >> type;
+        
+        if (type == 'T') {
+            double dx, dy, dz;
+            cin >> dx >> dy >> dz;
+            Matrix4x4 t = Matrix4x4::translation(dx, dy, dz);
+            transform = transform.multiply(t);
+        } else if (type == 'S') {
+            double sx, sy, sz;
+            cin >> sx >> sy >> sz;
+            Matrix4x4 s = Matrix4x4::scaling(sx, sy, sz);
+            transform = transform.multiply(s);
+        } else if (type == 'R') {
+            double x, y, z, angle;
+            cin >> x >> y >> z >> angle;
+            Matrix4x4 r = Matrix4x4::rotation(x, y, z, angle);
+            transform = transform.multiply(r);
+        }
+    }
+    
+    int M;
+    cin >> M;
+    
+    vector<Point> vertices(M);
+    for (int i = 0; i < M; ++i) {
+        cin >> vertices[i].x >> vertices[i].y >> vertices[i].z;
+    }
+    
+    // Output precision to match sample (2 decimal places)
+    cout << fixed << setprecision(2);
+    
+    for (int i = 0; i < M; ++i) {
+        Point p = transform.apply(vertices[i]);
+        cout << p.x << " " << p.y << " " << p.z << "\n";
+    }
+    
+    return 0;
+}

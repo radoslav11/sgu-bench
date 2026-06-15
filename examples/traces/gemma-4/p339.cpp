@@ -1,0 +1,78 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+/**
+ * Problem Summary:
+ * We are managing segments [L, R] on a real axis.
+ * Two types of queries:
+ * 1. '+ L R': Add a segment and print the number of existing segments [l, r] that are inside it (L <= l and r <= R).
+ * 2. '- L R': Remove one instance of segment [L, R] if it exists.
+ * 
+ * Constraints:
+ * - No more than 1000 segments present simultaneously.
+ * - Up to 250,000 queries total.
+ * - L, R are in range [-10^9, 10^9].
+ * 
+ * Complexity Analysis:
+ * Since the number of simultaneous segments (N) is small (<= 1000), we can store
+ * all current segments in a simple vector.
+ * For each '+ L R' query, we iterate through all N segments and check the condition.
+ * This is an O(N) operation.
+ * For each '- L R' query, we iterate through all N segments to find one to remove.
+ * This is also an O(N) operation.
+ * Total time complexity: O(Q * N), where Q = 250,000 and N = 1,000.
+ * Q * N = 250,000 * 1,000 = 250,000,000.
+ * This is roughly 2.5 * 10^8 operations. In C++, simple comparison and increment 
+ * operations at this scale can typically be processed within 2.25 seconds.
+ */
+
+struct Segment {
+    int l, r;
+};
+
+int main() {
+    // Optimization for faster I/O to handle large number of queries
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    char type;
+    int L, R;
+    // Store current segments in a vector
+    vector<Segment> segments;
+    // Pre-reserve space for up to 1000 segments for efficiency
+    segments.reserve(1005);
+
+    // Process queries until end of input
+    while (cin >> type >> L >> R) {
+        if (type == '+') {
+            int count = 0;
+            // Count how many segments [l, r] are inside the new segment [L, R]
+            // The condition for [l, r] being inside [L, R] is: L <= l and r <= R
+            for (const auto& seg : segments) {
+                if (seg.l >= L && seg.r <= R) {
+                    count++;
+                }
+            }
+            // Add the new segment to our list
+            segments.push_back({L, R});
+            // Print the number of segments found inside
+            cout << count << "\n";
+        } else if (type == '-') {
+            // Find and remove exactly one instance of the segment [L, R]
+            for (size_t i = 0; i < segments.size(); ++i) {
+                if (segments[i].l == L && segments[i].r == R) {
+                    // To remove in O(1), swap the current segment with the last one
+                    // and then pop the last one. Order in the vector doesn't matter.
+                    segments[i] = segments.back();
+                    segments.pop_back();
+                    break;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+

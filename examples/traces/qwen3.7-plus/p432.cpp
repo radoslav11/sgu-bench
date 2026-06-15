@@ -1,0 +1,105 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cctype>
+
+using namespace std;
+
+string to_lower(string s) {
+    string res = "";
+    for (char c : s) {
+        res += tolower((unsigned char)c);
+    }
+    return res;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    string s;
+    char c;
+    while (cin.get(c)) {
+        s += c;
+    }
+    
+    if (!s.empty() && s.back() == '\r') {
+        s.pop_back();
+    }
+    
+    vector<string> sentences;
+    size_t start = 0;
+    while (start < s.length()) {
+        size_t dot_pos = s.find('.', start);
+        if (dot_pos == string::npos) {
+            break;
+        }
+        sentences.push_back(s.substr(start, dot_pos - start + 1));
+        start = dot_pos + 1;
+        if (start < s.length() && s[start] == ' ') {
+            start++;
+        }
+    }
+    
+    vector<string> results;
+    
+    for (const string& sent : sentences) {
+        if (sent.empty()) continue;
+        string sent_no_dot = sent.substr(0, sent.length() - 1);
+        
+        vector<string> words;
+        string current_word = "";
+        for (char ch : sent_no_dot) {
+            if (ch == ' ') {
+                words.push_back(current_word);
+                current_word = "";
+            } else {
+                current_word += ch;
+            }
+        }
+        if (!current_word.empty()) {
+            words.push_back(current_word);
+        }
+        
+        for (size_t i = 0; i < words.size(); ++i) {
+            string lower_w = to_lower(words[i]);
+            if (lower_w == "can" || lower_w == "may" || lower_w == "must" || lower_w == "should") {
+                vector<string> new_words = words;
+                new_words.insert(new_words.begin() + i + 1, "not");
+                string new_sent = "";
+                for (size_t j = 0; j < new_words.size(); ++j) {
+                    new_sent += new_words[j];
+                    if (j + 1 < new_words.size()) new_sent += " ";
+                }
+                new_sent += ".";
+                results.push_back(new_sent);
+            } else if (lower_w == "is" || lower_w == "are") {
+                vector<string> new_words = words;
+                string next_word_lower = "";
+                if (i + 1 < new_words.size()) {
+                    next_word_lower = to_lower(new_words[i + 1]);
+                }
+                if (next_word_lower == "a" || next_word_lower == "the") {
+                    new_words.erase(new_words.begin() + i + 1);
+                    new_words.insert(new_words.begin() + i + 1, "no");
+                } else {
+                    new_words.insert(new_words.begin() + i + 1, "no");
+                }
+                string new_sent = "";
+                for (size_t j = 0; j < new_words.size(); ++j) {
+                    new_sent += new_words[j];
+                    if (j + 1 < new_words.size()) new_sent += " ";
+                }
+                new_sent += ".";
+                results.push_back(new_sent);
+            }
+        }
+    }
+    
+    cout << results.size() << "\n";
+    for (const string& res : results) {
+        cout << res << "\n";
+    }
+    
+    return 0;
+}

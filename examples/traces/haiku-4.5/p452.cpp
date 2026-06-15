@@ -1,0 +1,109 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+const double EPS = 1e-9;
+const double INF = 1e18;
+
+struct Point {
+    double x, y, z;
+    Point(double x=0, double y=0, double z=0): x(x), y(y), z(z) {}
+    Point operator+(const Point& p) const { return Point(x+p.x, y+p.y, z+p.z); }
+    Point operator-(const Point& p) const { return Point(x-p.x, y-p.y, z-p.z); }
+    Point operator*(double t) const { return Point(x*t, y*t, z*t); }
+    double norm() const { return sqrt(x*x + y*y + z*z); }
+    double dot(const Point& p) const { return x*p.x + y*p.y + z*p.z; }
+};
+
+int n;
+vector<Point> cubes;
+Point start_p, end_p;
+set<Point> surface_points;
+map<tuple<double,double,double>, int> point_id;
+
+bool onSurface(Point p) {
+    for(auto& c : cubes) {
+        double dx = abs(p.x - c.x);
+        double dy = abs(p.y - c.y);
+        double dz = abs(p.z - c.z);
+        
+        if(dx <= 50+EPS && dy <= 50+EPS && dz <= 50+EPS) {
+            int faces = 0;
+            if(abs(dx - 50) < EPS) faces++;
+            if(abs(dy - 50) < EPS) faces++;
+            if(abs(dz - 50) < EPS) faces++;
+            
+            if(faces == 1) {
+                bool exposed = true;
+                for(auto& c2 : cubes) {
+                    if(c.x == c2.x && c.y == c2.y && c.z == c2.z) continue;
+                    double dx2 = abs(p.x - c2.x);
+                    double dy2 = abs(p.y - c2.y);
+                    double dz2 = abs(p.z - c2.z);
+                    if(dx2 <= 50+EPS && dy2 <= 50+EPS && dz2 <= 50+EPS) {
+                        exposed = false;
+                        break;
+                    }
+                }
+                if(exposed) return true;
+            }
+        }
+    }
+    return false;
+}
+
+double dijkstra() {
+    vector<Point> nodes;
+    nodes.push_back(start_p);
+    nodes.push_back(end_p);
+    
+    // Sample surface points
+    for(auto& c : cubes) {
+        for(int dx = -50; dx <= 50; dx += 25) {
+            for(int dy = -50; dy <= 50; dy += 25) {
+                for(int dz = -50; dz <= 50; dz += 25) {
+                    Point p(c.x + dx, c.y + dy, c.z + dz);
+                    if(onSurface(p)) nodes.push_back(p);
+                }
+            }
+        }
+    }
+    
+    int m = nodes.size();
+    vector<double> dist(m, INF);
+    priority_queue<pair<double,int>, vector<pair<double,int>>, greater<pair<double,int>>> pq;
+    
+    dist[0] = 0;
+    pq.push({0, 0});
+    
+    while(!pq.empty()) {
+        auto [d, u] = pq.top();
+        pq.pop();
+        if(d > dist[u] + EPS) continue;
+        
+        for(int v = 0; v < m; v++) {
+            if(u == v) continue;
+            double edgeDist = (nodes[u] - nodes[v]).norm();
+            if(dist[u] + edgeDist < dist[v] - EPS) {
+                dist[v] = dist[u] + edgeDist;
+                pq.push({dist[v], v});
+            }
+        }
+    }
+    
+    return dist[1];
+}
+
+int main(){
+    ios_base::precision(15);
+    cin >> n;
+    cubes.resize(n);
+    for(int i = 0; i < n; i++) {
+        cin >> cubes[i].x >> cubes[i].y >> cubes[i].z;
+    }
+    cin >> start_p.x >> start_p.y >> start_p.z;
+    cin >> end_p.x >> end_p.y >> end_p.z;
+    
+    cout << dijkstra() << endl;
+    
+    return 0;
+}

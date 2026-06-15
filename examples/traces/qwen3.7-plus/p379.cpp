@@ -1,0 +1,54 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+long long get_dist(long long X, long long C, const vector<long long>& A) {
+    long long dist = 0;
+    long long current_V = X;
+    for (long long a : A) {
+        if (current_V > 0) {
+            dist += (current_V + C - 1) / C;
+        }
+        if (current_V > a) {
+            current_V -= a;
+        } else {
+            current_V = 0;
+        }
+    }
+    return dist;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    long long N, C, P, T;
+    if (!(cin >> N >> C >> P >> T)) return 0;
+
+    vector<long long> A(N);
+    long long sum_A = 0;
+    for (int i = 0; i < N; ++i) {
+        cin >> A[i];
+        sum_A += A[i];
+    }
+
+    long long K_max = T / (2LL * P);
+
+    long long low = 0, high = sum_A;
+    long long ans = 0;
+
+    while (low <= high) {
+        long long mid = low + (high - low) / 2;
+        if (get_dist(mid, C, A) <= K_max) {
+            ans = mid;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    cout << ans << "\n";
+
+    return 0;
+}

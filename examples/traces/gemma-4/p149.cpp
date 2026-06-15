@@ -1,0 +1,111 @@
+#include <cstdio>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Computer Network
+ * Given a tree of N computers, find for each computer the maximum distance 
+ * to any other computer in the tree.
+ * 
+ * Approach:
+ * 1. The maximum distance from any node in a tree is always to one of the 
+ *    two endpoints of the tree's diameter.
+ * 2. To find the diameter's endpoints A and B:
+ *    a. Run a BFS from an arbitrary node (say, node 1) to find the farthest node. Let this be A.
+ *    b. Run a BFS from node A to find the farthest node from it. Let this be B.
+ * 3. For each node i, the maximum distance is max(dist(i, A), dist(i, B)).
+ * 
+ * Constraints:
+ * N <= 10,000, total cable length <= 10^9, time limit 0.25s.
+ * O(N) algorithm is required.
+ */
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+    int weight;
+};
+
+int N;
+vector<Edge> adj[10005];
+long long distA[10005];
+long long distB[10005];
+long long distTmp[10005];
+int q[10005];
+
+/**
+ * Performs a BFS starting from 'start' node and stores distances in the 'dist' array.
+ * A manual queue is used for performance to meet the tight 0.25s time limit.
+ */
+void bfs(int start, long long dist[]) {
+    for (int i = 1; i <= N; ++i) dist[i] = -1;
+    dist[start] = 0;
+    int head = 0, tail = 0;
+    q[tail++] = start;
+
+    while (head < tail) {
+        int u = q[head++];
+        for (const auto& edge : adj[u]) {
+            if (dist[edge.to] == -1) {
+                dist[edge.to] = dist[u] + edge.weight;
+                q[tail++] = edge.to;
+            }
+        }
+    }
+}
+
+int main() {
+    // Faster I/O using scanf/printf.
+    if (scanf("%d", &N) != 1) return 0;
+    if (N <= 0) return 0;
+    if (N == 1) {
+        printf("0\n");
+        return 0;
+    }
+
+    // The input format provides connections for computer 2 up to computer N.
+    for (int i = 2; i <= N; ++i) {
+        int u, w;
+        if (scanf("%d %d", &u, &w) != 2) break;
+        adj[u].push_back({i, w});
+        adj[i].push_back({u, w});
+    }
+
+    // Step 1: Find one endpoint of the diameter (node A).
+    bfs(1, distTmp);
+    int A = 1;
+    long long maxD = -1;
+    for (int i = 1; i <= N; ++i) {
+        if (distTmp[i] > maxD) {
+            maxD = distTmp[i];
+            A = i;
+        }
+    }
+
+    // Step 2: Find the second endpoint of the diameter (node B) and distances from A.
+    bfs(A, distA);
+    int B = 1;
+    maxD = -1;
+    for (int i = 1; i <= N; ++i) {
+        if (distA[i] > maxD) {
+            maxD = distA[i];
+            B = i;
+        }
+    }
+
+    // Step 3: Find distances from node B.
+    bfs(B, distB);
+
+    // Step 4: For each node, its maximum distance is the distance to the farthest diameter endpoint.
+    for (int i = 1; i <= N; ++i) {
+        long long res = max(distA[i], distB[i]);
+        printf("%lld\n", res);
+    }
+
+    return 0;
+}
+

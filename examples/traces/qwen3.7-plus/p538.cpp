@@ -1,0 +1,55 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    string s;
+    if (!getline(cin, s)) return 0;
+    
+    if (!s.empty() && s.back() == '\r') {
+        s.pop_back();
+    }
+    
+    vector<int> brackets;
+    for (int i = 0; i < (int)s.length(); ++i) {
+        if (s[i] == '(' || s[i] == ')') {
+            brackets.push_back(i);
+        }
+    }
+    
+    vector<bool> is_emoticon(brackets.size(), true);
+    
+    for (int i = 0; i + 1 < (int)brackets.size(); ++i) {
+        int idx1 = brackets[i];
+        int idx2 = brackets[i+1];
+        
+        if (s[idx1] == '(' && s[idx2] == ')') {
+            bool valid = true;
+            for (int j = idx1 + 1; j < idx2; ++j) {
+                if (s[j] != ' ' && !isalpha((unsigned char)s[j])) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) {
+                is_emoticon[i] = false;
+                is_emoticon[i+1] = false;
+            }
+        }
+    }
+    
+    int count = 0;
+    for (size_t i = 0; i < is_emoticon.size(); ++i) {
+        if (is_emoticon[i]) {
+            count++;
+        }
+    }
+    
+    cout << count << "\n";
+    return 0;
+}

@@ -1,0 +1,103 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+vector<string> out;
+
+bool isMarker(char c) {
+    return c == '*' || c == '#';
+}
+
+string openTag(char c) {
+    return c == '*' ? "<ul>" : "<ol>";
+}
+
+string closeTag(char c) {
+    return c == '*' ? "</ul>" : "</ol>";
+}
+
+void renderSequence(const vector<string>& lines, int l, int r);
+
+void renderList(char marker, const vector<string>& lines, int l, int r) {
+    out.push_back(openTag(marker));
+
+    vector<string> items;
+    for (int i = l; i < r; ++i) {
+        items.push_back(lines[i].substr(1));
+    }
+
+    int n = (int)items.size();
+    int i = 0;
+
+    while (i < n) {
+        out.push_back("<li>");
+
+        if (!items[i].empty() && isMarker(items[i][0])) {
+            char c = items[i][0];
+            int j = i;
+            while (j < n && !items[j].empty() && items[j][0] == c) {
+                ++j;
+            }
+
+            if (j - i >= 2) {
+                renderSequence(items, i, j);
+                i = j;
+            } else {
+                out.push_back(items[i]);
+                ++i;
+            }
+        } else {
+            out.push_back(items[i]);
+            ++i;
+        }
+
+        out.push_back("</li>");
+    }
+
+    out.push_back(closeTag(marker));
+}
+
+void renderSequence(const vector<string>& lines, int l, int r) {
+    int i = l;
+
+    while (i < r) {
+        if (!lines[i].empty() && isMarker(lines[i][0])) {
+            char c = lines[i][0];
+            int j = i;
+
+            while (j < r && !lines[j].empty() && lines[j][0] == c) {
+                ++j;
+            }
+
+            if (j - i >= 2) {
+                renderList(c, lines, i, j);
+                i = j;
+            } else {
+                out.push_back(lines[i]);
+                ++i;
+            }
+        } else {
+            out.push_back(lines[i]);
+            ++i;
+        }
+    }
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    vector<string> lines;
+    string s;
+
+    while (getline(cin, s)) {
+        lines.push_back(s);
+    }
+
+    renderSequence(lines, 0, (int)lines.size());
+
+    for (const string& line : out) {
+        cout << line << '\n';
+    }
+
+    return 0;
+}

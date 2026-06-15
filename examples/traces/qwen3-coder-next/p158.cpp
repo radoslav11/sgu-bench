@@ -1,0 +1,214 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <climits>
+
+using namespace std;
+
+// Function to compute the sum of minimal distances for a given train position S
+double computeSum(const vector<double>& positions, const vector<double>& doors, double S) {
+    double total = 0.0;
+    for (double p : positions) {
+        double minDist = DBL_MAX;
+        for (double d : doors) {
+            double dist = fabs(d + S - p);
+            if (dist < minDist) {
+                minDist = dist;
+            }
+        }
+        total += minDist;
+    }
+    return total;
+}
+
+int main() {
+    // Read station description: L, M, and M passenger positions
+    double L;
+    int M;
+    cin >> L >> M;
+    
+    vector<double> passengers(M);
+    for (int i = 0; i < M; ++i) {
+        cin >> passengers[i];
+    }
+    
+    // Read train description: N and N door positions (D1=0, D2, ..., DN)
+    int N;
+    cin >> N;
+    
+    vector<double> doors(N);
+    doors[0] = 0.0;
+    for (int i = 1; i < N; ++i) {
+        cin >> doors[i];
+    }
+    
+    // Determine valid range for S: the train must be fully on the platform
+    // Train length = doors[N-1] - doors[0] = doors[N-1] (since doors[0] = 0)
+    // So S must satisfy: S >= 0 and S + doors[N-1] <= L
+    // => 0 <= S <= L - doors[N-1]
+    double S_min = 0.0;
+    double S_max = L - doors[N-1];
+    
+    // To handle fractional answers (like sample 2), we need to consider that optimal S might be at
+    // points where the minimal distance function changes behavior. These points occur when a passenger
+    // is exactly in the middle of two adjacent doors, or at endpoints.
+    // We'll generate candidate points: endpoints S_min and S_max, and midpoints between doors relative to passengers
+    
+    vector<double> candidates;
+    candidates.push_back(S_min);
+    candidates.push_back(S_max);
+    
+    // For each passenger, and for each pair of adjacent doors, compute S such that the passenger is
+    // equidistant to both doors. That is: (d_i + S) + (d_{i+1} + S) = 2 * p => 2S = 2p - d_i - d_{i+1} => S = p - (d_i + d_{i+1})/2
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N-1; ++j) {
+            double candidate = passengers[i] - (doors[j] + doors[j+1]) / 2.0;
+            candidates.push_back(candidate);
+        }
+    }
+    
+    // Also consider points near boundaries of regions where the closest door changes for any passenger
+    // That is, for each passenger and each door, S = p - d (so that passenger is at the door)
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            double candidate = passengers[i] - doors[j];
+            candidates.push_back(candidate);
+        }
+    }
+    
+    // Filter candidates to be within [S_min, S_max]
+    vector<double> valid_candidates;
+    for (double s : candidates) {
+        if (s >= S_min - 1e-9 && s <= S_max + 1e-9) {
+            valid_candidates.push_back(s);
+        }
+    }
+    
+    // Also add midpoints between consecutive candidate points that might be optimal (but since function is piecewise linear,
+    // maxima should occur at breakpoints, but let's be safe: actually the function is convex? Not necessarily. 
+    // Since it's sum of absolute values (convex), but here it's min of absolute values (non-convex), but piecewise linear.
+    // So maximum should occur at breakpoints. But to be safe with floating point, we'll check endpoints and breakpoints.
+    
+    double best_S = S_min;
+    double best_sum = computeSum(passengers, doors, S_min);
+    
+    for (double s : valid_candidates) {
+        // Clamp s to [S_min, S_max] to avoid floating point issues
+        if (s < S_min) s = S_min;
+        if (s > S_max) s = S_max;
+        
+        double cur_sum = computeSum(passengers, doors, s);
+        
+        // Use epsilon for floating point comparison
+        if (cur_sum > best_sum + 1e-9 || (fabs(cur_sum - best_sum) < 1e-9 && s < best_S)) {
+            best_sum = cur_sum;
+            best_S = s;
+        }
+    }
+    
+    // Output with appropriate precision
+    // Note: Sample output 2 has one decimal place, but we should output as needed
+    // We'll output integer if it's integer, else floating point
+    // But problem says "output two numbers", and sample output 2 has ".5"
+    // Let's use cout with fixed and precision 1? But what if more decimals needed?
+    // Actually, positions are integers, door positions are integers, so optimal S will be half-integers (like k/2)
+    // Because midpoints of integers and midpoints of integers are multiples of 0.5
+    
+    // To be safe, output with high precision and let trailing zeros be removed?
+    // But problem sample outputs are 2 4 and 0.5 2.5
+    
+    // Let's output with precision 10 and then remove trailing zeros and trailing decimal point if needed
+    // But standard way: use cout with default floatfield and setprecision
+    
+    // Alternatively, output integer if value is integer, else output floating point with enough precision
+    // We'll use: 
+    // if (abs(best_S - round(best_S)) < 1e-5) then output integer, else output float
+    
+    // However, problem constraints: positions are integers, so optimal S is of form (integer or half-integer)
+    // So we can do:
+    // Check if best_S is close to an integer or half-integer
+    
+    // But simpler: output with precision 1, but sample output 2 has 0.5 and 2.5, which is 1 decimal
+    // However, what if we need more precision? The problem doesn't specify, but inputs are integers, so 
+    // optimal S should be rational with denominator at most 2 (because midpoints of integers)
+    
+    // So we can output:
+    // If best_S is close to integer: output integer
+    // Else if close to k.5: output with one decimal
+    
+    // But to be generic, we can use:
+    // cout << fixed << setprecision(1) << best_S << " " << best_sum << endl;
+    // But sample 1: 2 4 -> 2.0 and 4.0 -> would output "2.0 4.0", but expected "2 4"
+    
+    // So better: output integer if integer, else float with minimal necessary decimals
+    
+    // We'll use the following trick: 
+    // auto print = [](double x) {
+    //     if (abs(x - round(x)) < 1e-5) {
+    //         cout << (int)round(x);
+    //     } else if (abs(2*x - round(2*x)) < 1e-5) {
+    //         cout << fixed << setprecision(1) << x;
+    //     } else {
+    //         cout << fixed << setprecision(10) << x;
+    //     }
+    // };
+    
+    // But the problem says "output two numbers", and in the sample they output without decimals for integers.
+    
+    // Alternatively, use default float output which removes trailing zeros.
+    
+    // Let's try: 
+    // cout << best_S << " " << best_sum << endl;
+    // But this might output in scientific notation for large numbers, but L <= 5000, so no problem.
+    // And by default, it removes trailing zeros.
+    
+    // However, for 0.5, it will output "0.5", for 2 it will output "2", which is what we want.
+    
+    // But note: the problem sample output 2: "0.5 2.5"
+    
+    // So we can do:
+    // cout << best_S << " " << best_sum << endl;
+    
+    // But to avoid scientific notation and ensure decimal point is shown when needed, we set:
+    cout << fixed;
+    // However, fixed might force trailing zeros. We don't want that.
+    
+    // Instead, use default floatfield and set precision high enough, then let default formatting handle it.
+    cout.unsetf(ios::fixed);
+    cout << setprecision(10);
+    
+    // Print best_S
+    if (fabs(best_S - round(best_S)) < 1e-9) {
+        cout << (int)round(best_S);
+    } else {
+        // Check if it's half-integer
+        if (fabs(2*best_S - round(2*best_S)) < 1e-9) {
+            // Output with one decimal
+            cout << fixed << setprecision(1) << best_S;
+            cout.unsetf(ios::fixed);
+            cout << setprecision(10);
+        } else {
+            cout << best_S;
+        }
+    }
+    
+    cout << " ";
+    
+    // For best_sum, same idea: if integer, output integer, else output with minimal decimals
+    if (fabs(best_sum - round(best_sum)) < 1e-9) {
+        cout << (int)round(best_sum);
+    } else {
+        if (fabs(2*best_sum - round(2*best_sum)) < 1e-9) {
+            cout << fixed << setprecision(1) << best_sum;
+            cout.unsetf(ios::fixed);
+            cout << setprecision(10);
+        } else {
+            cout << best_sum;
+        }
+    }
+    cout << endl;
+    
+    return 0;
+}

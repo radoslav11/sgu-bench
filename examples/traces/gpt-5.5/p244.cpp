@@ -1,0 +1,90 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+long double h, bis, med;
+
+long double xBisector(long double s, long double w) {
+    long double u = w - s / 2.0L;
+    long double v = w + s / 2.0L;
+
+    long double p = sqrt(u * u + h * h); // AB
+    long double q = sqrt(v * v + h * h); // AC
+
+    return (p * v - q * u) / (p + q);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    if (!(cin >> h >> bis >> med)) return 0;
+
+    const long double EPS = 1e-12L;
+
+    if (med + EPS < h || bis + EPS < h) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    long double s2 = med * med - h * h;
+    long double t2 = bis * bis - h * h;
+
+    if (s2 < 0 && s2 > -EPS) s2 = 0;
+    if (t2 < 0 && t2 > -EPS) t2 = 0;
+
+    long double s = 2.0L * sqrt(s2); // C.x - (-B.x)
+    long double t = sqrt(t2);        // horizontal distance from A to bisector point
+
+    if (fabsl(s) < EPS) {
+        if (fabsl(t) > 1e-9L) {
+            cout << "NO\n";
+            return 0;
+        }
+
+        cout << "YES\n";
+        cout << fixed << setprecision(10);
+        cout << 0.0 << ' ' << (double)h << '\n';
+        cout << -1.0 << ' ' << 0.0 << '\n';
+        cout << 1.0 << ' ' << 0.0 << '\n';
+        return 0;
+    }
+
+    if (fabsl(t) < EPS) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    long double maxT = h * s / (h + sqrt(h * h + s * s));
+
+    if (t > maxT + 1e-10L) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    long double low = s / 2.0L;
+    long double high = max((long double)1.0, low + 1.0L);
+
+    while (xBisector(s, high) > t) {
+        high *= 2.0L;
+    }
+
+    for (int i = 0; i < 200; ++i) {
+        long double mid = (low + high) / 2.0L;
+        if (xBisector(s, mid) >= t) low = mid;
+        else high = mid;
+    }
+
+    long double w = (low + high) / 2.0L;
+    long double u = w - s / 2.0L;
+    long double v = w + s / 2.0L;
+
+    if (u < 0 && u > -1e-9L) u = 0;
+
+    cout << "YES\n";
+    cout << fixed << setprecision(10);
+    cout << 0.0 << ' ' << (double)h << '\n';
+    cout << (double)(-u) << ' ' << 0.0 << '\n';
+    cout << (double)v << ' ' << 0.0 << '\n';
+
+    return 0;
+}

@@ -1,0 +1,187 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <queue>
+
+using namespace std;
+
+/**
+ * Problem: 198. Get Out!
+ * The problem asks whether a circular ship (Kolobok) can move from its initial
+ * position to infinity without its interior intersecting any of the N circular islands.
+ * 
+ * Let the ship's radius be R_ship and the i-th island's radius be R_i.
+ * The ship can move such that its center (x, y) satisfies dist((x, y), (xi, yi)) >= R_i + R_ship.
+ * Let R'_i = R_i + R_ship. The ship's center must stay outside the open disks D_i of radius R'_i.
+ * 
+ * The ship is trapped if and only if the starting point (x0, y0) is in a bounded component
+ * of the complement of the union of these disks.
+ * This happens if and only if there's a cycle of overlapping disks (dist(Ci, Cj) < R'_i + R'_j)
+ * that encloses (x0, y0).
+ * 
+ * We can check this by building a graph where an edge exists between disk i and j if
+ * dist(Ci, Cj) < R'_i + R'_j. Then we find if there's any cycle in the graph whose
+ * winding number around (x0, y0) is non-zero. This can be efficiently done by
+ * finding a spanning tree and checking all fundamental cycles.
+ */
+
+struct Point {
+    double x, y;
+};
+
+struct Circle {
+    double x, y, r;
+};
+
+double dist(double x1, double y1, double x2, double y2) {
+    return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<Circle> islands(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> islands[i].x >> islands[i].y >> islands[i].r;
+    }
+
+    double ship_x, ship_y, ship_r;
+    cin >> ship_x >> ship_y >> ship_r;
+
+    // R'_i = R_i + R_ship
+    vector<double> R_prime(N);
+    for (int i = 0; i < N; ++i) {
+        R_prime[i] = islands[i].r + ship_r;
+    }
+
+    // Build the adjacency list for the graph
+    vector<vector<int>> adj(N);
+    for (int i = 0; i < N; ++i) {
+        for (int j = i + 1; j < N; ++j) {
+            double d = dist(islands[i].x, islands[i].y, islands[j].x, islands[j].y);
+            // Using a small epsilon for floating point comparison. 
+            // The ship can pass if dist == R_prime[i] + R_prime[j].
+            if (d < R_prime[i] + R_prime[j] - 1e-9) {
+                adj[i].push_back(j);
+                adj[j].push_back(i);
+            }
+        }
+    }
+
+    vector<double> angles(N);
+    for (int i = 0; i < N; ++i) {
+        angles[i] = atan2(islands[i].y - ship_y, islands[i].x - ship_x);
+    }
+
+    vector<double> winding_sum(N, 0.0);
+    vector<bool> visited(N, false);
+    bool trapped = false;
+
+    const double PI = acos(-1.0);
+
+    for (int i = 0; i < N; ++i) {
+        if (!visited[i]) {
+            // Standard BFS to find spanning tree and winding numbers
+            queue<int> q;
+            q.push(i);
+            visited[i] = true;
+            winding_sum[i] = 0.0;
+
+            vector<int> component;
+            vector<pair<int, int>> tree_edges;
+
+            // In a connected component, we will traverse it and check fundamental cycles.
+            // Using BFS to process each component.
+            struct Node {
+                int u;
+                double w;
+            };
+            queue<Node> bq;
+            bq.push({i, 0.0});
+            
+            // Reset visited for a slightly different BFS approach to track winding sums
+            // Instead of just visited, we use a distance-like or visited array to avoid revisiting.
+            // But we need to find all edges to check fundamental cycles.
+            // Let's use a standard BFS and store parent/visited.
+        }
+    }
+
+    // Let's redo the traversal more cleanly.
+    // We need to visit every node, calculate winding sum via a spanning tree,
+    // and then check every edge (u, v) to see if (W(u) + angle(u,v) - W(v)) != 0.
+    
+    vector<bool> processed(N, false);
+    for (int i = 0; i < N; ++i) {
+        if (processed[i]) continue;
+
+        // For each component, find a spanning tree using BFS.
+        queue<int> q;
+        q.push(i);
+        processed[i] = true;
+        winding_sum[i] = 0.0;
+        
+        // To store the structure of the BFS traversal
+        vector<int> component;
+        
+        // Using a local queue for BFS
+        queue<int> bfs_q;
+        bfs_q.push(i);
+        
+        // We need a way to track the parent in the BFS tree to calculate winding sums.
+        // However, standard BFS doesn't inherently store the path.
+        // Let's use a parent array.
+        vector<int> parent(N, -1);
+        vector<int> bfs_order;
+        
+        // BFS to build a spanning tree for the current component
+        while(!bfs_q.empty()){
+            int u = bfs_q.front();
+            bfs_q.pop();
+            bfs_order.push_back(u);
+            
+            for(int v : adj[u]){
+                if(!processed[v]){
+                    processed[v] = true;
+                    parent[v] = u;
+                    
+                    // Calculate normalized angle from u to v
+                    double diff = angles[v] - angles[u];
+                    while (diff <= -PI) diff += 2 * PI;
+                    while (diff > PI) diff -= 2 * PI;
+                    
+                    winding_sum[v] = winding_sum[u] + diff;
+                    bfs_q.push(v);
+                }
+            }
+        }
+
+        // Now that we have the spanning tree, check all edges in this component.
+        for (int u : bfs_order) {
+            for (int v : adj[u]) {
+                // For every edge (u, v), check the winding number of the cycle it forms.
+                // The fundamental cycle winding number is W(u) + angle(u,v) - W(v).
+                double diff = angles[v] - angles[u];
+                while (diff <= -PI) diff += 2 * PI;
+                while (diff > PI) diff -= 2 * PI;
+
+                double cycle_w = winding_sum[u] + diff - winding_sum[v];
+                // If cycle_w is not zero, it should be a multiple of 2*PI.
+                if (abs(cycle_w) > PI) { // A non-zero winding number must be at least 2*PI
+                    trapped = true;
+                }
+            }
+        }
+        if (trapped) break;
+    }
+
+    if (trapped) cout << "NO" << endl;
+    else cout << "YES" << endl;
+
+    return 0;
+}
+

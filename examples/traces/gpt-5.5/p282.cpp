@@ -1,0 +1,167 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+using i128 = __int128_t;
+
+int N;
+long long M, P;
+long long MOD, SCALE;
+int A;
+
+vector<int> cnt;
+vector<int> valLen, valFact;
+vector<long long> unitLen, unitFact;
+
+long long addmod(long long a, long long b) {
+    a += b;
+    if (a >= MOD) a -= MOD;
+    return a;
+}
+
+long long mulmod(long long a, long long b) {
+    return (long long)((i128)a * b % MOD);
+}
+
+long long powmod(long long a, long long e) {
+    long long r = 1 % MOD;
+    while (e > 0) {
+        if (e & 1) r = mulmod(r, a);
+        a = mulmod(a, a);
+        e >>= 1;
+    }
+    return r;
+}
+
+long long egcd(long long a, long long b, long long &x, long long &y) {
+    if (b == 0) {
+        x = 1;
+        y = 0;
+        return a;
+    }
+    long long x1, y1;
+    long long g = egcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+
+long long invmod(long long a) {
+    long long x, y;
+    egcd(a, MOD, x, y);
+    x %= MOD;
+    if (x < 0) x += MOD;
+    return x;
+}
+
+long long answerScaled = 0;
+
+void process_partition() {
+    long long orbits = 0;
+
+    for (int i = 1; i <= N; ++i) {
+        if (!cnt[i]) continue;
+        orbits += 1LL * cnt[i] * (i / 2);
+        orbits += 1LL * cnt[i] * (cnt[i] - 1) / 2 * i;
+        for (int j = i + 1; j <= N; ++j) {
+            if (cnt[j]) {
+                orbits += 1LL * cnt[i] * cnt[j] * std::gcd(i, j);
+            }
+        }
+    }
+
+    int denVal = 0;
+    long long denUnit = 1 % MOD;
+
+    for (int i = 1; i <= N; ++i) {
+        if (!cnt[i]) continue;
+        denVal += cnt[i] * valLen[i] + valFact[cnt[i]];
+        denUnit = mulmod(denUnit, powmod(unitLen[i], cnt[i]));
+        denUnit = mulmod(denUnit, unitFact[cnt[i]]);
+    }
+
+    long long mUnit = M;
+    int mVal = 0;
+    while (mUnit % P == 0) {
+        mUnit /= P;
+        ++mVal;
+    }
+    mUnit %= MOD;
+
+    long long numValLL = 1LL * mVal * orbits;
+    if (numValLL > A + denVal) return;
+
+    int expP = A + (int)numValLL - denVal;
+    if (expP >= A + 1) return;
+
+    long long term = powmod(mUnit, orbits);
+    term = mulmod(term, invmod(denUnit));
+
+    long long pPow = 1;
+    for (int i = 0; i < expP; ++i) pPow *= P;
+
+    term = mulmod(term, pPow);
+    answerScaled += term;
+    answerScaled %= MOD;
+}
+
+void gen(int remaining, int maxPart) {
+    if (remaining == 0) {
+        process_partition();
+        return;
+    }
+
+    for (int x = min(remaining, maxPart); x >= 1; --x) {
+        cnt[x]++;
+        gen(remaining - x, x);
+        cnt[x]--;
+    }
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> N >> M >> P;
+
+    A = 0;
+    for (long long x = P; x <= N; x *= P) {
+        A += N / x;
+        if (x > (long long)N / P) break;
+    }
+
+    MOD = 1;
+    for (int i = 0; i < A + 1; ++i) MOD *= P;
+
+    SCALE = 1;
+    for (int i = 0; i < A; ++i) SCALE *= P;
+
+    cnt.assign(N + 1, 0);
+    valLen.assign(N + 1, 0);
+    valFact.assign(N + 1, 0);
+    unitLen.assign(N + 1, 1);
+    unitFact.assign(N + 1, 1);
+
+    for (int i = 1; i <= N; ++i) {
+        long long x = i;
+        while (x % P == 0) {
+            x /= P;
+            valLen[i]++;
+        }
+        unitLen[i] = x % MOD;
+    }
+
+    unitFact[0] = 1 % MOD;
+    valFact[0] = 0;
+    for (int i = 1; i <= N; ++i) {
+        valFact[i] = valFact[i - 1] + valLen[i];
+        unitFact[i] = mulmod(unitFact[i - 1], unitLen[i]);
+    }
+
+    gen(N, N);
+
+    long long ans = (answerScaled / SCALE) % P;
+    cout << ans << '\n';
+
+    return 0;
+}

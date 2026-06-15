@@ -1,0 +1,675 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cctype>
+
+using namespace std;
+
+int main() {
+    int n, m;
+    cin >> n >> m;
+    
+    vector<string> grid(n);
+    for (int i = 0; i < n; i++) {
+        cin >> grid[i];
+    }
+    
+    string path;
+    cin >> path;
+    
+    // Directions: 0 = East, 1 = South, 2 = West, 3 = North
+    int dir = 0; // facing East at start
+    int r = 0, c = 0; // starting at north-west corner (row 0, column 0)
+    
+    // Count how many times each block has been passed
+    // Blocks are identified by (i, j) where i in [0, n-1], j in [0, m-1]
+    vector<vector<int>> count(n, vector<int>(m, 0));
+    
+    long long satisfaction = 0;
+    
+    for (char move : path) {
+        if (move == 'L') {
+            // Left turn: dir = (dir + 3) % 4
+            dir = (dir + 3) % 4;
+        } else if (move == 'R') {
+            // Right turn: dir = (dir + 1) % 4
+            dir = (dir + 1) % 4;
+        } else if (move == 'M') {
+            // Move one block forward
+            int old_r = r, old_c = c;
+            
+            if (dir == 0) { // East
+                c++;
+            } else if (dir == 1) { // South
+                r++;
+            } else if (dir == 2) { // West
+                c--;
+            } else if (dir == 3) { // North
+                r--;
+            }
+            
+            // Now determine which blocks were traversed
+            // When moving horizontally (East/West), we traverse blocks in row r (or old_r, same since r doesn't change)
+            // When moving vertically (North/South), we traverse blocks in column c (or old_c)
+            
+            if (dir == 0) { // East: moving from (r, c-1) to (r, c)
+                // Traverse blocks in row r, columns from old_c to c-1? Actually, from old_c to c-1
+                // But since old_c = c-1, we traverse exactly one block: row r, column old_c
+                // Wait: Let's think carefully.
+                // The pedestrian moves along the street. For horizontal movement (East/West),
+                // he walks along a street (horizontal line), which separates rows of blocks.
+                // In Berhattan:
+                // - There are n+1 streets (horizontal), numbered 0 (northmost) to n (southmost)
+                // - There are m+1 avenues (vertical), numbered 0 (westmost) to m (eastmost)
+                // - Block (i, j) is between street i and i+1, and avenue j and j+1.
+                
+                // The problem states: pedestrian starts in north-west corner (which is intersection of street 0 and avenue 0).
+                // When he moves east along street 0, he walks along the northern side of row 0 blocks.
+                // So when moving from (0,0) to (0,1) eastward, he passes blocks in row 0, column 0.
+                
+                // In our coordinate:
+                // r: street index (0 to n)
+                // c: avenue index (0 to m)
+                
+                // Block (i, j) is between street i and i+1, avenue j and j+1.
+                // So when walking east along street r, from avenue c-1 to c, 
+                // the blocks passed are those in row r-1? No, let's clarify:
+                // If r=0 (street 0), moving east, he's on the northern boundary, so he passes blocks in row 0 (the top row of blocks).
+                // Specifically, block (r, j) for j from old_c to c-1? But r=0, and old_c=0, c=1, so block (0,0).
+                
+                // So the rule is:
+                // - Horizontal move (east/west) along street r: the blocks passed are in row r (if r < n)
+                // - Vertical move (north/south) along avenue c: the blocks passed are in column c (if c < m)
+                
+                // But when r=0 and moving east: blocks in row 0
+                // When r=n and moving east: blocks in row n-1
+                
+                // Actually, the street index r corresponds to the top boundary of row r blocks when r < n.
+                // So if r is between 0 and n (inclusive), and we move horizontally on street r:
+                //   - If r == 0: blocks in row 0
+                //   - If r == n: blocks in row n-1
+                //   - If 0 < r < n: blocks in row r-1 and r? No, the problem says: "When the pedestrian walks along any of four sides of a block, we say he passes the block."
+                //   - So a horizontal move along street r passes blocks that have street r as their top or bottom boundary.
+                //     That is, blocks in row r-1 (if r > 0) and row r (if r < n).
+                //   - But wait: the pedestrian is walking along one street, which is one line. So for a single move along a street, he is only on one side of blocks.
+                
+                // Let me reexamine the example: 
+                // Input: 3x3 grid, path "MRMMLM", output 22.
+                // Start at (0,0), facing East.
+                // M: move east to (0,1). He is on street 0, moving from avenue 0 to 1. He passes blocks that have street 0 as their top boundary, i.e., row 0 blocks. Specifically, block (0,0) (since avenue 0 to 1 corresponds to column 0).
+                // So after first M: block (0,0) passed once -> +1.
+                
+                // Then R: turn to South.
+                // Then M: move south to (1,1). Along avenue 1, from street 0 to 1. Blocks that have avenue 1 as left boundary: column 1 blocks. Specifically, block (0,1) (since street 0 to 1 corresponds to row 0).
+                // So block (0,1) passed once -> +2.
+                
+                // Then M: turn to East (from South, right turn? Wait, after R, facing South. Then M: move south. Then next is L: left turn from South -> East? Let's simulate step by step.
+                
+                // Actually, let's simulate the example to understand:
+                // Start: r=0, c=0, dir=East (0)
+                // M: move East -> r=0, c=1. Blocks passed: on street 0, from avenue 0 to 1 -> blocks in row 0, column 0 -> bij = '1' -> +1
+                // R: turn to South (dir=1)
+                // M: move South -> r=1, c=1. Along avenue 1, from street 0 to 1 -> blocks in column 1, row 0 -> bij = '2' -> +2
+                // M: move South -> r=2, c=1. Along avenue 1, from street 1 to 2 -> blocks in column 1, row 1 -> bij = '5' -> +5
+                // L: from South, left turn -> East (dir=0)
+                // M: move East -> r=2, c=2. Along street 2, from avenue 1 to 2. Street 2 is the bottom boundary of row 1 blocks (since row 1 is between street 1 and 2). So blocks in row 1, column 1 -> bij = '5' again? But it's already passed once, so +5/2=2? 
+                // But wait, the total is 22. Let's compute:
+                // 1 + 2 + 5 + 5/2 (rounded down=2) + ... 
+                
+                // Actually, the example output is 22. Let me check known solution:
+                // Known solution for sample: 
+                // Path: M R M M L M
+                // Steps:
+                // 1. M: East -> block (0,0) -> +1 (total=1)
+                // 2. R: turn South
+                // 3. M: South -> block (0,1) -> +2 (total=3)
+                // 4. M: South -> block (1,1) -> +5 (total=8)
+                // 5. L: turn East (from South, left -> East)
+                // 6. M: East -> block (1,1) again? Because from (2,1) to (2,2) along street 2: but street 2 is the bottom of row 1, so block (1,1) -> +5/2=2 (total=10) -> not 22.
+                
+                // Alternative interpretation: 
+                // When moving, the blocks passed are the ones to the "right" or "left"? The problem says: "When the pedestrian walks along any of four sides of a block, we say he passes the block."
+                // And the starting direction is East, and he starts at the north-west corner.
+                // When moving East, he is on the top side of the blocks in row 0? But if he's walking along the street, and the street is the boundary, then for street 0 (the northernmost), the blocks below it are row 0. So he passes the blocks to the South of the street.
+                // Similarly, when moving South on avenue 1, he is on the left side of blocks in column 1, so blocks to the East of the avenue -> column 1 blocks.
+                
+                // Now, for step 6: after moving South twice, he is at (2,1) (street 2, avenue 1). Then he turns left (from South to East). Then moves East: from (2,1) to (2,2). Now, street 2: what blocks are adjacent? The blocks above street 2 are row 1 (since row 1 is between street 1 and 2). So he is walking along the bottom side of row 1 blocks. So he passes blocks in row 1, columns from 1 to 1? -> block (1,1). So second time -> +5/2=2.
+                // Then total so far: 1+2+5+2 = 10.
+                // Then the path ends? But the example output is 22.
+                
+                // Wait, the example input says:
+                // 3 3
+                // 123
+                // 456
+                // 789
+                // MRMMLM
+                // Output: 22
+                
+                // So let me recount with the known correct interpretation from the problem's picture.
+                // After research, the standard solution for this problem:
+                // - The pedestrian moves along the grid lines (streets and avenues), and each time he moves one block forward, he traverses one side of a block (or two sides? but the problem says "when the pedestrian walks along any of four sides of a block" — so each side of a block is a segment between two intersections).
+                // - In one move 'M', he moves from one intersection to the next, so he walks along one segment. This segment is one side of exactly one block, except when he is on the boundary of the city (then it might be zero or one block).
+                // But the problem states: "It is guaranteed that the given path doesn't go outside Berhattan." — so every segment he walks is adjacent to exactly one block? 
+                // Actually, no: when walking along an internal street, the street has blocks on both sides? But the pedestrian is walking on one side of the street (the side facing the blocks). However, the problem does not specify which side. But typically, the pedestrian is in the city, so when walking on a street inside the city, he is between two rows of blocks? 
+                // But the problem says: "The path is given as a string containing letters 'L', 'R' and 'M' ... and it is guaranteed that the given path doesn't go outside Berhattan." — meaning he stays within the city boundaries.
+                
+                // Clarification from known similar problems (e.g., Codeforces problem 463A): 
+                // Actually, this is problem 463A from Codeforces. The standard solution:
+                // - The pedestrian starts at (0,0) (top-left corner), facing East.
+                // - The grid has n rows and m columns of blocks.
+                // - Streets: n+1 horizontal lines (y=0 to y=n), avenues: m+1 vertical lines (x=0 to x=m).
+                // - A move 'M' in direction:
+                //   * East: from (y, x) to (y, x+1). This segment is the top side of block (y, x) if y < n, but actually: 
+                //     Block (i, j) is from (i, j) to (i+1, j+1) in (street, avenue) coordinates.
+                //     So the segment from (y, x) to (y, x+1) is the top side of block (y, x) if y < n, but wait: 
+                //     Block (i, j) is bounded by street i (top), street i+1 (bottom), avenue j (left), avenue j+1 (right).
+                //     Therefore, the horizontal segment at street y from avenue x to x+1 is:
+                //         - the top side of block (y, x) if y < n? But if y=0, then it's the top side of block (0, x). 
+                //         However, if y = n, then there is no block below, but the problem says the path doesn't go outside, so y is in [0, n] and when moving, it won't go to y>n, but the segment from (n, x) to (n, x+1) is the bottom side of block (n-1, x).
+                //     So in general, a horizontal move at street y from x to x+1 passes:
+                //         block (y-1, x) if y > 0 (bottom side of block (y-1, x)) 
+                //         and block (y, x) if y < n (top side of block (y, x))? 
+                //     But the problem says: "when the pedestrian walks along any of four sides of a block" — meaning he passes a block for each side he walks. However, in one segment, he is walking along one side, so he should only pass one block per segment? 
+                //     But actually, a street segment is shared by two blocks (above and below) only if it's an internal street. However, the pedestrian is walking on one side of the street? 
+                //     The problem statement is ambiguous, but the sample solution is known.
+                
+                // After checking known solutions for "463A - Walking around Berhattan", the standard approach is:
+                //   - When moving horizontally (East/West) on street r, the block passed is in row r (if moving East or West, and we consider the row below the street for r < n, or row above for r > 0) — but actually, the common solution is:
+                //        if direction is East: 
+                //            if r < n, then the block is (r, c) [but c is the column index of the block, which is the avenue index before the move?] 
+                //        However, let me look at a known solution in Codeforces for this problem.
+                
+                // Since I don't have internet, I'll deduce from the example:
+                // Example: 
+                //   n=3, m=3, grid = 
+                //        123
+                //        456
+                //        789
+                //   path = "MRMMLM"
+                //   Steps:
+                //      Start: (r=0, c=0), dir=0 (East)
+                //      M: move East -> new (0,1). 
+                //          Which block? It must be block (0,0) because the answer total is 22 and if we get 1 for this, then:
+                //      R: turn South (dir=1)
+                //      M: move South -> (1,1). Block (0,1) -> 2
+                //      M: move South -> (2,1). Block (1,1) -> 5
+                //      L: turn East (dir=0)
+                //      M: move East -> (2,2). 
+                //          Now, from (2,1) to (2,2) on street 2. 
+                //          Street 2 is the bottom boundary of row 1 blocks. So block (1,1) is passed again? -> 5/2=2
+                //      Then total=1+2+5+2=10, but expected 22.
+                //      So that's not matching.
+                
+                // Alternative: 
+                //   Maybe when moving, he passes two blocks? But the problem says "when the pedestrian walks along any of four sides of a block", implying one side per block.
+                //   Or: the move 'M' moves him one block, but he traverses two sides? No, moving one block forward along a street should be one segment.
+                
+                // Let me read the problem again: 
+                //   "Every time the pedestrian passes a block his satisfaction is increased by bij. If the pedestrian has already passed the block one or more times his satisfaction is increased only by bij/2 rounded down when he passes the block again."
+                //   And: "When the pedestrian walks along any of four sides of a block, we say he passes the block."
+                //   So each time he walks along a side of a block, he passes it once.
+                //   In one move 'M', he walks one segment. How many blocks share that segment? 
+                //   - If the segment is on the boundary of the city, then only one block (or none? but the problem says the path doesn't go outside, so boundaries are allowed and only one block adjacent).
+                //   - If the segment is internal, then two blocks share the segment? 
+                //   But the problem says "any of four sides of a block", meaning a block has four sides, and each side is a segment. So a segment between two intersections is shared by at most two blocks (one on each side).
+                //   However, the problem does not say he passes both blocks. It says "when the pedestrian walks along any of four sides of a block", so if he walks along a side that is shared by two blocks, does he pass both blocks?
+                //   The natural interpretation: yes, he passes both blocks.
+                //   Let's test with the example:
+                //      Move 1: East from (0,0) to (0,1) on street 0. 
+                //          Street 0 is the top boundary of the city. So only block (0,0) is below it. So he passes only block (0,0) -> +1.
+                //      Move 2: South from (0,1) to (1,1) on avenue 1.
+                //          Avenue 1 is between column 0 and 1 blocks? No: avenue 0 is west boundary, avenue 1 is between column 0 and 1, avenue 2 between 1 and 2, avenue 3 east boundary.
+                //          So avenue 1: blocks to the east is column 1, to the west is column 0. But since he is moving south on avenue 1, he is on the west side of the city? 
+                //          Actually, the pedestrian is in the city, so when on avenue 1, he is between column 0 and 1 blocks. So he passes:
+                //             - block (0,0) to the west? But wait, the block (0,0) is to the west of avenue 1? 
+                //             Block (0,0) is bounded by street 0, street 1, avenue 0, avenue 1. So its east side is avenue 1.
+                //             Block (0,1) is bounded by street 0, street 1, avenue 1, avenue 2. So its west side is avenue 1.
+                //          Therefore, walking south on avenue 1 from street 0 to 1, he walks along the east side of block (0,0) and the west side of block (0,1). 
+                //          So he passes two blocks: (0,0) and (0,1).
+                //      But wait, that would mean the first move East passed only block (0,0), and then the first South move passes block (0,0) again (east side) and block (0,1) (west side). 
+                //      So after two moves: 
+                //          block (0,0): passed twice -> 1 + 0 (since 1/2=0) = 1? 
+                //          block (0,1): passed once -> 2
+                //          total=3, not matching.
+                
+                // Another possibility: the pedestrian is only on one side of the street/avenue. The problem says: "The pedestrian can walk only along streets and avenues", and typically in such problems, the pedestrian is on the "inner" side of the boundary, and for internal streets, he is in the middle so he passes both sides? 
+                // But the problem statement does not specify, but the sample output is 22, and known solutions exist.
+                
+                // Let me look for a known solution strategy:
+                //   We maintain the current position (r, c) where r in [0, n], c in [0, m].
+                //   We maintain the current direction.
+                //   For a move 'M':
+                //        if direction is East: 
+                //            c_new = c + 1
+                //            if r > 0, then block (r-1, c) is passed (because the street r-1 is above, but we are on street r? Let me reindex)
+                //        Instead, common solution:
+                //            if moving East: block (r, c) 
+                //            if moving South: block (r, c)
+                //            if moving West: block (r, c-1) 
+                //            if moving North: block (r-1, c-1) ??? 
+                //        But that doesn't seem right.
+                
+                // From an accepted solution (hypothetically):
+                //   int r = 0, c = 0;
+                //   int dir = 0; // 0: east, 1: south, 2: west, 3: north
+                //   vector<vector<int>> cnt(n, vector<int>(m, 0));
+                //   for (char ch : s) {
+                //        if (ch == 'L') dir = (dir + 3) % 4;
+                //        else if (ch == 'R') dir = (dir + 1) % 4;
+                //        else {
+                //            int nr = r, nc = c;
+                //            if (dir == 0) nc++;
+                //            else if (dir == 1) nr++;
+                //            else if (dir == 2) nc--;
+                //            else nr--;
+                //            
+                //            if (dir == 0) { // east
+                //                if (r < n && c < m) {
+                //                    // passes block (r, c)
+                //                    // because moving east on street r, from avenue c to c+1: this is the top side of block (r, c)
+                //                }
+                //            } else if (dir == 1) { // south
+                //                if (r < n && c < m) {
+                //                    // passes block (r, c)
+                //                    // moving south on avenue c, from street r to r+1: this is the left side of block (r, c)
+                //                }
+                //            } else if (dir == 2) { // west
+                //                if (r < n && c-1 >= 0) {
+                //                    // passes block (r, c-1)
+                //                    // moving west on street r, from avenue c to c-1: this is the bottom side of block (r, c-1)
+                //                }
+                //            } else if (dir == 3) { // north
+                //                if (r-1 >= 0 && c < m) {
+                //                    // passes block (r-1, c)
+                //                    // moving north on avenue c, from street r to r-1: this is the right side of block (r-1, c)
+                //                }
+                //            }
+                //            r = nr; c = nc;
+                //        }
+                //   }
+                //   But then in the example:
+                //        Start: r=0, c=0, dir=0.
+                //        M: dir=0 (east), then before moving, we are at (0,0). 
+                //            dir=0: block (0,0) is passed (since r=0<n, c=0<m) -> count[0][0]++.
+                //            then move to (0,1).
+                //        R: dir=1.
+                //        M: dir=1, at (0,1): block (0,1) passed -> count[0][1]++.
+                //            move to (1,1).
+                //        M: dir=1, at (1,1): block (1,1) passed -> count[1][1]++.
+                //            move to (2,1).
+                //        L: dir = (1+3)%4 = 0.
+                //        M: dir=0, at (2,1): block (2,1) passed? But n=3, so r=2<n=3, c=1<m=3 -> block (2,1) passed.
+                //            grid[2][1] = '8', so +8.
+                //        Total: grid[0][0]=1, [0][1]=2, [1][1]=5, [2][1]=8 -> 1+2+5+8=16, not 22.
+                
+                // Another known approach: 
+                //   When moving in a direction, the block passed is:
+                //        East: block (r, c)
+                //        South: block (r, c)
+                //        West: block (r, c-1)
+                //        North: block (r-1, c)
+                //   BUT also, for the same move, sometimes two blocks are passed? 
+                //   Let me try: 
+                //        First M (East): block (0,0) -> 1
+                //        R, then M (South): block (0,0) [because at (0,0) facing South, block (0,0)] -> 1 again? but then it would be 1 + 0 = 1 for that block.
+                //        Not working.
+                
+                // After re‐examining the example output of 22, let's assume the following:
+                //   The sample path "MRMMLM" yields 22.
+                //   Let's break down the moves and assign satisfaction:
+                //      Move 1: M -> +1  (total=1)
+                //      Move 2: R
+                //      Move 3: M -> +2  (total=3)
+                //      Move 4: M -> +5  (total=8)
+                //      Move 5: L
+                //      Move 6: M -> +14 (to get to 22) -> which is 14, but block beauties are at most 9.
+                //   So that's not possible.
+                //   Alternatively: 
+                //      1+2+5+5+6+3 = 22? 
+                //   Let me list the blocks passed in order:
+                //      Block (0,0): 1
+                //      Block (0,1): 2
+                //      Block (1,1): 5
+                //      Block (1,1): 5/2=2 (total=10)
+                //      Block (1,2): 6
+                //      Block (2,2): 9
+                //      Total=1+2+5+2+6+9=25 -> not 22.
+                //   Another possibility: 
+                //      (0,0):1, (0,1):2, (1,1):5, (1,1):2, (0,1):2 (but already passed once, so 2/2=1), (1,2):6 -> 1+2+5+2+1+6=17.
+                //   How about:
+                //      M: (0,0) -> 1
+                //      R: 
+                //      M: (0,1) -> 2
+                //      M: (1,1) -> 5
+                //      L: 
+                //      M: (1,0) -> 4 (but how? from (2,1) turning left to East, then moving East would be to (2,2), not (1,0))
+                //   Let's simulate coordinates carefully:
+                //      Start: at intersection (0,0) [street 0, avenue 0], facing East.
+                //      M: move East to (0,1) — this move is along the top side of block (0,0) -> block (0,0)
+                //      R: now facing South.
+                //      M: move South to (1,1) — along the left side of block (0,1) [because from (0,1) to (1,1) on avenue 1, and block (0,1) is to the east] -> block (0,1)
+                //      M: move South to (2,1) — along the left side of block (1,1) -> block (1,1)
+                //      L: from South, left turn -> East.
+                //      M: move East to (2,2) — along the bottom side of block (1,1) [because street 2 is the bottom of row 1 blocks] -> block (1,1) again.
+                //      So blocks: (0,0), (0,1), (1,1), (1,1) -> 1 + 2 + 5 + 2 = 10.
+                //   Still not 22.
+                
+                // I see the mistake: when moving South from (0,1) to (1,1), is it only block (0,1)? 
+                //   The segment from (0,1) to (1,1) on avenue 1: 
+                //        This segment is the right side of block (0,0) and the left side of block (0,1).
+                //   So he passes two blocks: (0,0) and (0,1).
+                //   Similarly, the segment from (1,1) to (2,1) on avenue 1: 
+                //        right side of block (1,0) and left side of block (1,1).
+                //   And the segment from (2,1) to (2,2) on street 2: 
+                //        top side of block (2,1) and bottom side of block (1,1) — but wait, street 2 is the bottom of row 1, so only block (1,1) has street 2 as its bottom side, and block (2,1) has street 2 as its top side? 
+                //   Actually, block (i,j) is between street i and i+1, so street 2 is the bottom of block (1,j) and the top of block (2,j) is street 2? No, block (2,j) is between street 2 and 3, so its top is street 2.
+                //   Therefore, the segment on street 2 from (2,1) to (2,2) is:
+                //        bottom side of block (1,1) and top side of block (2,1).
+                //   So he passes two blocks: (1,1) and (2,1).
+                
+                // Let's recalculate with this interpretation (each segment passes up to two blocks):
+                //   Move 1: East on street 0 from (0,0) to (0,1): 
+                //        Only block below: block (0,0) [since street 0 has no row above, only row 0 below] -> block (0,0) only.
+                //   Move 2: South on avenue 1 from (0,1) to (1,1):
+                //        Left of avenue 1: block (0,0) [because block (0,0) is to the west of avenue 1? No, block (0,0) is bounded by avenue 0 and 1, so its east side is avenue 1. So walking south on avenue 1, he walks along the east side of block (0,0).
+                //        Right of avenue 1: block (0,1) (bounded by avenue 1 and 2, so its west side is avenue 1).
+                //        So two blocks: (0,0) and (0,1).
+                //   Move 3: South on avenue 1 from (1,1) to (2,1):
+                //        West side: block (1,0)
+                //        East side: block (1,1)
+                //   Move 4: East on street 2 from (2,1) to (2,2):
+                //        North side: block (1,1) [street 2 is the bottom of row 1 blocks]
+                //        South side: block (2,1)
+                //   Now, let's list all passed blocks:
+                //        Move1: (0,0)
+                //        Move2: (0,0), (0,1)
+                //        Move3: (1,0), (1,1)
+                //        Move4: (1,1), (2,1)
+                //   Count per block:
+                //        (0,0): 2 times -> 1 + 0 = 1
+                //        (0,1): 1 time -> 2
+                //        (1,0): 1 time -> 4
+                //        (1,1): 2 times -> 5 + 2 = 7
+                //        (2,1): 1 time -> 8
+                //        Total = 1+2+4+7+8 = 22.  Bingo!
+                
+                // So the rule is:
+                //   When moving along a segment, the pedestrian passes:
+                //      - For a horizontal move (East/West) on street r:
+                //           * If r > 0, then block (r-1, c_start) is passed (the block above the street) — but wait, in move1: street 0, r=0, so no block above, only below: block (0, c_start) [which is (0,0)].
+                //           * If r < n, then block (r, c_start) is passed (the block below the street).
+                //        However, in move2: vertical move on avenue c, from street r to r+1:
+                //           * If c > 0, then block (r, c-1) is passed (block to the west)
+                //           * If c < m, then block (r, c) is passed (block to the east)
+                //   But in move2: c=1, so c>0 -> block (0,0) [r=0, c-1=0], and c<3 -> block (0,1) [r=0, c=1].
+                //   In move3: c=1, r=1, so block (1,0) and (1,1).
+                //   In move4: horizontal move on street r=2, from c=1 to c=2. 
+                //        r=2, n=3 -> r < n is true (2<3), so block (2,1) [r=2, c_start=1]
+                //        r>0 -> true, so block (1,1) [r-1=1, c_start=1].
+                //   So the blocks are (1,1) and (2,1).
+                
+                // Therefore, the algorithm for a move 'M' is:
+                //   Save current (r, c)
+                //   Update (r, c) to new position.
+                //   Determine the direction of the move (before the move, so current direction).
+                //   For horizontal move (dir 0 or 2):
+                //        if dir is 0 (East): 
+                //            if r < n, then block (r, c_old) is passed (where c_old is the column before move, which is the current c before incrementing)
+                //            if r > 0, then block (r-1, c_old) is passed? 
+                //        But wait, in move1: dir=0, r=0, c_old=0.
+                //            r < n (0<3) -> block (0,0)
+                //            r>0 (0>0) false.
+                //        In move4: dir=0, r=2, c_old=1.
+                //            r<n (2<3) -> block (2,1)
+                //            r>0 (2>0) -> block (1,1)
+                //   For vertical move (dir 1 or 3):
+                //        if dir is 1 (South):
+                //            if c < m, block (r_old, c) is passed
+                //            if c > 0, block (r_old, c-1) is passed
+                //        But in move2: dir=1, c_old=1, r_old=0.
+                //            c < m (1<3) -> block (0,1)
+                //            c>0 (1>0) -> block (0,0)
+                //   However, in move2, the move is from (0,1) to (1,1), so c_old=1, and we want to use c_old for the avenue index.
+                //   But note: the block indices:
+                //        block (i,j) is between street i and i+1, avenue j and j+1.
+                //   So for a vertical move on avenue c (which is an integer), the two adjacent blocks (if exist) are:
+                //        - (r_old, c-1) for the block to the west (if c-1 >=0 and r_old < n)
+                //        - (r_old, c) for the block to the east (if c < m and r_old < n)
+                //   And for a horizontal move on street r, the two adjacent blocks are:
+                //        - (r-1, c_old) for the block to the north (if r-1>=0 and c_old < m)
+                //        - (r, c_old) for the block to the south (if r < n and c_old < m)
+                //   But in move1: horizontal move on street 0, c_old=0.
+                //        north block: r-1 = -1 -> invalid.
+                //        south block: r=0 < n, and c_old=0 < m -> block (0,0) — valid.
+                //   In move4: horizontal move on street 2, c_old=1.
+                //        north block: r-1=1>=0, c_old=1<m=3 -> block (1,1)
+                //        south block: r=2<3, c_old=1<3 -> block (2,1)
+                //   This matches.
+                
+                // Therefore, in code for a move 'M':
+                //   int prev_r = r, prev_c = c;
+                //   if (dir == 0) c++;
+                //   else if (dir == 1) r++;
+                //   else if (dir == 2) c--;
+                //   else if (dir == 3) r--;
+                //   
+                //   if (dir == 0) { // East
+                //        if (prev_r < n && prev_c < m) {
+                //            // south block: (prev_r, prev_c)
+                //            int val = grid[prev_r][prev_c] - '0';
+                //            satisfaction += (count[prev_r][prev_c] == 0) ? val : val/2;
+                //            count[prev_r][prev_c]++;
+                //        }
+                //        if (prev_r > 0 && prev_c < m) {
+                //            // north block: (prev_r-1, prev_c)
+                //            int val = grid[prev_r-1][prev_c] - '0';
+                //            satisfaction += (count[prev_r-1][prev_c] == 0) ? val : val/2;
+                //            count[prev_r-1][prev_c]++;
+                //        }
+                //   } else if (dir == 1) { // South
+                //        if (prev_r < n && prev_c < m) {
+                //            // east block: (prev_r, prev_c)
+                //            int val = grid[prev_r][prev_c] - '0';
+                //            satisfaction += (count[prev_r][prev_c] == 0) ? val : val/2;
+                //            count[prev_r][prev_c]++;
+                //        }
+                //        if (prev_r < n && prev_c > 0) {
+                //            // west block: (prev_r, prev_c-1)
+                //            int val = grid[prev_r][prev_c-1] - '0';
+                //            satisfaction += (count[prev_r][prev_c-1] == 0) ? val : val/2;
+                //            count[prev_r][prev_c-1]++;
+                //        }
+                //   } else if (dir == 2) { // West
+                //        if (prev_r < n && prev_c-1 >= 0) {
+                //            // south block: (prev_r, prev_c-1)  [because moving west on street r, the south block is (r, c-1)]
+                //            int val = grid[prev_r][prev_c-1] - '0';
+                //            satisfaction += (count[prev_r][prev_c-1] == 0) ? val : val/2;
+                //            count[prev_r][prev_c-1]++;
+                //        }
+                //        if (prev_r > 0 && prev_c-1 >= 0) {
+                //            // north block: (prev_r-1, prev_c-1)
+                //            int val = grid[prev_r-1][prev_c-1] - '0';
+                //            satisfaction += (count[prev_r-1][prev_c-1] == 0) ? val : val/2;
+                //            count[prev_r-1][prev_c-1]++;
+                //        }
+                //   } else if (dir == 3) { // North
+                //        if (prev_r-1 >= 0 && prev_c < m) {
+                //            // east block: (prev_r-1, prev_c)
+                //            int val = grid[prev_r-1][prev_c] - '0';
+                //            satisfaction += (count[prev_r-1][prev_c] == 0) ? val : val/2;
+                //            count[prev_r-1][prev_c]++;
+                //        }
+                //        if (prev_r-1 >= 0 && prev_c > 0) {
+                //            // west block: (prev_r-1, prev_c-1)
+                //            int val = grid[prev_r-1][prev_c-1] - '0';
+                //            satisfaction += (count[prev_r-1][prev_c-1] == 0) ? val : val/2;
+                //            count[prev_r-1][prev_c-1]++;
+                //        }
+                //   }
+                
+                // However, note: in the West move (dir=2), the move is from (r, c) to (r, c-1), so the segment is on street r from avenue c to c-1.
+                //   The two blocks are:
+                //        south block: (r, c-1) [below the street] and 
+                //        north block: (r-1, c-1) [above the street]
+                //   But we require:
+                //        for (r, c-1) to be valid: r < n and c-1 < m -> but c-1 is the column index, and column indices go from 0 to m-1, so c-1 must be in [0, m-1] -> so c-1>=0 and c-1 < m.
+                //   Similarly, for (r-1, c-1): r-1>=0 and c-1 in [0, m-1].
+                
+                // Let's test move4 in example with this:
+                //   Move4: after moves 1-3, at (2,1), dir=0 (East) for move4.
+                //        prev_r=2, prev_c=1.
+                //        dir=0: 
+                //            south block: (2,1) -> grid[2][1]='8', count[2][1] is 0 -> +8.
+                //            north block: (1,1) -> grid[1][1]='5', count[1][1] is 0 -> +5.
+                //        But wait, in our manual count, move4 should pass block (1,1) and (2,1), which is what we have.
+                //   However, in the full sequence:
+                //        Move1: East from (0,0): 
+                //            south block (0,0): +1, north block: invalid.
+                //        Move2: South from (0,1): 
+                //            east block (0,1): +2, west block (0,0): +0 (because already counted once, so 1/2=0) -> but wait, count[0][0] was incremented in move1, so for move2, west block (0,0) is incremented -> second time, so 1/2=0.
+                //        Move3: South from (1,1): 
+                //            east block (1,1): +5, west block (1,0): +4.
+                //        Move4: East from (2,1): 
+                //            south block (2,1): +8, north block (1,1): +2 (because count[1][1] was 1 from move3, so 5/2=2).
+                //        Total: 1 + (2+0) + (5+4) + (8+2) = 1+2+9+10 = 22.  Perfect.
+                
+                // So the plan is:
+                //   We'll simulate the path, and for each 'M' move:
+                //        record the previous position (r, c)
+                //        update (r, c) to new position
+                //        based on the current direction (before the move), determine the blocks that the segment is adjacent to, and for each valid block:
+                //            get the beauty digit
+                //            add (beauty if count==0, else beauty/2)
+                //            increment count for that block.
+                
+                // Note: the grid is given as n rows of m digits.
+                //   grid[i][j] corresponds to block (i, j), where i in [0, n-1], j in [0, m-1].
+                
+                // Implementation:
+                //   We'll keep r and c as the current street and avenue indices.
+                //   Start: r=0, c=0, dir=0.
+                
+                // Let's code accordingly.
+            }
+        }
+    }
+    
+    // But wait, the above if-else for 'M' is inside the for-loop, so let's write the full loop.
+
+    // We'll restart the simulation with the correct logic.
+
+    // Reinitialize for clarity in code:
+    r = 0; c = 0;
+    dir = 0;
+    vector<vector<int>> cnt(n, vector<int>(m, 0));
+    satisfaction = 0;
+
+    for (char move : path) {
+        if (move == 'L') {
+            dir = (dir + 3) % 4;
+        } else if (move == 'R') {
+            dir = (dir + 1) % 4;
+        } else if (move == 'M') {
+            int prev_r = r, prev_c = c;
+            if (dir == 0) { // East
+                c++;
+            } else if (dir == 1) { // South
+                r++;
+            } else if (dir == 2) { // West
+                c--;
+            } else if (dir == 3) { // North
+                r--;
+            }
+            
+            // Process the segment from (prev_r, prev_c) to (r, c)
+            if (dir == 0) { // East: horizontal on street prev_r
+                // South block: (prev_r, prev_c)
+                if (prev_r < n && prev_c < m) {
+                    int val = grid[prev_r][prev_c] - '0';
+                    if (cnt[prev_r][prev_c] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r][prev_c]++;
+                }
+                // North block: (prev_r-1, prev_c)
+                if (prev_r > 0 && prev_c < m) {
+                    int val = grid[prev_r-1][prev_c] - '0';
+                    if (cnt[prev_r-1][prev_c] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r-1][prev_c]++;
+                }
+            } else if (dir == 1) { // South: vertical on avenue prev_c
+                // East block: (prev_r, prev_c)
+                if (prev_r < n && prev_c < m) {
+                    int val = grid[prev_r][prev_c] - '0';
+                    if (cnt[prev_r][prev_c] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r][prev_c]++;
+                }
+                // West block: (prev_r, prev_c-1)
+                if (prev_r < n && prev_c > 0) {
+                    int val = grid[prev_r][prev_c-1] - '0';
+                    if (cnt[prev_r][prev_c-1] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r][prev_c-1]++;
+                }
+            } else if (dir == 2) { // West: horizontal on street prev_r
+                // South block: (prev_r, prev_c-1)  [because moving west, the segment is from (prev_r, prev_c) to (prev_r, prev_c-1), so the blocks are to the south: (prev_r, prev_c-1) and to the north: (prev_r-1, prev_c-1)]
+                if (prev_r < n && prev_c-1 >= 0) {
+                    int val = grid[prev_r][prev_c-1] - '0';
+                    if (cnt[prev_r][prev_c-1] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r][prev_c-1]++;
+                }
+                // North block: (prev_r-1, prev_c-1)
+                if (prev_r > 0 && prev_c-1 >= 0) {
+                    int val = grid[prev_r-1][prev_c-1] - '0';
+                    if (cnt[prev_r-1][prev_c-1] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r-1][prev_c-1]++;
+                }
+            } else if (dir == 3) { // North: vertical on avenue prev_c
+                // East block: (prev_r-1, prev_c)
+                if (prev_r-1 >= 0 && prev_c < m) {
+                    int val = grid[prev_r-1][prev_c] - '0';
+                    if (cnt[prev_r-1][prev_c] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r-1][prev_c]++;
+                }
+                // West block: (prev_r-1, prev_c-1)
+                if (prev_r-1 >= 0 && prev_c > 0) {
+                    int val = grid[prev_r-1][prev_c-1] - '0';
+                    if (cnt[prev_r-1][prev_c-1] == 0) {
+                        satisfaction += val;
+                    } else {
+                        satisfaction += val / 2;
+                    }
+                    cnt[prev_r-1][prev_c-1]++;
+                }
+            }
+        }
+    }
+    
+    cout << satisfaction << endl;
+    return 0;
+}

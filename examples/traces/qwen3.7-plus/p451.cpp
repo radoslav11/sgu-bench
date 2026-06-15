@@ -1,0 +1,238 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <set>
+#include <sstream>
+#include <algorithm>
+
+using namespace std;
+
+bool is_male(const string& p) {
+    if (p.empty()) return false;
+    char c = p.back();
+    return c == 'f' || c == 's' || c == 'h';
+}
+
+bool is_female(const string& p) {
+    if (p.empty()) return false;
+    char c = p.back();
+    return c == 'm' || c == 'd' || c == 'w';
+}
+
+set<string> simplify_set(set<string> paths) {
+    for (int iter = 0; iter < 20; ++iter) {
+        set<string> new_paths;
+        bool changed = false;
+        for (const string& p : paths) {
+            if (p.length() >= 2 && p.substr(p.length() - 2) == "fw") {
+                new_paths.insert(p.substr(0, p.length() - 2) + "m");
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "mh") {
+                new_paths.insert(p.substr(0, p.length() - 2) + "f");
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "ws") {
+                new_paths.insert(p.substr(0, p.length() - 2) + "s");
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "wd") {
+                new_paths.insert(p.substr(0, p.length() - 2) + "d");
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "hs") {
+                new_paths.insert(p.substr(0, p.length() - 2) + "s");
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "hd") {
+                new_paths.insert(p.substr(0, p.length() - 2) + "d");
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "fh") {
+                changed = true; // invalid
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "mw") {
+                changed = true; // invalid
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "wh") {
+                changed = true; // invalid
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "hw") {
+                changed = true; // invalid
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "sf") {
+                string P = p.substr(0, p.length() - 2);
+                if (is_male(P)) new_paths.insert(P);
+                else if (is_female(P)) new_paths.insert(P + "h");
+                else {
+                    new_paths.insert(P);
+                    new_paths.insert(P + "h");
+                }
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "sm") {
+                string P = p.substr(0, p.length() - 2);
+                if (is_male(P)) new_paths.insert(P + "w");
+                else if (is_female(P)) new_paths.insert(P);
+                else {
+                    new_paths.insert(P);
+                    new_paths.insert(P + "w");
+                }
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "df") {
+                string P = p.substr(0, p.length() - 2);
+                if (is_male(P)) new_paths.insert(P);
+                else if (is_female(P)) new_paths.insert(P + "h");
+                else {
+                    new_paths.insert(P);
+                    new_paths.insert(P + "h");
+                }
+                changed = true;
+            } else if (p.length() >= 2 && p.substr(p.length() - 2) == "dm") {
+                string P = p.substr(0, p.length() - 2);
+                if (is_male(P)) new_paths.insert(P + "w");
+                else if (is_female(P)) new_paths.insert(P);
+                else {
+                    new_paths.insert(P);
+                    new_paths.insert(P + "w");
+                }
+                changed = true;
+            } else {
+                new_paths.insert(p);
+            }
+        }
+        if (!changed) break;
+        paths = new_paths;
+    }
+    return paths;
+}
+
+set<string> get_fathers(const set<string>& S) {
+    set<string> res;
+    for (const string& p : S) res.insert(p + "f");
+    return simplify_set(res);
+}
+
+set<string> get_mothers(const set<string>& S) {
+    set<string> res;
+    for (const string& p : S) res.insert(p + "m");
+    return simplify_set(res);
+}
+
+set<string> get_sons(const set<string>& S) {
+    set<string> res;
+    for (const string& p : S) res.insert(p + "s");
+    return simplify_set(res);
+}
+
+set<string> get_daughters(const set<string>& S) {
+    set<string> res;
+    for (const string& p : S) res.insert(p + "d");
+    return simplify_set(res);
+}
+
+set<string> get_brothers(const set<string>& S) {
+    set<string> res;
+    for (const string& p : S) {
+        set<string> temp = {p + "fs", p + "ms"};
+        temp = simplify_set(temp);
+        temp.erase(p);
+        for (const string& x : temp) res.insert(x);
+    }
+    return simplify_set(res);
+}
+
+set<string> get_sisters(const set<string>& S) {
+    set<string> res;
+    for (const string& p : S) {
+        set<string> temp = {p + "fd", p + "md"};
+        temp = simplify_set(temp);
+        temp.erase(p);
+        for (const string& x : temp) res.insert(x);
+    }
+    return simplify_set(res);
+}
+
+set<string> union_sets(const set<string>& a, const set<string>& b) {
+    set<string> res = a;
+    res.insert(b.begin(), b.end());
+    return simplify_set(res);
+}
+
+int get_distance(const string& p) {
+    int d = 0;
+    for (char c : p) {
+        if (c == 'f' || c == 'm' || c == 's' || c == 'd') {
+            d++;
+        }
+    }
+    return d;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string s;
+    if (!getline(cin, s)) return 0;
+
+    vector<string> rels;
+    string temp = "";
+    if (s.length() >= 5 && s.substr(0, 5) == "C is ") {
+        temp = s.substr(5);
+    } else {
+        temp = s; // fallback
+    }
+
+    string formatted = "";
+    for (size_t i = 0; i < temp.length(); i++) {
+        if (i + 2 < temp.length() && temp.substr(i, 3) == "'s ") {
+            formatted += "|";
+            i += 2;
+        } else {
+            formatted += temp[i];
+        }
+    }
+
+    stringstream ss(formatted);
+    string token;
+    if (getline(ss, token, '|')) {
+        // First token is "A" or similar, ignore
+        while (getline(ss, token, '|')) {
+            if (!token.empty()) {
+                rels.push_back(token);
+            }
+        }
+    }
+
+    set<string> S = {""};
+
+    for (const string& rel : rels) {
+        if (rel == "father") S = get_fathers(S);
+        else if (rel == "mother") S = get_mothers(S);
+        else if (rel == "son") S = get_sons(S);
+        else if (rel == "daughter") S = get_daughters(S);
+        else if (rel == "husband") {
+            set<string> res;
+            for (const string& p : S) res.insert(p + "h");
+            S = simplify_set(res);
+        }
+        else if (rel == "wife") {
+            set<string> res;
+            for (const string& p : S) res.insert(p + "w");
+            S = simplify_set(res);
+        }
+        else if (rel == "brother") S = get_brothers(S);
+        else if (rel == "sister") S = get_sisters(S);
+        else if (rel == "uncle") S = union_sets(get_brothers(get_fathers(S)), get_brothers(get_mothers(S)));
+        else if (rel == "aunt") S = union_sets(get_sisters(get_fathers(S)), get_sisters(get_mothers(S)));
+        else if (rel == "nephew") S = union_sets(get_sons(get_brothers(S)), get_sons(get_sisters(S)));
+        else if (rel == "niece") S = union_sets(get_daughters(get_brothers(S)), get_daughters(get_sisters(S)));
+        else if (rel == "grandfather") S = union_sets(get_fathers(get_fathers(S)), get_fathers(get_mothers(S)));
+        else if (rel == "grandmother") S = union_sets(get_mothers(get_fathers(S)), get_mothers(get_mothers(S)));
+        else if (rel == "grandson") S = union_sets(get_sons(get_sons(S)), get_sons(get_daughters(S)));
+        else if (rel == "granddaughter") S = union_sets(get_daughters(get_sons(S)), get_daughters(get_daughters(S)));
+    }
+
+    int min_d = 1e9, max_d = 0;
+    for (const string& p : S) {
+        int d = get_distance(p);
+        min_d = min(min_d, d);
+        max_d = max(max_d, d);
+    }
+
+    if (min_d == 1e9) min_d = 0;
+
+    cout << max_d << " " << min_d << "\n";
+
+    return 0;
+}

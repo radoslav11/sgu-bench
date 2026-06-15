@@ -1,0 +1,5 @@
+#include <bits/stdc++.h>
+using namespace std;
+vector<int> sieve_primes(int t){vector<int>p;for(int n=2;(int)p.size()<t;n++){bool ok=true;for(int x:p)if(x*x>n)break;else if(n%x==0){ok=false;break;}if(ok)p.push_back(n);}return p;}
+string power2minus1(int k){if(k==0)return"0";vector<int>num={1};for(int i=0;i<k;i++){int c=0;for(int j=0;j<(int)num.size();j++){int v=num[j]*2+c;num[j]=v%10;c=v/10;}if(c)num.push_back(c);}int j=0;while(num[j]==0){num[j]=9;j++;}num[j]--;string s;for(int i=num.size()-1;i>=0;i--)s+=('0'+num[i]);return s;}
+int main(){int t,m;cin>>t>>m;auto primes=sieve_primes(t);vector<vector<int>>A(m,vector<int>(t,0));for(int i=0;i<m;i++){long long b;cin>>b;for(int j=0;j<t;j++){int c=0;while(b%primes[j]==0){b/=primes[j];c++;}A[i][j]=c%2;}}int rank=0;for(int col=0;col<t&&rank<m;col++){int piv=-1;for(int row=rank;row<m;row++)if(A[row][col]){piv=row;break;}if(piv==-1)continue;swap(A[rank],A[piv]);for(int row=0;row<m;row++)if(row!=rank&&A[row][col])for(int c=0;c<t;c++)A[row][c]^=A[rank][c];rank++;}int k=m-rank;cout<<power2minus1(k);return 0;}

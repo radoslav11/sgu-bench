@@ -1,0 +1,39 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<int> ptr(4), val(4, 0);
+    for (int i = 0; i < 4; ++i) ptr[i] = i;
+
+    string s;
+    while (N--) {
+        cin >> s;
+
+        if (s.rfind("writeln", 0) == 0) {
+            int p = s[8] - 'a';
+            cout << val[ptr[p]] << '\n';
+        } else {
+            int left = s[0] - 'a';
+
+            if (s[1] == '^') {
+                if (isdigit(s[4])) {
+                    val[ptr[left]] = s[4] - '0';
+                } else {
+                    int right = s[4] - 'a';
+                    val[ptr[left]] = val[ptr[right]];
+                }
+            } else {
+                int right = s[3] - 'a';
+                ptr[left] = ptr[right];
+            }
+        }
+    }
+
+    return 0;
+}

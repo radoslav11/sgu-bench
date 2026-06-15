@@ -1,0 +1,61 @@
+#include <iostream>
+#include <string>
+#include <string_view>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int K;
+    if (!(cin >> K)) return 0;
+    string S;
+    cin >> S;
+
+    int N = S.length();
+    string S_ext = S + S;
+
+    for (int L = N - 1; L >= 2; L -= 2) {
+        int mismatches = 0;
+        for (int j = 0; j < L / 2; ++j) {
+            if (S_ext[j] != S_ext[j + L / 2]) {
+                mismatches++;
+            }
+        }
+        
+        int best_i = -1;
+        if (mismatches <= K) {
+            best_i = 0;
+        }
+
+        for (int i = 1; i < N; ++i) {
+            if (S_ext[i - 1] != S_ext[i - 1 + L / 2]) {
+                mismatches--;
+            }
+            if (S_ext[i + L / 2 - 1] != S_ext[i + L - 1]) {
+                mismatches++;
+            }
+            
+            if (mismatches <= K) {
+                if (best_i == -1) {
+                    best_i = i;
+                } else {
+                    string_view cand(S_ext.data() + i, L);
+                    string_view best_cand(S_ext.data() + best_i, L);
+                    if (cand < best_cand) {
+                        best_i = i;
+                    }
+                }
+            }
+        }
+        
+        if (best_i != -1) {
+            cout << S_ext.substr(best_i, L) << "\n";
+            return 0;
+        }
+    }
+
+    cout << "\n";
+    return 0;
+}

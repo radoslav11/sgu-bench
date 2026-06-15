@@ -1,0 +1,21 @@
+#include <iostream>
+
+using namespace std;
+
+int main() {
+    // Optimize standard I/O operations for performance
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, k;
+    if (cin >> n >> k) {
+        for (int i = 1; i <= n; ++i) {
+            int current = (i * k) / n;
+            int previous = ((i - 1) * k) / n;
+            cout << current - previous << (i == n ? "" : " ");
+        }
+        cout << "\n";
+    }
+    
+    return 0;
+}

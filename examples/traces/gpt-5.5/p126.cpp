@@ -1,0 +1,25 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    long long A, B;
+    if (!(cin >> A >> B)) return 0;
+
+    long long S = A + B;
+    long long g = std::gcd(A, B);
+    long long q = S / g;
+
+    int moves = 0;
+    while (q > 1 && q % 2 == 0) {
+        q /= 2;
+        moves++;
+    }
+
+    if (q == 1) cout << moves << '\n';
+    else cout << -1 << '\n';
+
+    return 0;
+}

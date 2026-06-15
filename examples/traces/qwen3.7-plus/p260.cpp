@@ -1,0 +1,107 @@
+#include <iostream>
+#include <vector>
+#include <bitset>
+
+using namespace std;
+
+bool solve(int N, vector<bitset<205>> A, vector<int>& res) {
+    vector<int> pos(N, -1);
+    int row = 0;
+    for (int col = 0; col < N; ++col) {
+        int pivot = -1;
+        for (int i = row; i < N; ++i) {
+            if (A[i][col]) {
+                pivot = i;
+                break;
+            }
+        }
+        if (pivot == -1) continue;
+        swap(A[row], A[pivot]);
+        pos[col] = row;
+        for (int i = 0; i < N; ++i) {
+            if (i != row && A[i][col]) {
+                A[i] ^= A[row];
+            }
+        }
+        ++row;
+    }
+    for (int i = 0; i < N; ++i) {
+        bool all_zero = true;
+        for (int j = 0; j < N; ++j) {
+            if (A[i][j]) {
+                all_zero = false;
+                break;
+            }
+        }
+        if (all_zero && A[i][N]) {
+            return false;
+        }
+    }
+    res.assign(N, 0);
+    for (int i = 0; i < N; ++i) {
+        if (pos[i] != -1) {
+            res[i] = A[pos[i]][N];
+        } else {
+            res[i] = 0;
+        }
+    }
+    return true;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N;
+    if (!(cin >> N)) return 0;
+    
+    vector<bitset<205>> A(N, bitset<205>());
+    for (int i = 0; i < N; ++i) {
+        int k;
+        cin >> k;
+        for (int j = 0; j < k; ++j) {
+            int cell;
+            cin >> cell;
+            A[cell - 1][i] = 1;
+        }
+    }
+    
+    vector<int> b(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> b[i];
+    }
+    
+    vector<bitset<205>> A0 = A;
+    vector<bitset<205>> A1 = A;
+    for (int i = 0; i < N; ++i) {
+        A0[i][N] = b[i];
+        A1[i][N] = b[i] ^ 1;
+    }
+    
+    vector<int> res0, res1;
+    if (solve(N, A0, res0)) {
+        vector<int> ans;
+        for (int i = 0; i < N; ++i) {
+            if (res0[i]) ans.push_back(i + 1);
+        }
+        cout << ans.size() << "\n";
+        for (int i = 0; i < (int)ans.size(); ++i) {
+            cout << ans[i] << (i + 1 == (int)ans.size() ? "" : " ");
+        }
+        cout << "\n";
+    } else if (solve(N, A1, res1)) {
+        vector<int> ans;
+        for (int i = 0; i < N; ++i) {
+            if (res1[i]) ans.push_back(i + 1);
+        }
+        cout << ans.size() << "\n";
+        for (int i = 0; i < (int)ans.size(); ++i) {
+            cout << ans[i] << (i + 1 == (int)ans.size() ? "" : " ");
+        }
+        cout << "\n";
+    } else {
+        cout << -1 << "\n";
+    }
+    
+    return 0;
+}

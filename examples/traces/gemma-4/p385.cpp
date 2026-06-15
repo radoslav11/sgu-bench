@@ -1,0 +1,109 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+#include <algorithm>
+
+/**
+ * Problem Analysis:
+ * A derangement is a permutation with no fixed points. 
+ * The game rules describe how judges in cycles of the derangement interact.
+ * For a given derangement with cycle lengths L_1, L_2, ..., L_m, 
+ * exactly one judge from each cycle will end up with all the cards of that cycle.
+ * That judge will have L_i cards, and all other judges in that cycle will have 0.
+ * The winners are those who end up with the maximum number of cards.
+ * For a given cycle length L_i, any of the L_i judges in that cycle can potentially 
+ * be the one who wins, provided L_i = max(L_1, ..., L_m).
+ * 
+ * Let N be the number of judges (n <= 100).
+ * The number of winners in a derangement is the sum of the lengths of all cycles
+ * that have the maximum cycle length.
+ * 
+ * We need to calculate the expected number of winners:
+ * E = (1 / D_n) * sum_{over all derangements} (number of winners in that derangement)
+ * 
+ * By linearity of expectation, E = (n / D_n) * sum_{over all derangements} [judge 1 is a winner]
+ * A judge (e.g., judge 1) is a winner if the cycle containing them has the maximum length.
+ * Let k be the length of the cycle containing judge 1.
+ * For judge 1 to be a winner, k must be the maximum cycle length.
+ * The number of such derangements is:
+ * sum_{k=2}^n (ways to choose k-1 other judges in 1's cycle) * (ways to form a k-cycle) * (ways to form 
+ * derangements of the remaining n-k judges with cycle lengths all <= k).
+ * 
+ * Let f(m, k) be the number of derangements of m elements where all cycle lengths are <= k.
+ * Then the sum we want is:
+ * S = sum_{k=2}^n [ (n-1)C(k-1) * (k-1)! * f(n-k, k) ]
+ * The expected number of winners is:
+ * E = (n * S) / D_n
+ * 
+ * Constraints: n up to 100.
+ * D_n and f(m, k) can be as large as 10^157, so we must use 'long double'.
+ * Time limit is 0.25s, which is very tight, but our O(n^3) DP should be fine.
+ */
+
+using namespace std;
+
+typedef long double ld;
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    if (n < 2) {
+        cout << fixed << setprecision(10) << 0.0 << endl;
+        return 0;
+    }
+
+    // Precompute factorials and combinations
+    vector<ld> fact(n + 1);
+    fact[0] = 1.0;
+    for (int i = 1; i <= n; ++i) fact[i] = fact[i - 1] * i;
+
+    vector<vector<ld>> combinations(n + 1, vector<ld>(n + 1, 0.0));
+    for (int i = 0; i <= n; ++i) {
+        combinations[i][0] = 1.0;
+        for (int j = 1; j <= i; ++j) {
+            combinations[i][j] = combinations[i - 1][j - 1] + combinations[i - 1][j];
+        }
+    }
+
+    // Precompute derangements D_n using the recurrence D_n = (n-1)(D_{n-1} + D_{n-2})
+    vector<ld> D(n + 1);
+    D[0] = 1.0;
+    if (n >= 1) D[1] = 0.0;
+    for (int i = 2; i <= n; ++i) {
+        D[i] = (ld)(i - 1) * (D[i - 1] + D[i - 2]);
+    }
+
+    // f[m][k] = number of derangements of m elements with all cycle lengths <= k
+    // Using O(n^3) DP
+    vector<vector<ld>> f(n + 1, vector<ld>(n + 1, 0.0));
+    for (int k = 2; k <= n; ++k) {
+        f[0][k] = 1.0; // Base case: 0 elements form a derangement trivially
+        for (int m = 1; m <= n; ++m) {
+            f[m][k] = 0.0;
+            // A derangement of m elements can be formed by picking j elements (j >= 2)
+            // for a cycle containing the first element.
+            for (int j = 2; j <= min(m, k); ++j) {
+                f[m][k] += combinations[m - 1][j - 1] * fact[j - 1] * f[m - j][k];
+            }
+        }
+    }
+
+    // Calculate S = sum_{k=2}^n ( (n-1)C(k-1) * (k-1)! * f(n-k, k) )
+    ld S = 0.0;
+    for (int k = 2; k <= n; ++k) {
+        S += combinations[n - 1][k - 1] * fact[k - 1] * f[n - k][k];
+    }
+
+    // The expected number of winners E = (n * S) / D_n
+    ld E = (ld)n * S / D[n];
+
+    cout << fixed << setprecision(10) << (double)E << endl;
+
+    return 0;
+}
+

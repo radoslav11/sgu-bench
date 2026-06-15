@@ -1,0 +1,111 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+/**
+ * Problem Summary:
+ * A garden is an N x M grid where each cell is either occupied by weed ('X') or free ('.').
+ * An empty square '.' becomes 'X' if at least two of its adjacent squares are occupied by 'X'.
+ * This process repeats until no more squares can be changed to 'X'.
+ * Find the final number of 'X' squares.
+ * 
+ * Approach:
+ * Use a queue-based approach similar to Breadth-First Search (BFS) to propagate the weed growth.
+ * 1. Calculate the initial number of 'X' neighbors for every empty '.' cell.
+ * 2. Any '.' cell with 2 or more 'X' neighbors is added to a queue and immediately marked as 'X'.
+ * 3. Process the queue: for every newly changed 'X' cell, increment the 'X' neighbor count of its 
+ *    neighbors. If any '.' neighbor reaches a count of 2, mark it as 'X' and add it to the queue.
+ * 4. Finally, count the total number of 'X' cells.
+ * 
+ * Time Complexity: O(N * M)
+ * Space Complexity: O(N * M)
+ */
+
+const int MAX = 1005;
+char grid[MAX][MAX];
+int counts[MAX][MAX];
+pair<int, int> q[MAX * MAX];
+
+int main() {
+    // Optimize standard I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    // Read the garden grid
+    for (int i = 0; i < N; ++i) {
+        cin >> grid[i];
+    }
+
+    // Directions for the four adjacent squares: up, down, left, right
+    int dr[] = {-1, 1, 0, 0};
+    int dc[] = {0, 0, -1, 1};
+
+    // Initial count of 'X' neighbors for each '.' cell
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < M; ++j) {
+            if (grid[i][j] == 'X') {
+                for (int k = 0; k < 4; ++k) {
+                    int ni = i + dr[k];
+                    int nj = j + dc[k];
+                    // If adjacent cell is within bounds and is empty, increment its 'X' count
+                    if (ni >= 0 && ni < N && nj >= 0 && nj < M && grid[ni][nj] == '.') {
+                        counts[ni][nj]++;
+                    }
+                }
+            }
+        }
+    }
+
+    // Initialize the queue with '.' cells that already satisfy the weed growth condition
+    int head = 0, tail = 0;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < M; ++j) {
+            if (grid[i][j] == '.' && counts[i][j] >= 2) {
+                grid[i][j] = 'X';
+                q[tail++] = {i, j};
+            }
+        }
+    }
+
+    // Propagate weed growth through the queue
+    while (head < tail) {
+        pair<int, int> curr = q[head++];
+        int r = curr.first;
+        int c = curr.second;
+
+        for (int k = 0; k < 4; ++k) {
+            int nr = r + dr[k];
+            int nc = c + dc[k];
+
+            // If the neighbor is within bounds and is '.', update its 'X' count
+            if (nr >= 0 && nr < N && nc >= 0 && nc < M && grid[nr][nc] == '.') {
+                counts[nr][nc]++;
+                // If the count reaches 2, the cell becomes 'X' and is added to the queue
+                if (counts[nr][nc] >= 2) {
+                    grid[nr][nc] = 'X';
+                    q[tail++] = {nr, nc};
+                }
+            }
+        }
+    }
+
+    // Count and output the final number of 'X' cells
+    int ans = 0;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < M; ++j) {
+            if (grid[i][j] == 'X') {
+                ans++;
+            }
+        }
+    }
+
+    cout << ans << endl;
+
+    return 0;
+}
+

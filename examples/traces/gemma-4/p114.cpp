@@ -1,0 +1,89 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+
+/**
+ * Problem: Telecasting station
+ * 
+ * The objective is to find a position x on the Ox axis that minimizes the total displeasure:
+ * f(x) = sum_{i=1}^N p_i * |x - x_i|, where x_i is the city position and p_i is the 
+ * number of citizens.
+ * 
+ * f(x) is a convex function because it is a weighted sum of convex functions (p_i * |x - x_i|).
+ * The derivative f'(x) for x not equal to any x_i is:
+ * f'(x) = sum_{x_i < x} p_i - sum_{x_i > x} p_i.
+ * 
+ * The minimum of this function occurs where the derivative changes from negative to non-negative.
+ * This is equivalent to finding the weighted median of the x_i values, where each x_i is weighted 
+ * by p_i. Specifically, we sort the cities by x_i and find the first x_k such that 
+ * the cumulative weight up to k satisfies: sum_{i=1}^k p_i >= (1/2) * sum_{i=1}^N p_i.
+ * 
+ * If the cumulative sum exactly equals (1/2) * sum_{i=1}^N p_i, the slope is zero on the 
+ * interval [x_k, x_{k+1}], meaning any value in that interval is an optimal solution.
+ * 
+ * Constraints:
+ * N < 15000
+ * 0 < X, P < 50000
+ * Time limit: 0.25s
+ * Memory limit: 4096 KB
+ * 
+ * Time complexity: O(N log N) for sorting, which is approximately 15000 * log(15000) ≈ 2 * 10^5 operations.
+ * Space complexity: O(N) for storing the cities.
+ */
+
+using namespace std;
+
+struct City {
+    double x;
+    double p;
+};
+
+// Comparator to sort cities by their position on the Ox axis
+bool compareCities(const City& a, const City& b) {
+    return a.x < b.x;
+}
+
+int main() {
+    // Fast I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    // Vector to store city data
+    vector<City> cities(N);
+    double total_p = 0;
+    for (int i = 0; i < N; ++i) {
+        if (!(cin >> cities[i].x >> cities[i].p)) break;
+        total_p += cities[i].p;
+    }
+
+    // If no cities exist, although N > 0, handle it gracefully
+    if (N == 0) return 0;
+
+    // Sort cities by position
+    sort(cities.begin(), cities.end(), compareCities);
+
+    // Find the weighted median
+    double current_p = 0;
+    double ans_x = cities[0].x;
+    for (int i = 0; i < N; ++i) {
+        current_p += cities[i].p;
+        // The condition for the weighted median:
+        // The sum of weights of cities to the left of x is <= total_p / 2
+        // and the sum of weights of cities to the right of x is <= total_p / 2.
+        // This is equivalent to finding the first index where cumulative weight reaches total_p / 2.
+        if (current_p >= total_p / 2.0) {
+            ans_x = cities[i].x;
+            break;
+        }
+    }
+
+    // Output the result with required precision
+    cout << fixed << setprecision(5) << ans_x << endl;
+
+    return 0;
+}
+

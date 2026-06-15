@@ -1,0 +1,99 @@
+#include <cstdio>
+#include <vector>
+#include <cmath>
+
+/**
+ * Problem: 136. Erasing Edges
+ * 
+ * The problem asks to reconstruct the vertices of a polygon given the midpoints 
+ * of its edges. Let the vertices be V_1, V_2, ..., V_N and the midpoints be M_1, M_2, ..., M_N.
+ * The midpoints satisfy M_i = (V_i + V_{i+1}) / 2, with V_{N+1} = V_1.
+ * 
+ * This leads to a system of linear equations:
+ * V_1 + V_2 = 2*M_1
+ * V_2 + V_3 = 2*M_2
+ * ...
+ * V_N + V_1 = 2*M_N
+ * 
+ * Case 1: N is odd.
+ * There is a unique solution for V_1:
+ * 2*V_1 = 2*M_1 - 2*M_2 + 2*M_3 - ... + 2*M_N
+ * V_1 = M_1 - M_2 + M_3 - ... + M_N
+ * 
+ * Case 2: N is even.
+ * The system is consistent only if M_1 - M_2 + M_3 - ... - M_N = 0.
+ * If consistent, there are infinitely many solutions for V_1.
+ * 
+ * Complexity: O(N) time and O(N) space.
+ */
+
+using namespace std;
+
+struct Point {
+    double x, y;
+};
+
+int main() {
+    int N;
+    // Reading the number of vertices
+    if (scanf("%d", &N) != 1) return 0;
+
+    // Reading the midpoints of the edges
+    vector<Point> M(N);
+    for (int i = 0; i < N; ++i) {
+        if (scanf("%lf %lf", &M[i].x, &M[i].y) != 2) break;
+    }
+
+    vector<Point> V(N);
+    if (N % 2 != 0) {
+        // N is odd: V_1 is uniquely determined
+        long double vx = 0, vy = 0;
+        for (int i = 0; i < N; ++i) {
+            if (i % 2 == 0) {
+                vx += (long double)M[i].x;
+                vy += (long double)M[i].y;
+            } else {
+                vx -= (long double)M[i].x;
+                vy -= (long double)M[i].y;
+            }
+        }
+        V[0].x = (double)vx;
+        V[0].y = (double)vy;
+    } else {
+        // N is even: Check consistency condition M_1 - M_2 + M_3 - ... - M_N = 0
+        long double sx = 0, sy = 0;
+        for (int i = 0; i < N; ++i) {
+            if (i % 2 == 0) {
+                sx += (long double)M[i].x;
+                sy += (long double)M[i].y;
+            } else {
+                sx -= (long double)M[i].x;
+                sy -= (long double)M[i].y;
+            }
+        }
+        // A small epsilon for floating point comparison
+        if (fabsl(sx) > 1e-6 || fabsl(sy) > 1e-6) {
+            printf("NO\n");
+            return 0;
+        }
+        // Any V_1 works if the condition is met. We pick a simple non-zero value.
+        V[0].x = 1.0;
+        V[0].y = 1.0;
+    }
+
+    // Solve for all other vertices iteratively using V_{i+1} = 2*M_i - V_i
+    for (int i = 0; i < N - 1; ++i) {
+        V[i + 1].x = 2.0 * M[i].x - V[i].x;
+        V[i + 1].y = 2.0 * M[i].y - V[i].y;
+    }
+
+    // Output the result
+    printf("YES\n");
+    for (int i = 0; i < N; ++i) {
+        // Using %.3f to meet the requirement of at least 3 decimal places
+        printf("%.3f %.3f\n", V[i].x, V[i].y);
+    }
+
+    return 0;
+}
+

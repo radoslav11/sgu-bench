@@ -1,0 +1,68 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const int MAXN = 2000000;
+static int bit[MAXN + 1];
+
+int N, Q;
+
+inline void add(int idx, int delta) {
+    for (; idx <= N; idx += idx & -idx) bit[idx] += delta;
+}
+
+inline int kth(int k) {
+    int idx = 0;
+    int mask = 1;
+    while ((mask << 1) <= N) mask <<= 1;
+
+    for (int d = mask; d; d >>= 1) {
+        int nxt = idx + d;
+        if (nxt <= N && bit[nxt] < k) {
+            idx = nxt;
+            k -= bit[nxt];
+        }
+    }
+    return idx + 1;
+}
+
+int main() {
+    if (scanf("%d %d", &N, &Q) != 2) return 0;
+
+    for (int i = 1; i <= N; ++i) {
+        bit[i] = i & -i;
+    }
+
+    int alive = N;
+    int curRank = 1;
+    int dir = 1; // 1 = clockwise, -1 = counter-clockwise
+    int last = 1;
+
+    while (alive > 0) {
+        int targetRank;
+
+        if (dir == 1) {
+            targetRank = (curRank + Q - 2) % alive + 1;
+        } else {
+            targetRank = (curRank - Q) % alive;
+            if (targetRank < 0) targetRank += alive;
+            targetRank += 1;
+        }
+
+        int erased = kth(targetRank);
+        last = erased;
+
+        add(erased, -1);
+        --alive;
+
+        if (alive == 0) break;
+
+        curRank = targetRank;
+        if (curRank > alive) curRank = 1;
+
+        int cur = kth(curRank);
+        dir = (cur & 1) ? 1 : -1;
+    }
+
+    printf("%d\n", last);
+    return 0;
+}

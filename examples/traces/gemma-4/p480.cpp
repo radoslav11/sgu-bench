@@ -1,0 +1,128 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+// Problem: Gena's Soul Cakes
+// A corner of size 2^k is made of 8 corners of size 2^{k-1}.
+// This is equivalent to saying that a corner of size 2^k is made of 
+// x_{k-1} corners of size 2^{k-1}, x_{k-2} corners of size 2^{k-2}, ..., x_0 corners of size 2^0,
+// where sum_{j=0}^{k-1} x_j * 8^j = 8^k, and the corners must be able to form the corner.
+// The condition for the corners to form the corner is:
+// Let R_{k-1} = 8.
+// For j = k-1 down to 1, R_{j-1} = 8 * max(0, R_j - x_j).
+// Finally, x_0 = R_0.
+// This requires x_j <= A_j where A_j is the total number of corners of size 2^j available.
+// We want to minimize the number of colors used.
+
+int C, K;
+int a[1005][1005];
+long long A_sum[1005];
+bool selected[1005];
+
+// Function to calculate the minimum number of 2^0 size corners needed (rem_0)
+// given the current totals of available corners for each size.
+long long get_rem0() {
+    long long rem = 8;
+    for (int j = K - 1; j >= 1; --j) {
+        rem = 8 * max(0LL, rem - A_sum[j]);
+        if (rem > 2000000) rem = 2000000; // Cap it to avoid overflow
+    }
+    return rem;
+}
+
+int main() {
+    // Speed up I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> C >> K)) return 0;
+    for (int i = 0; i < C; ++i) {
+        for (int j = 0; j < K; ++j) {
+            cin >> a[i][j];
+        }
+    }
+
+    // Corner of size 2^K is requested.
+    // If K=0, the big corner is itself a cube of size 2^0, but the problem implies K >= 1.
+    if (K <= 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    int count = 0;
+    while (true) {
+        long long current_rem0 = get_rem0();
+        if (current_rem0 <= A_sum[0]) break;
+
+        int best_color = -1;
+        long long min_rem0 = -1;
+
+        for (int i = 0; i < C; ++i) {
+            if (selected[i]) continue;
+
+            // Calculate what the new rem_0 would be if we add color i.
+            for (int j = 0; j < K; ++j) A_sum[j] += a[i][j];
+            long long new_rem0 = get_rem0();
+            for (int j = 0; j < K; ++j) A_sum[j] -= a[i][j];
+
+            if (best_color == -1 || new_rem0 < min_rem0) {
+                min_rem0 = new_rem0;
+                best_color = i;
+            }
+        }
+
+        if (best_color == -1) break;
+        selected[best_color] = true;
+        count++;
+        for (int j = 0; j < K; ++j) A_sum[j] += a[best_color][j];
+
+        if (get_rem0() <= A_sum[0]) break;
+    }
+
+    if (get_rem0() <= A_sum[0]) {
+        // Construct the output: find the actual x_j values.
+        vector<long long> final_x(K);
+        if (K == 1) {
+            final_x[0] = 8;
+        } else {
+            long long cur_R = 8;
+            for (int j = K - 1; j >= 1; --j) {
+                final_x[j] = min(A_sum[j], cur_R);
+                cur_R = 8 * (cur_R - final_x[j]);
+                if (cur_R > 2000000) cur_R = 2000000;
+            }
+            final_x[0] = cur_R;
+        }
+
+        struct Result {
+            int color, size, count;
+        };
+        vector<Result> result;
+        vector<int> current_S;
+        for (int i = 0; i < C; ++i) if (selected[i]) current_S.push_back(i);
+
+        for (int j = 0; j < K; ++j) {
+            long long needed = final_x[j];
+            for (int i : current_S) {
+                if (needed <= 0) break;
+                int take = min((long long)a[i][j], needed);
+                if (take > 0) {
+                    result.push_back({i + 1, j, take});
+                    needed -= take;
+                }
+            }
+        }
+
+        cout << result.size() << "\n";
+        for (auto& res : result) {
+            cout << res.color << " " << res.size << " " << res.count << "\n";
+        }
+    } else {
+        cout << "NO SOLUTION" << endl;
+    }
+
+    return 0;
+}
+

@@ -1,0 +1,101 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    long long R;
+    cin >> N >> M >> R;
+
+    vector<long long> p(N);
+    for (int i = 0; i < N; i++) cin >> p[i];
+
+    const long long INF = (1LL << 60);
+
+    vector<vector<long long>> dist(N, vector<long long>(N, INF));
+    for (int i = 0; i < N; i++) dist[i][i] = 0;
+
+    struct Edge {
+        int a, b;
+        long long l;
+    };
+
+    vector<Edge> edges;
+
+    for (int i = 0; i < M; i++) {
+        int a, b;
+        long long l;
+        cin >> a >> b >> l;
+        --a; --b;
+        edges.push_back({a, b, l});
+        dist[a][b] = dist[b][a] = min(dist[a][b], l);
+    }
+
+    for (int k = 0; k < N; k++) {
+        for (int i = 0; i < N; i++) {
+            if (dist[i][k] == INF) continue;
+            for (int j = 0; j < N; j++) {
+                if (dist[k][j] == INF) continue;
+                dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
+            }
+        }
+    }
+
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            if (dist[i][j] == INF) {
+                cout << -1 << '\n';
+                return 0;
+            }
+        }
+    }
+
+    auto eval_city = [&](int v) -> long double {
+        long double res = 0;
+        for (int i = 0; i < N; i++) {
+            res += (long double)p[i] * dist[v][i];
+        }
+        return res / 10000.0L;
+    };
+
+    auto eval_edge = [&](int a, int b, long long l, long long x) -> long double {
+        long double res = 0;
+        for (int i = 0; i < N; i++) {
+            long long d = min(x + dist[a][i], l - x + dist[b][i]);
+            res += (long double)p[i] * d;
+        }
+        return res / 10000.0L;
+    };
+
+    bool possible = false;
+    long double ans = 1e100L;
+
+    if (R == 0) {
+        for (int i = 0; i < N; i++) {
+            possible = true;
+            ans = min(ans, eval_city(i));
+        }
+    }
+
+    for (auto &e : edges) {
+        if (e.l >= 2 * R) {
+            possible = true;
+
+            ans = min(ans, eval_edge(e.a, e.b, e.l, R));
+
+            if (e.l != 2 * R) {
+                ans = min(ans, eval_edge(e.a, e.b, e.l, e.l - R));
+            }
+        }
+    }
+
+    if (!possible) {
+        cout << -1 << '\n';
+    } else {
+        cout << fixed << setprecision(5) << (double)ans << '\n';
+    }
+
+    return 0;
+}

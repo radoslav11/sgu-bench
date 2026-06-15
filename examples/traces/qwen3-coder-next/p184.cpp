@@ -1,0 +1,20 @@
+#include <iostream>
+#include <algorithm>
+using namespace std;
+
+int main() {
+    long long P, M, C, K, R, V;
+    cin >> P >> M >> C >> K >> R >> V;
+    
+    // Calculate how many patties we can make based on each ingredient
+    long long fromFlour = P / K;
+    long long fromMilk = M / R;
+    long long fromCabbage = C / V;
+    
+    // The answer is the minimum of these three values
+    long long result = min({fromFlour, fromMilk, fromCabbage});
+    
+    cout << result << endl;
+    
+    return 0;
+}

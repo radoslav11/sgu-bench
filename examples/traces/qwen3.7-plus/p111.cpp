@@ -1,0 +1,187 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+typedef uint32_t limb;
+const limb BASE = 1000000000;
+
+struct BigInt {
+    vector<limb> digits;
+
+    BigInt(long long v = 0) {
+        if (v == 0) {
+            digits.push_back(0);
+        } else {
+            while (v > 0) {
+                digits.push_back(v % BASE);
+                v /= BASE;
+            }
+        }
+    }
+
+    BigInt(string s) {
+        int pos = 0;
+        while (pos < (int)s.length() && s[pos] == '0') pos++;
+        if (pos == (int)s.length()) {
+            digits.push_back(0);
+            return;
+        }
+        
+        string clean_s = s.substr(pos);
+        int pad = (9 - clean_s.length() % 9) % 9;
+        clean_s = string(pad, '0') + clean_s;
+        
+        for (size_t i = 0; i < clean_s.length(); i += 9) {
+            limb d = 0;
+            for (size_t j = 0; j < 9; ++j) {
+                d = d * 10 + (clean_s[i + j] - '0');
+            }
+            digits.push_back(d);
+        }
+        reverse(digits.begin(), digits.end());
+        remove_leading_zeros();
+    }
+
+    void remove_leading_zeros() {
+        while (digits.size() > 1 && digits.back() == 0) {
+            digits.pop_back();
+        }
+    }
+
+    string to_str() const {
+        if (digits.empty() || (digits.size() == 1 && digits[0] == 0)) return "0";
+        string res = std::to_string(digits.back());
+        for (int i = (int)digits.size() - 2; i >= 0; --i) {
+            string s = std::to_string(digits[i]);
+            while (s.length() < 9) s = "0" + s;
+            res += s;
+        }
+        return res;
+    }
+
+    bool operator<(const BigInt& o) const {
+        if (digits.size() != o.digits.size())
+            return digits.size() < o.digits.size();
+        for (int i = (int)digits.size() - 1; i >= 0; --i) {
+            if (digits[i] != o.digits[i])
+                return digits[i] < o.digits[i];
+        }
+        return false;
+    }
+
+    bool operator==(const BigInt& o) const {
+        if (digits.size() != o.digits.size()) return false;
+        for (size_t i = 0; i < digits.size(); ++i) {
+            if (digits[i] != o.digits[i]) return false;
+        }
+        return true;
+    }
+
+    bool operator<=(const BigInt& o) const {
+        return *this < o || *this == o;
+    }
+
+    BigInt operator+(const BigInt& o) const {
+        BigInt res;
+        size_t n = max(digits.size(), o.digits.size());
+        res.digits.assign(n + 1, 0);
+        uint64_t carry = 0;
+        for (size_t i = 0; i < n || carry > 0; ++i) {
+            uint64_t cur = carry;
+            if (i < digits.size()) cur += digits[i];
+            if (i < o.digits.size()) cur += o.digits[i];
+            res.digits[i] = cur % BASE;
+            carry = cur / BASE;
+        }
+        res.remove_leading_zeros();
+        return res;
+    }
+
+    BigInt operator-(const BigInt& o) const {
+        BigInt res = *this;
+        uint64_t borrow = 0;
+        for (size_t i = 0; i < res.digits.size(); ++i) {
+            int64_t cur = res.digits[i] - borrow;
+            if (i < o.digits.size()) {
+                cur -= o.digits[i];
+            }
+            if (cur < 0) {
+                cur += BASE;
+                borrow = 1;
+            } else {
+                borrow = 0;
+            }
+            res.digits[i] = cur;
+        }
+        res.remove_leading_zeros();
+        return res;
+    }
+
+    BigInt operator+(int v) const {
+        return *this + BigInt(v);
+    }
+
+    BigInt operator-(int v) const {
+        return *this - BigInt(v);
+    }
+
+    BigInt operator*(const BigInt& o) const {
+        if ((digits.size() == 1 && digits[0] == 0) ||
+            (o.digits.size() == 1 && o.digits[0] == 0)) {
+            return BigInt(0);
+        }
+        BigInt res;
+        res.digits.assign(digits.size() + o.digits.size(), 0);
+        for (size_t i = 0; i < digits.size(); ++i) {
+            uint64_t carry = 0;
+            for (size_t j = 0; j < o.digits.size() || carry > 0; ++j) {
+                uint64_t cur = res.digits[i + j] + carry + (uint64_t)digits[i] * (j < o.digits.size() ? o.digits[j] : 0);
+                res.digits[i + j] = cur % BASE;
+                carry = cur / BASE;
+            }
+        }
+        res.remove_leading_zeros();
+        return res;
+    }
+
+    BigInt operator/(int v) const {
+        BigInt res;
+        res.digits.resize(digits.size());
+        uint64_t rem = 0;
+        for (int i = (int)digits.size() - 1; i >= 0; --i) {
+            uint64_t cur = rem * BASE + digits[i];
+            res.digits[i] = cur / v;
+            rem = cur % v;
+        }
+        res.remove_leading_zeros();
+        return res;
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    string s;
+    if (cin >> s) {
+        BigInt X(s);
+        BigInt low(1);
+        string r_str = "1" + string((s.length() + 1) / 2, '0');
+        BigInt high(r_str);
+        BigInt ans(1);
+        
+        while (low <= high) {
+            BigInt mid = (low + high) / 2;
+            if (mid * mid <= X) {
+                ans = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        cout << ans.to_str() << "\n";
+    }
+    return 0;
+}

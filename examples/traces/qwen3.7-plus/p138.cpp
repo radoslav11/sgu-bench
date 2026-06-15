@@ -1,0 +1,111 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+    
+    vector<int> d(N + 1);
+    int sum_d = 0;
+    int odd_count = 0;
+    int start_node = -1;
+    
+    for (int i = 1; i <= N; ++i) {
+        cin >> d[i];
+        sum_d += d[i];
+        if (d[i] % 2 != 0) {
+            odd_count++;
+        }
+        if (d[i] > 0 && start_node == -1) {
+            start_node = i;
+        }
+    }
+    
+    int G = sum_d / 2;
+    cout << G << "\n";
+    
+    vector<int> c(N + 1, 0);
+    int S = -1, E = -1;
+    
+    if (odd_count == 2) {
+        int first_odd = -1, second_odd = -1;
+        for (int i = 1; i <= N; ++i) {
+            if (d[i] % 2 != 0) {
+                if (first_odd == -1) first_odd = i;
+                else second_odd = i;
+            }
+        }
+        S = first_odd;
+        E = second_odd;
+        for (int i = 1; i <= N; ++i) {
+            c[i] = (d[i] + (d[i] % 2)) / 2;
+        }
+    } else {
+        S = E = start_node;
+        for (int i = 1; i <= N; ++i) {
+            if (i == S) {
+                c[i] = d[i] / 2 + 1;
+            } else {
+                c[i] = d[i] / 2;
+            }
+        }
+    }
+    
+    int L = G + 1;
+    vector<int> ans(L, -1);
+    ans[0] = S;
+    ans[L - 1] = E;
+    c[S]--;
+    c[E]--;
+    
+    priority_queue<pair<int, int>> pq;
+    for (int i = 1; i <= N; ++i) {
+        if (c[i] > 0) {
+            pq.push({c[i], i});
+        }
+    }
+    
+    int prev = S;
+    for (int i = 1; i <= L - 2; ++i) {
+        int pick = -1;
+        vector<pair<int, int>> skipped;
+        
+        while (!pq.empty()) {
+            auto top = pq.top();
+            pq.pop();
+            int v = top.second;
+            
+            if (v == prev || (i == L - 2 && v == E)) {
+                skipped.push_back(top);
+                continue;
+            }
+            
+            pick = v;
+            break;
+        }
+        
+        if (pick != -1) {
+            ans[i] = pick;
+            prev = pick;
+            if (--c[pick] > 0) {
+                pq.push({c[pick], pick});
+            }
+        }
+        
+        for (auto& p : skipped) {
+            pq.push(p);
+        }
+    }
+    
+    for (int i = 1; i < L; ++i) {
+        cout << ans[i] << " " << ans[i - 1] << "\n";
+    }
+    
+    return 0;
+}

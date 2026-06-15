@@ -1,0 +1,110 @@
+#include <cstdio>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Summary:
+ * A bidirected graph can be converted to a "directed" graph if for every edge e = {u, v},
+ * the new directions omega'(e, u) and omega'(e, v) satisfy omega'(e, u) = -omega'(e, v).
+ * Let x_v be 1 if we transform node v (negate all its incident edges' directions) and 0 otherwise.
+ * The new direction is omega'(e, u) = omega(e, u) * (-1)^x_u.
+ * The condition omega'(e, u) = -omega'(e, v) is equivalent to:
+ * omega(e, u) * (-1)^x_u = -omega(e, v) * (-1)^x_v
+ * omega(e, u) * omega(e, v) * (-1)^(x_u + x_v) = -1
+ * Let w_e = omega(e, u) * omega(e, v).
+ * If w_e = 1, then (-1)^(x_u + x_v) = -1, so x_u ^ x_v = 1.
+ * If w_e = -1, then (-1)^(x_u + x_v) = 1, so x_u ^ x_v = 0.
+ * This is a 2-SAT-like system over GF(2), which we can solve component-wise.
+ * For each component, there are two possible valid assignments of x_v.
+ * We pick the one with the minimum number of 1s to minimize transformations.
+ */
+
+const int MAXN = 100005;
+vector<pair<int, int>> adj[MAXN];
+int color[MAXN];
+
+int main() {
+    int n, m;
+    if (scanf("%d %d", &n, &m) != 2) return 0;
+
+    for (int i = 0; i < m; ++i) {
+        int u, v, d1, d2;
+        if (scanf("%d %d %d %d", &u, &v, &d1, &d2) != 4) break;
+        // w_e = d1 * d2. If w_e == 1, c = 1 (x_u ^ x_v = 1). If w_e == -1, c = 0 (x_u ^ x_v = 0).
+        int w = d1 * d2;
+        int c = (w == 1) ? 1 : 0;
+        adj[u].push_back({v, c});
+        adj[v].push_back({u, c});
+    }
+
+    // Initialize color array (representing x_v values)
+    for (int i = 1; i <= n; ++i) color[i] = -1;
+
+    for (int i = 1; i <= n; ++i) {
+        if (color[i] == -1) {
+            vector<int> comp_nodes;
+            comp_nodes.push_back(i);
+            color[i] = 0;
+            bool possible = true;
+
+            int head = 0;
+            while (head < (int)comp_nodes.size()) {
+                int u = comp_nodes[head++];
+                for (auto& edge : adj[u]) {
+                    int v = edge.first;
+                    int c = edge.second;
+                    if (color[v] == -1) {
+                        color[v] = color[u] ^ c;
+                        comp_nodes.push_back(v);
+                    } else {
+                        if (color[v] != (color[u] ^ c)) {
+                            possible = false;
+                            break;
+                        }
+                    }
+                }
+                if (!possible) break;
+            }
+
+            if (!possible) {
+                printf("NO\n");
+                return 0;
+            }
+
+            // For the current component, count how many 1s and 0s we have.
+            int count1 = 0;
+            for (int node : comp_nodes) {
+                if (color[node] == 1) count1++;
+            }
+            int count0 = (int)comp_nodes.size() - count1;
+
+            // Pick the assignment with fewer 1s to minimize transformations.
+            if (count1 > count0) {
+                for (int node : comp_nodes) {
+                    color[node] = 1 - color[node];
+                }
+            }
+        }
+    }
+
+    // Collect nodes to transform.
+    vector<int> res;
+    for (int i = 1; i <= n; ++i) {
+        if (color[i] == 1) {
+            res.push_back(i);
+        }
+    }
+
+    // Output result.
+    printf("YES\n");
+    printf("%d\n", (int)res.size());
+    for (int x : res) {
+        printf("%d\n", x);
+    }
+
+    return 0;
+}
+

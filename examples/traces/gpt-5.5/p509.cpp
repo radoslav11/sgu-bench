@@ -1,0 +1,113 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using ll = long long;
+using i128 = __int128_t;
+
+struct Cham {
+    ll p, c;
+    int d;
+    int id;
+};
+
+struct State {
+    ll x, c;
+    int d;
+};
+
+ll floor_div(i128 a, ll b) {
+    if (a >= 0) return (ll)(a / b);
+    return (ll)(- ((-a + b - 1) / b));
+}
+
+ll mod_pos(i128 a, ll m) {
+    ll r = (ll)(a % m);
+    if (r < 0) r += m;
+    return r;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    ll L;
+    cin >> L;
+
+    vector<Cham> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i].p >> a[i].c >> a[i].d;
+        a[i].id = i;
+    }
+
+    ll T;
+    cin >> T;
+
+    vector<Cham> initial = a;
+    sort(initial.begin(), initial.end(), [](const Cham& x, const Cham& y) {
+        return x.p < y.p;
+    });
+
+    vector<State> ghost(n);
+    vector<pair<ll, ll>> cw; // final position, color
+
+    i128 shift_sum = 0;
+
+    for (int i = 0; i < n; i++) {
+        i128 raw = (i128)a[i].p + (i128)a[i].d * T;
+        ll q = mod_pos(raw, L);
+
+        shift_sum += floor_div(raw, L);
+
+        ghost[i] = {q, a[i].c, a[i].d};
+
+        if (a[i].d == 1) {
+            cw.push_back({q, a[i].c});
+        }
+    }
+
+    sort(cw.begin(), cw.end());
+
+    for (int i = 0; i < n; i++) {
+        if (a[i].d == -1 && !cw.empty()) {
+            ll x = ghost[i].x;
+
+            auto it = lower_bound(cw.begin(), cw.end(), make_pair(x, LLONG_MIN));
+            if (it == cw.end()) it = cw.begin();
+
+            ll y = it->first;
+            ll dist = y - x;
+            if (dist < 0) dist += L;
+
+            if ((i128)dist <= (i128)2 * T) {
+                ghost[i].c = it->second;
+            }
+        }
+    }
+
+    vector<State> final_sorted = ghost;
+    sort(final_sorted.begin(), final_sorted.end(), [](const State& x, const State& y) {
+        return x.x < y.x;
+    });
+
+    ll shift = (ll)(shift_sum % n);
+    if (shift < 0) shift += n;
+
+    vector<State> ans(n);
+
+    for (int k = 0; k < n; k++) {
+        int id = initial[k].id;
+        ans[id] = final_sorted[(k + shift) % n];
+    }
+
+    cout.setf(ios::fixed);
+    cout << setprecision(12);
+
+    for (int i = 0; i < n; i++) {
+        cout << (double)ans[i].x << ' ' << ans[i].c << ' ' << ans[i].d << '\n';
+    }
+
+    return 0;
+}

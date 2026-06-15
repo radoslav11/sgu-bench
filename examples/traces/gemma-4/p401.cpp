@@ -1,0 +1,123 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem analysis:
+ * N rivers, width w_i, speed v_i. Geologist speed u. Total time t.
+ * Destination: Right bank of the N-th river (total width W = sum(w_i)).
+ * Maximizing distance from (0,0) to (W, Y) means maximizing Y^2 + W^2.
+ * Since W is fixed, we maximize |Y|. Since v_i >= 1, Y will be positive.
+ * Total time T = sum(t_i) <= t, where t_i is the time spent in river i.
+ * In river i, x-velocity is u_x = w_i / t_i. 
+ * Since u_x^2 + u_y^2 = u^2, u_y = sqrt(u^2 - (w_i/t_i)^2).
+ * y-displacement in river i is d_y,i = (u_y + v_i) * t_i = sqrt(u^2 * t_i^2 - w_i^2) + v_i * t_i.
+ * We need to maximize Y = sum(d_y,i) subject to sum(t_i) <= t and t_i >= w_i/u.
+ * The function f_i(t_i) = sqrt(u^2 * t_i^2 - w_i^2) + v_i * t_i is strictly concave for t_i > w_i/u.
+ * Thus, the optimal solution occurs at T = t (as long as t >= sum(w_i/u)).
+ * We can use Lagrange multipliers: f_i'(t_i) = lambda for all i.
+ * f_i'(t_i) = (u^2 * t_i) / sqrt(u^2 * t_i^2 - w_i^2) + v_i = lambda.
+ * Solving for t_i: t_i = (lambda - v_i) * w_i / (u * sqrt((lambda - v_i)^2 - u^2)).
+ * This requires lambda > u + v_i for all i.
+ * We binary search for lambda such that sum(t_i(lambda)) = t.
+ */
+
+typedef long double ld;
+
+int N;
+int u_val, t_val;
+int w[55], v[55];
+
+// Function to compute sum of t_i for a given Lagrange multiplier lambda
+ld sum_ti(ld lambda) {
+    ld total_t = 0;
+    for (int i = 0; i < N; ++i) {
+        ld A = lambda - (ld)v[i];
+        if (A <= (ld)u_val) return 1e18; // Represents t_i = infinity
+        // Use A*A - u^2 = (A-u)(A+u) for more stability if needed, but this is fine.
+        total_t += (A * (ld)w[i]) / ((ld)u_val * sqrt(A * A - (ld)u_val * u_val));
+    }
+    return total_t;
+}
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> N >> u_val >> t_val)) return 0;
+    ld sum_w = 0;
+    ld max_u_v = 0;
+    for (int i = 0; i < N; ++i) {
+        cin >> w[i] >> v[i];
+        sum_w += w[i];
+        max_u_v = max(max_u_v, (ld)u_val + (ld)v[i]);
+    }
+
+    ld min_t_required = sum_w / (ld)u_val;
+    // Precision handling for the existence check
+    if ((ld)t_val < min_t_required - 1e-11) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    // Case where the geologist can only barely reach the bank (t == min_t_required)
+    if (abs((ld)t_val - min_t_required) < 1e-11) {
+        ld Y = 0;
+        ld W = sum_w;
+        for (int i = 0; i < N; ++i) {
+            ld ti = (ld)w[i] / u_val;
+            Y += (ld)v[i] * ti;
+        }
+        cout << fixed << setprecision(10) << sqrt(W * W + Y * Y) << endl;
+        for (int i = 0; i < N; ++i) {
+            cout << fixed << setprecision(10) << (ld)w[i] / u_val << (i == N - 1 ? "" : " ");
+        }
+        cout << endl;
+        return 0;
+    }
+
+    // Binary search for lambda in the range (max(u + v_i), 1e12]
+    // lambda-v_i must be > u, so lambda > max(u+v_i)
+    ld low = max_u_v, high = 1e12;
+    for (int iter = 0; iter < 100; ++iter) {
+        ld mid = (low + high) / 2.0;
+        if (sum_ti(mid) > (ld)t_val) {
+            // If sum(t_i) > t, lambda is too small
+            low = mid;
+        } else {
+            // If sum(t_i) < t, lambda is too large
+            high = mid;
+        }
+    }
+
+    ld lambda = high;
+    ld Y = 0, W = sum_w;
+    vector<ld> ts;
+    for (int i = 0; i < N; ++i) {
+        ld A = lambda - (ld)v[i];
+        // Numerical stability for the edge case where A is very close to u
+        ld diff = A * A - (ld)u_val * u_val;
+        if (diff < 0) diff = 0;
+        ld ti = (A * (ld)w[i]) / ((ld)u_val * sqrt(diff));
+        ts.push_back(ti);
+        // Displacement Y component: d_y,i = sqrt(u^2*t_i^2 - w_i^2) + v_i*t_i
+        ld term = (ld)u_val * u_val * ti * ti - (ld)w[i] * w[i];
+        if (term < 0) term = 0;
+        Y += (sqrt(term) + (ld)v[i] * ti);
+    }
+
+    // Output the maximum distance and the time taken for each river
+    cout << fixed << setprecision(10) << sqrt(W * W + Y * Y) << endl;
+    for (int i = 0; i < N; ++i) {
+        cout << fixed << setprecision(10) << ts[i] << (i == N - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

@@ -1,0 +1,120 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int n, m;
+vector<vector<int>> adj;
+
+bool solve_for_root(int root) {
+    vector<int> parent(n + 1, 0);
+    vector<int> sz(n + 1, 0);
+    vector<bool> visited(n + 1, false);
+
+    auto dfs = [&](auto& self, int u, int p) -> void {
+        visited[u] = true;
+        parent[u] = p;
+        sz[u] = 1;
+        for (int v : adj[u]) {
+            if (v == p) continue;
+            if (!visited[v]) {
+                self(self, v, u);
+                sz[u] += sz[v];
+            }
+        }
+    };
+
+    dfs(dfs, root, 0);
+
+    for (int i = 1; i <= n; ++i) {
+        if (!visited[i]) return false;
+    }
+
+    vector<int> country(n + 1, 0);
+    int country_id = 1;
+
+    auto assign = [&](auto& self, int u, int p, int c) -> void {
+        country[u] = c;
+        for (int v : adj[u]) {
+            if (v == p) continue;
+            if (parent[v] == u) {
+                if (sz[v] % 2 == 0) {
+                    country_id++;
+                    self(self, v, u, country_id);
+                } else {
+                    self(self, v, u, c);
+                }
+            }
+        }
+    };
+
+    assign(assign, root, 0, 1);
+
+    vector<vector<int>> countries(country_id + 1);
+    for (int i = 1; i <= n; ++i) {
+        countries[country[i]].push_back(i);
+    }
+
+    for (int c = 1; c <= country_id; ++c) {
+        if (countries[c].size() < 2) return false;
+        
+        int vertices_count = countries[c].size();
+        vector<bool> in_c(n + 1, false);
+        for (int u : countries[c]) {
+            in_c[u] = true;
+        }
+        
+        int ec = 0;
+        for (int u : countries[c]) {
+            for (int v : adj[u]) {
+                if (in_c[v] && u < v) {
+                    ec++;
+                }
+            }
+        }
+        
+        if (ec != vertices_count - 1) {
+            return false;
+        }
+    }
+
+    for (int i = 1; i <= n; ++i) {
+        cout << country[i] << (i == n ? "" : " ");
+    }
+    cout << "\n";
+    return true;
+}
+
+void solve() {
+    if (!(cin >> n >> m)) return;
+    adj.assign(n + 1, vector<int>());
+    for (int i = 0; i < m; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    for (int r = 1; r <= n; ++r) {
+        if (solve_for_root(r)) {
+            return;
+        }
+    }
+    
+    for (int i = 1; i <= n; ++i) {
+        cout << 1 << (i == n ? "" : " ");
+    }
+    cout << "\n";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int t;
+    if (cin >> t) {
+        while (t--) {
+            solve();
+        }
+    }
+    return 0;
+}

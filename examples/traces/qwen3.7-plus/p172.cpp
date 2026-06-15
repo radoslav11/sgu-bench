@@ -1,0 +1,62 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<vector<int>> adj(n + 1);
+    for (int i = 0; i < m; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    vector<int> color(n + 1, 0);
+    for (int i = 1; i <= n; ++i) {
+        if (color[i] == 0) {
+            color[i] = 1;
+            queue<int> q;
+            q.push(i);
+            while (!q.empty()) {
+                int u = q.front();
+                q.pop();
+                for (int v : adj[u]) {
+                    if (color[v] == 0) {
+                        color[v] = 3 - color[u];
+                        q.push(v);
+                    } else if (color[v] == color[u]) {
+                        cout << "no\n";
+                        return 0;
+                    }
+                }
+            }
+        }
+    }
+
+    int count = 0;
+    for (int i = 1; i <= n; ++i) {
+        if (color[i] == 1) count++;
+    }
+
+    cout << "yes\n";
+    cout << count << "\n";
+    bool first = true;
+    for (int i = 1; i <= n; ++i) {
+        if (color[i] == 1) {
+            if (!first) cout << " ";
+            cout << i;
+            first = false;
+        }
+    }
+    cout << "\n";
+
+    return 0;
+}

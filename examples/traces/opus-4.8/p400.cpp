@@ -1,0 +1,8 @@
+Rank Team = Penalty X Y
+1 Tarasov SU 3 2 33 + +
+2 IMHO 1 1 20 + -1
+3 Mozgow SU x 33 1 30. +
+3 MiTV 1 30 + -3
+5 Opel SU 0 0..
+2
+MiTV

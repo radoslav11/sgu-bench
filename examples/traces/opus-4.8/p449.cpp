@@ -1,0 +1,112 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int par[100005];
+int topNode[100005];
+
+int findp(int x){
+    while(par[x]!=x){ par[x]=par[par[x]]; x=par[x]; }
+    return x;
+}
+
+int main(){
+    int N,M,Q;
+    if(scanf("%d %d %d",&N,&M,&Q)!=3) return 0;
+    vector<pair<long long,vector<int>>> lines(M);
+    for(int i=0;i<M;i++){
+        long long Y; int L;
+        scanf("%lld %d",&Y,&L);
+        vector<int> vs(L);
+        for(int j=0;j<L;j++) scanf("%d",&vs[j]);
+        lines[i]={Y,move(vs)};
+    }
+    // sort by Y descending (bottom first)
+    sort(lines.begin(),lines.end(),[](const pair<long long,vector<int>>&a,const pair<long long,vector<int>>&b){
+        return a.first>b.first;
+    });
+    
+    int totalNodes = N + M; // max
+    vector<vector<int>> children(totalNodes+1);
+    vector<int> minv(totalNodes+1);
+    
+    for(int i=1;i<=N;i++){ par[i]=i; topNode[i]=i; minv[i]=i; }
+    
+    int nextNode = N+1;
+    
+    for(int i=0;i<M;i++){
+        auto &vs = lines[i].second;
+        if(vs.empty()) continue;
+        // collect distinct cluster top nodes
+        unordered_set<int> distinctNodes;
+        distinctNodes.reserve(vs.size()*2);
+        for(int v: vs){
+            int r=findp(v);
+            distinctNodes.insert(topNode[r]);
+        }
+        int newNode = nextNode++;
+        int mn = INT_MAX;
+        children[newNode].reserve(distinctNodes.size());
+        for(int nd: distinctNodes){
+            children[newNode].push_back(nd);
+            if(minv[nd]<mn) mn=minv[nd];
+        }
+        minv[newNode]=mn;
+        // union all object sets
+        int base = vs[0];
+        int rb = findp(base);
+        for(int k=1;k<(int)vs.size();k++){
+            int rk = findp(vs[k]);
+            if(rk!=rb){
+                par[rk]=rb;
+            }
+        }
+        rb = findp(base);
+        topNode[rb]=newNode;
+    }
+    
+    // collect roots
+    vector<int> roots;
+    for(int i=1;i<=N;i++){
+        if(findp(i)==i){
+            roots.push_back(topNode[i]);
+        }
+    }
+    
+    // sort children of each internal node by minv
+    for(int nd=N+1; nd<nextNode; nd++){
+        sort(children[nd].begin(),children[nd].end(),[&](int a,int b){
+            return minv[a]<minv[b];
+        });
+    }
+    // sort roots by minv
+    sort(roots.begin(),roots.end(),[&](int a,int b){
+        return minv[a]<minv[b];
+    });
+    
+    // iterative traversal to produce leaf order
+    vector<int> order;
+    order.reserve(N);
+    // stack of nodes; to output children in correct order, push reversed
+    vector<int> st;
+    for(int idx=(int)roots.size()-1; idx>=0; idx--) st.push_back(roots[idx]);
+    while(!st.empty()){
+        int nd = st.back(); st.pop_back();
+        if(nd<=N){
+            order.push_back(nd);
+        } else {
+            auto &ch = children[nd];
+            for(int k=(int)ch.size()-1;k>=0;k--) st.push_back(ch[k]);
+        }
+    }
+    
+    // answer queries
+    // build output
+    string out;
+    for(int q=0;q<Q;q++){
+        int pos; scanf("%d",&pos);
+        out += to_string(order[pos-1]);
+        out += '\n';
+    }
+    fputs(out.c_str(), stdout);
+    return 0;
+}

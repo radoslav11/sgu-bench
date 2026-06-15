@@ -1,0 +1,185 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+struct Edge {
+    int to, cap, flow, id, rev;
+};
+
+struct DAGEdge {
+    int to, id;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N, M, S, T;
+    if (!(cin >> N >> M >> S >> T)) return 0;
+
+    vector<vector<Edge>> adj(N + 1);
+    vector<int> orig_u(M), orig_v(M);
+
+    for (int i = 0; i < M; ++i) {
+        cin >> orig_u[i] >> orig_v[i];
+        int u = orig_u[i], v = orig_v[i];
+        adj[u].push_back({v, 1, 0, i, (int)adj[v].size()});
+        adj[v].push_back({u, 1, 0, i, (int)adj[u].size() - 1});
+    }
+
+    vector<int> level(N + 1);
+    vector<int> ptr(N + 1);
+
+    auto bfs = [&]() {
+        fill(level.begin(), level.end(), -1);
+        level[S] = 0;
+        queue<int> q;
+        q.push(S);
+        while (!q.empty()) {
+            int v = q.front(); q.pop();
+            for (auto& edge : adj[v]) {
+                if (edge.cap - edge.flow > 0 && level[edge.to] == -1) {
+                    level[edge.to] = level[v] + 1;
+                    q.push(edge.to);
+                }
+            }
+        }
+        return level[T] != -1;
+    };
+
+    auto dfs = [&](auto& self, int v, int pushed) -> int {
+        if (pushed == 0) return 0;
+        if (v == T) return pushed;
+        for (int& cid = ptr[v]; cid < (int)adj[v].size(); ++cid) {
+            auto& edge = adj[v][cid];
+            int tr = edge.to;
+            if (level[v] + 1 != level[tr] || edge.cap - edge.flow == 0) continue;
+            int push = self(self, tr, min(pushed, edge.cap - edge.flow));
+            if (push == 0) continue;
+            edge.flow += push;
+            adj[tr][edge.rev].flow -= push;
+            return push;
+        }
+        return 0;
+    };
+
+    while (bfs()) {
+        fill(ptr.begin(), ptr.end(), 0);
+        while (dfs(dfs, S, 1e9));
+    }
+
+    vector<vector<int>> adj_res(N + 1);
+    for (int i = 1; i <= N; ++i) {
+        for (auto& edge : adj[i]) {
+            if (edge.cap - edge.flow > 0) {
+                adj_res[i].push_back(edge.to);
+            }
+        }
+    }
+
+    int timer = 0, scc_cnt = 0;
+    vector<int> dfn(N + 1, 0), low(N + 1, 0), C(N + 1, 0);
+    vector<bool> in_stack(N + 1, false);
+    vector<int> st;
+
+    auto dfs_scc = [&](auto& self, int v) -> void {
+        dfn[v] = low[v] = ++timer;
+        st.push_back(v);
+        in_stack[v] = true;
+        for (int to : adj_res[v]) {
+            if (!dfn[to]) {
+                self(self, to);
+                low[v] = min(low[v], low[to]);
+            } else if (in_stack[to]) {
+                low[v] = min(low[v], dfn[to]);
+            }
+        }
+        if (low[v] == dfn[v]) {
+            scc_cnt++;
+            while (true) {
+                int u = st.back(); st.pop_back();
+                in_stack[u] = false;
+                C[u] = scc_cnt;
+                if (u == v) break;
+            }
+        }
+    };
+
+    for (int i = 1; i <= N; ++i) {
+        if (!dfn[i]) dfs_scc(dfs_scc, i);
+    }
+
+    vector<vector<DAGEdge>> dag_adj(scc_cnt + 1);
+    for (int i = 0; i < M; ++i) {
+        int u = orig_u[i], v = orig_v[i];
+        int f = 0;
+        for (auto& e : adj[u]) {
+            if (e.id == i) {
+                f = e.flow;
+                break;
+            }
+        }
+        if (f == 1) {
+            if (C[u] < C[v]) {
+                dag_adj[C[u]].push_back({C[v], i + 1});
+            }
+        } else if (f == -1) {
+            if (C[v] < C[u]) {
+                dag_adj[C[v]].push_back({C[u], i + 1});
+            }
+        }
+    }
+
+    vector<int> d(scc_cnt + 1, 1e9);
+    queue<int> q;
+    d[C[S]] = 0;
+    q.push(C[S]);
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (auto& edge : dag_adj[u]) {
+            if (d[edge.to] > d[u] + 1) {
+                d[edge.to] = d[u] + 1;
+                q.push(edge.to);
+            }
+        }
+    }
+
+    int L = d[C[T]];
+    if (L >= 1e9) L = 0; // Fallback, though theoretically unreachable for connected graphs
+    
+    vector<vector<int>> cuts(L);
+
+    for (int i = 0; i < M; ++i) {
+        int u = orig_u[i], v = orig_v[i];
+        int f = 0;
+        for (auto& e : adj[u]) {
+            if (e.id == i) {
+                f = e.flow;
+                break;
+            }
+        }
+        if (f == 1) {
+            if (C[u] < C[v] && d[C[u]] < L) {
+                cuts[d[C[u]]].push_back(i + 1);
+            }
+        } else if (f == -1) {
+            if (C[v] < C[u] && d[C[v]] < L) {
+                cuts[d[C[v]]].push_back(i + 1);
+            }
+        }
+    }
+
+    cout << L << "\n";
+    for (int i = 0; i < L; ++i) {
+        cout << cuts[i].size();
+        for (int idx : cuts[i]) {
+            cout << " " << idx;
+        }
+        cout << "\n";
+    }
+
+    return 0;
+}

@@ -1,0 +1,49 @@
+#include <iostream>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string s;
+    if (!(cin >> s)) return 0;
+
+    long long K = 0;
+    size_t dot = s.find('.');
+    if (dot == string::npos) {
+        K = stoll(s) * 10000;
+    } else {
+        long long int_part = stoll(s.substr(0, dot));
+        string frac_part = s.substr(dot + 1);
+        while (frac_part.length() < 4) {
+            frac_part += '0';
+        }
+        if (frac_part.length() > 4) {
+            frac_part = frac_part.substr(0, 4);
+        }
+        K = int_part * 10000 + stoll(frac_part);
+    }
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    long long current_pos = 0;
+    for (int i = 0; i < N; ++i) {
+        long long T, V;
+        cin >> T >> V;
+        long long d = (T * V) % K;
+        d = (d * 10000) % K;
+        current_pos = (current_pos + d) % K;
+    }
+
+    long long dist_scaled = min(current_pos, K - current_pos);
+    long long int_part = dist_scaled / 10000;
+    long long frac_part = dist_scaled % 10000;
+
+    printf("%lld.%04lld\n", int_part, frac_part);
+
+    return 0;
+}

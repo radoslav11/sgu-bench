@@ -1,0 +1,102 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <cmath>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * We have N robbers, M golden coins, and total target sum of shares is Y.
+ * Each robber i should get Xi/Y of the total coins M.
+ * Let Ki be the number of coins robber i receives.
+ * Unfairness for robber i is |Xi/Y - Ki/M|.
+ * Total unfairness is the sum of all individual unfairnesses: Sum |Xi/Y - Ki/M|.
+ * We want to minimize this sum subject to Ki being non-negative integers and Sum Ki = M.
+ * 
+ * Total unfairness U = Sum |Xi/Y - Ki/M|
+ * U = (1 / (Y * M)) * Sum |Xi * M - Ki * Y|
+ * Since Y and M are positive constants, minimizing U is equivalent to minimizing:
+ * f(K1, ..., KN) = Sum |Xi * M - Ki * Y|
+ * 
+ * Let fi(ki) = |Xi * M - ki * Y|.
+ * fi(ki) is a discrete convex function because its first-order difference:
+ * delta_i(k) = fi(k+1) - fi(k) is non-decreasing with k.
+ * Specifically, delta_i(k) = |Xi * M - (k+1)Y| - |Xi * M - kY|.
+ * 
+ * To minimize the sum of discrete convex functions subject to the sum constraint 
+ * Sum Ki = M, a greedy approach is optimal. 
+ * We start with all Ki = 0 and then iteratively add 1 to the Ki that provides 
+ * the minimum increase (the smallest delta_i(Ki)) until Sum Ki = M.
+ */
+
+typedef long long ll;
+
+int N;
+ll M, Y;
+vector<ll> X;
+vector<ll> K;
+
+// Function to calculate the increase in unfairness if we give one more coin to robber i
+ll calc_delta(int i, ll ki) {
+    ll current_val = abs(X[i] * M - ki * Y);
+    ll next_val = abs(X[i] * M - (ki + 1) * Y);
+    return next_val - current_val;
+}
+
+// Comparator for the priority queue (min-priority queue)
+struct RobberDelta {
+    ll delta;
+    int index;
+
+    bool operator>(const RobberDelta& other) const {
+        if (delta != other.delta) {
+            return delta > other.delta;
+        }
+        return index > other.index;
+    }
+};
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    if (!(cin >> N >> M >> Y)) return 0;
+
+    X.resize(N);
+    K.assign(N, 0);
+
+    for (int i = 0; i < N; ++i) {
+        cin >> X[i];
+    }
+
+    // Min-priority queue to store (delta_i, i)
+    priority_queue<RobberDelta, vector<RobberDelta>, greater<RobberDelta>> pq;
+
+    // Initially, all robbers have 0 coins.
+    for (int i = 0; i < N; ++i) {
+        pq.push({calc_delta(i, 0), i});
+    }
+
+    // Greedy approach: Add M coins one by one.
+    for (int m = 0; m < M; ++m) {
+        RobberDelta top = pq.top();
+        pq.pop();
+
+        int idx = top.index;
+        K[idx]++;
+
+        // Update the robber's delta and put back in priority queue.
+        pq.push({calc_delta(idx, K[idx]), idx});
+    }
+
+    // Output the number of coins for each robber.
+    for (int i = 0; i < N; ++i) {
+        cout << K[i] << (i == N - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

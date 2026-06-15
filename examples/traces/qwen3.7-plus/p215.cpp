@@ -1,0 +1,237 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cctype>
+#include <map>
+
+using namespace std;
+
+enum class TokenType {
+    NUMBER_VAR,
+    PLUS, MINUS, MULTIPLY, DIVIDE, MODULO, POWER,
+    LPAREN, RPAREN,
+    END
+};
+
+struct Token {
+    TokenType type;
+    string val;
+};
+
+map<string, int> name_to_id;
+vector<string> id_to_name;
+vector<int> parent;
+
+int get_id(const string& s) {
+    auto it = name_to_id.find(s);
+    if (it != name_to_id.end()) return it->second;
+    int id = id_to_name.size();
+    name_to_id[s] = id;
+    id_to_name.push_back(s);
+    parent.push_back(-1);
+    return id;
+}
+
+bool is_number(const string& s) {
+    if (s.empty()) return false;
+    for (char c : s) {
+        if (!isdigit(static_cast<unsigned char>(c))) return false;
+    }
+    return true;
+}
+
+long long resolve_value(const string& val) {
+    int curr = get_id(val);
+    while (curr != -1) {
+        int next_id = parent[curr];
+        if (next_id == -1) {
+            if (is_number(id_to_name[curr])) {
+                return stoll(id_to_name[curr]);
+            } else {
+                return 0;
+            }
+        }
+        curr = next_id;
+    }
+    return 0;
+}
+
+void handle_define(const string& op1, const string& op2) {
+    int A = get_id(op1);
+    int B = get_id(op2);
+    
+    if (parent[A] != -1) {
+        return;
+    }
+    
+    int curr = B;
+    while (curr != -1) {
+        if (curr == A) {
+            return;
+        }
+        curr = parent[curr];
+    }
+    
+    parent[A] = B;
+}
+
+long long my_abs(long long x) {
+    return x < 0 ? -x : x;
+}
+
+long long custom_div(long long a, long long b) {
+    long long res = my_abs(a) / my_abs(b);
+    if ((a < 0) != (b < 0)) res = -res;
+    return res;
+}
+
+long long custom_mod(long long a, long long b) {
+    long long res = my_abs(a) % my_abs(b);
+    if ((a < 0) != (b < 0)) res = -res;
+    return res;
+}
+
+long long power(long long base, long long exp) {
+    if (exp < 0) return 0;
+    long long res = 1;
+    long long b = base;
+    long long e = exp;
+    while (e > 0) {
+        if (e % 2 == 1) res *= b;
+        b *= b;
+        e /= 2;
+    }
+    return res;
+}
+
+vector<Token> tokenize(const string& s) {
+    vector<Token> tokens;
+    int n = s.length();
+    for (int i = 0; i < n; ) {
+        if (isspace(static_cast<unsigned char>(s[i]))) {
+            i++;
+            continue;
+        }
+        if (s[i] == '+') { tokens.push_back({TokenType::PLUS, "+"}); i++; }
+        else if (s[i] == '-') { tokens.push_back({TokenType::MINUS, "-"}); i++; }
+        else if (s[i] == '*') { tokens.push_back({TokenType::MULTIPLY, "*"}); i++; }
+        else if (s[i] == '/') { tokens.push_back({TokenType::DIVIDE, "/"}); i++; }
+        else if (s[i] == '%') { tokens.push_back({TokenType::MODULO, "%"}); i++; }
+        else if (s[i] == '^') { tokens.push_back({TokenType::POWER, "^"}); i++; }
+        else if (s[i] == '(') { tokens.push_back({TokenType::LPAREN, "("}); i++; }
+        else if (s[i] == ')') { tokens.push_back({TokenType::RPAREN, ")"}); i++; }
+        else if (isalnum(static_cast<unsigned char>(s[i]))) {
+            string num_var = "";
+            while (i < n && isalnum(static_cast<unsigned char>(s[i]))) {
+                num_var += tolower(static_cast<unsigned char>(s[i]));
+                i++;
+            }
+            tokens.push_back({TokenType::NUMBER_VAR, num_var});
+        } else {
+            i++;
+        }
+    }
+    tokens.push_back({TokenType::END, ""});
+    return tokens;
+}
+
+long long parse_expr(int& pos, const vector<Token>& tokens);
+long long parse_term(int& pos, const vector<Token>& tokens);
+long long parse_factor(int& pos, const vector<Token>& tokens);
+long long parse_primary(int& pos, const vector<Token>& tokens);
+
+long long parse_expr(int& pos, const vector<Token>& tokens) {
+    long long res = parse_term(pos, tokens);
+    while (pos < (int)tokens.size() && (tokens[pos].type == TokenType::PLUS || tokens[pos].type == TokenType::MINUS)) {
+        TokenType op = tokens[pos].type;
+        pos++;
+        long long rhs = parse_term(pos, tokens);
+        if (op == TokenType::PLUS) res += rhs;
+        else res -= rhs;
+    }
+    return res;
+}
+
+long long parse_term(int& pos, const vector<Token>& tokens) {
+    long long res = parse_factor(pos, tokens);
+    while (pos < (int)tokens.size() && (tokens[pos].type == TokenType::MULTIPLY || 
+                                       tokens[pos].type == TokenType::DIVIDE || 
+                                       tokens[pos].type == TokenType::MODULO)) {
+        TokenType op = tokens[pos].type;
+        pos++;
+        long long rhs = parse_factor(pos, tokens);
+        if (op == TokenType::MULTIPLY) res *= rhs;
+        else if (op == TokenType::DIVIDE) res = custom_div(res, rhs);
+        else if (op == TokenType::MODULO) res = custom_mod(res, rhs);
+    }
+    return res;
+}
+
+long long parse_factor(int& pos, const vector<Token>& tokens) {
+    long long res = parse_primary(pos, tokens);
+    if (pos < (int)tokens.size() && tokens[pos].type == TokenType::POWER) {
+        pos++;
+        long long rhs = parse_factor(pos, tokens);
+        res = power(res, rhs);
+    }
+    return res;
+}
+
+long long parse_primary(int& pos, const vector<Token>& tokens) {
+    if (pos < (int)tokens.size() && tokens[pos].type == TokenType::PLUS) {
+        pos++;
+        return parse_primary(pos, tokens);
+    } else if (pos < (int)tokens.size() && tokens[pos].type == TokenType::MINUS) {
+        pos++;
+        return -parse_primary(pos, tokens);
+    } else if (pos < (int)tokens.size() && tokens[pos].type == TokenType::LPAREN) {
+        pos++;
+        long long res = parse_expr(pos, tokens);
+        if (pos < (int)tokens.size() && tokens[pos].type == TokenType::RPAREN) pos++;
+        return res;
+    } else if (pos < (int)tokens.size() && tokens[pos].type == TokenType::NUMBER_VAR) {
+        string val = tokens[pos].val;
+        pos++;
+        return resolve_value(val);
+    }
+    return 0;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    string line;
+    while (getline(cin, line)) {
+        bool all_space = true;
+        for (char c : line) {
+            if (!isspace(static_cast<unsigned char>(c))) {
+                all_space = false;
+                break;
+            }
+        }
+        if (all_space) continue;
+
+        string lower_line = "";
+        for (char c : line) {
+            lower_line += tolower(static_cast<unsigned char>(c));
+        }
+
+        vector<Token> tokens = tokenize(lower_line);
+        if (tokens.empty() || tokens[0].val == "") continue;
+
+        if (tokens[0].val == "print") {
+            if (tokens.size() > 1) {
+                int pos = 1;
+                long long res = parse_expr(pos, tokens);
+                cout << res << "\n";
+            }
+        } else if (tokens[0].val == "define") {
+            if (tokens.size() >= 3) {
+                handle_define(tokens[1].val, tokens[2].val);
+            }
+        }
+    }
+    
+    return 0;
+}

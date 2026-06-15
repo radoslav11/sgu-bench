@@ -1,0 +1,143 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct DSU {
+    vector<int> p;
+    DSU(int n = 0) { init(n); }
+    void init(int n) {
+        p.resize(n);
+        iota(p.begin(), p.end(), 0);
+    }
+    int find(int x) {
+        return p[x] == x ? x : p[x] = find(p[x]);
+    }
+    void unite(int a, int b) {
+        a = find(a);
+        b = find(b);
+        if (a != b) p[b] = a;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<int> deg(N);
+    int sum = 0;
+    for (int i = 0; i < N; i++) {
+        cin >> deg[i];
+        sum += deg[i];
+    }
+
+    int G = sum / 2;
+
+    vector<pair<int, int>> edges;
+
+    priority_queue<pair<int, int>> pq;
+    for (int i = 0; i < N; i++) {
+        if (deg[i] > 0) pq.push({deg[i], i});
+    }
+
+    while (pq.size() >= 2) {
+        auto [da, a] = pq.top(); pq.pop();
+        auto [db, b] = pq.top(); pq.pop();
+
+        edges.push_back({a, b});
+
+        da--;
+        db--;
+
+        if (da > 0) pq.push({da, a});
+        if (db > 0) pq.push({db, b});
+    }
+
+    auto build_components = [&]() {
+        DSU dsu(N);
+        for (auto &e : edges) {
+            dsu.unite(e.first, e.second);
+        }
+        return dsu;
+    };
+
+    while (true) {
+        DSU dsu = build_components();
+
+        map<int, vector<int>> comp_edges;
+        for (int i = 0; i < (int)edges.size(); i++) {
+            comp_edges[dsu.find(edges[i].first)].push_back(i);
+        }
+
+        if (comp_edges.size() <= 1) break;
+
+        auto it1 = comp_edges.begin();
+        auto it2 = next(it1);
+
+        int e1 = it1->second[0];
+        int e2 = it2->second[0];
+
+        int a = edges[e1].first;
+        int b = edges[e1].second;
+        int c = edges[e2].first;
+        int d = edges[e2].second;
+
+        edges[e1] = {a, c};
+        edges[e2] = {b, d};
+    }
+
+    vector<vector<pair<int, int>>> adj(N);
+    for (int i = 0; i < G; i++) {
+        auto [a, b] = edges[i];
+        adj[a].push_back({b, i});
+        adj[b].push_back({a, i});
+    }
+
+    int start = -1;
+    for (int i = 0; i < N; i++) {
+        if ((int)adj[i].size() % 2 == 1) {
+            start = i;
+            break;
+        }
+    }
+    if (start == -1) {
+        for (int i = 0; i < N; i++) {
+            if (!adj[i].empty()) {
+                start = i;
+                break;
+            }
+        }
+    }
+
+    vector<int> ptr(N, 0), path;
+    vector<char> used(G, 0);
+    vector<int> st;
+    st.push_back(start);
+
+    while (!st.empty()) {
+        int v = st.back();
+
+        while (ptr[v] < (int)adj[v].size() && used[adj[v][ptr[v]].second]) {
+            ptr[v]++;
+        }
+
+        if (ptr[v] == (int)adj[v].size()) {
+            path.push_back(v);
+            st.pop_back();
+        } else {
+            auto [to, id] = adj[v][ptr[v]];
+            used[id] = 1;
+            st.push_back(to);
+        }
+    }
+
+    reverse(path.begin(), path.end());
+
+    cout << G << '\n';
+    for (int i = 1; i <= G; i++) {
+        cout << path[i] + 1 << ' ' << path[i - 1] + 1 << '\n';
+    }
+
+    return 0;
+}

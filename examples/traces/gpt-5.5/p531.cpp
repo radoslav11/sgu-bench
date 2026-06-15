@@ -1,0 +1,46 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    long long d;
+    cin >> n >> d;
+
+    vector<long long> x(n + 1), w(n + 1);
+    for (int i = 1; i <= n; ++i) {
+        cin >> x[i] >> w[i];
+    }
+
+    int ptr = 0;
+    long long bestW = -1;
+    int bestIdx = -1;
+
+    long long ans = -1;
+    int ansI = -1, ansJ = -1;
+
+    for (int i = 1; i <= n; ++i) {
+        while (ptr + 1 < i && x[i] - x[ptr + 1] >= d) {
+            ++ptr;
+            if (w[ptr] > bestW) {
+                bestW = w[ptr];
+                bestIdx = ptr;
+            }
+        }
+
+        if (bestIdx != -1) {
+            long long cur = bestW + w[i];
+            if (cur > ans) {
+                ans = cur;
+                ansI = bestIdx;
+                ansJ = i;
+            }
+        }
+    }
+
+    cout << ansI << ' ' << ansJ << '\n';
+
+    return 0;
+}

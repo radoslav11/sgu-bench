@@ -1,0 +1,218 @@
+#include <iostream>
+#include <vector>
+#include <bitset>
+#include <algorithm>
+#include <numeric>
+#include <random>
+
+using namespace std;
+
+int N, M;
+vector<vector<int>> color;
+vector<vector<bitset<200>>> color_reach;
+bitset<200> reach_arr[200];
+
+bool is_valid(const vector<int>& subset) {
+    for (int u = 0; u < N; ++u) {
+        reach_arr[u].reset();
+        for (int c : subset) {
+            reach_arr[u] |= color_reach[c][u];
+        }
+    }
+    for (int i = 0; i < N; ++i) {
+        bitset<200> v1 = reach_arr[i];
+        v1.set(i);
+        bitset<200> v2;
+        for (int j = 0; j < N; ++j) {
+            if (v1.test(j)) v2 |= reach_arr[j];
+        }
+        if (v2.count() == N) continue;
+        
+        bitset<200> v3 = v2;
+        for (int j = 0; j < N; ++j) {
+            if (v2.test(j)) v3 |= reach_arr[j];
+        }
+        if (v3.count() < N) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int get_badness(const vector<int>& subset) {
+    for (int u = 0; u < N; ++u) {
+        reach_arr[u].reset();
+        for (int c : subset) {
+            reach_arr[u] |= color_reach[c][u];
+        }
+    }
+    int bad = 0;
+    for (int i = 0; i < N; ++i) {
+        bitset<200> v1 = reach_arr[i];
+        v1.set(i);
+        bitset<200> v2;
+        for (int j = 0; j < N; ++j) {
+            if (v1.test(j)) v2 |= reach_arr[j];
+        }
+        if (v2.count() == N) continue;
+        
+        bitset<200> v3 = v2;
+        for (int j = 0; j < N; ++j) {
+            if (v2.test(j)) v3 |= reach_arr[j];
+        }
+        if (v3.count() < N) {
+            bad += (N - v3.count());
+        }
+    }
+    return bad / 2;
+}
+
+void solve() {
+    if (!(cin >> N >> M)) return;
+    color.assign(N, vector<int>(N));
+    color_reach.assign(M + 1, vector<bitset<200>>(N));
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            cin >> color[i][j];
+            if (i != j) {
+                color_reach[color[i][j]][i].set(j);
+            }
+        }
+    }
+
+    int K = (M + 1) / 2;
+
+    if (M >= 2 * N - 3) {
+        vector<int> subset;
+        vector<bool> seen(M + 1, false);
+        for (int v = 0; v < N; ++v) {
+            if (0 != v) {
+                int c = color[0][v];
+                if (!seen[c]) {
+                    seen[c] = true;
+                    subset.push_back(c);
+                }
+            }
+        }
+        cout << subset.size() << "\n";
+        for (size_t i = 0; i < subset.size(); ++i) {
+            cout << subset[i] << (i + 1 == subset.size() ? "" : " ");
+        }
+        cout << "\n";
+        return;
+    }
+
+    vector<pair<int, int>> color_freq;
+    for (int c = 1; c <= M; ++c) {
+        int freq = 0;
+        for (int u = 0; u < N; ++u) {
+            freq += color_reach[c][u].count();
+        }
+        color_freq.push_back({freq, c});
+    }
+    sort(color_freq.rbegin(), color_freq.rend());
+    
+    vector<int> current_subset;
+    for (int i = 0; i < K; ++i) {
+        current_subset.push_back(color_freq[i].second);
+    }
+    
+    if (is_valid(current_subset)) {
+        cout << K << "\n";
+        for (int i = 0; i < K; ++i) {
+            cout << current_subset[i] << (i + 1 == K ? "" : " ");
+        }
+        cout << "\n";
+        return;
+    }
+
+    mt19937 rng(1337);
+    int best_bad = get_badness(current_subset);
+    vector<int> best_subset = current_subset;
+
+    for (int step = 0; step < 1000; ++step) {
+        vector<int> all_colors(M);
+        iota(all_colors.begin(), all_colors.end(), 1);
+        shuffle(all_colors.begin(), all_colors.end(), rng);
+        current_subset.assign(all_colors.begin(), all_colors.begin() + K);
+        
+        if (is_valid(current_subset)) {
+            cout << K << "\n";
+            for (size_t k = 0; k < current_subset.size(); ++k) {
+                cout << current_subset[k] << (k + 1 == current_subset.size() ? "" : " ");
+            }
+            cout << "\n";
+            return;
+        }
+        
+        int b = get_badness(current_subset);
+        if (b < best_bad) {
+            best_bad = b;
+            best_subset = current_subset;
+        }
+        
+        bool improved = true;
+        int local_steps = 0;
+        while (improved && local_steps < 20) {
+            improved = false;
+            local_steps++;
+            vector<int> outside;
+            vector<bool> in_sub(M + 1, false);
+            for (int c : current_subset) in_sub[c] = true;
+            for (int c = 1; c <= M; ++c) {
+                if (!in_sub[c]) outside.push_back(c);
+            }
+            shuffle(outside.begin(), outside.end(), rng);
+            vector<int> sub_copy = current_subset;
+            shuffle(sub_copy.begin(), sub_copy.end(), rng);
+            
+            int swaps_checked = 0;
+            for (size_t i = 0; i < sub_copy.size(); ++i) {
+                for (size_t j = 0; j < outside.size(); ++j) {
+                    swaps_checked++;
+                    swap(sub_copy[i], outside[j]);
+                    if (is_valid(sub_copy)) {
+                        cout << K << "\n";
+                        for (size_t k = 0; k < sub_copy.size(); ++k) {
+                            cout << sub_copy[k] << (k + 1 == sub_copy.size() ? "" : " ");
+                        }
+                        cout << "\n";
+                        return;
+                    }
+                    int new_b = get_badness(sub_copy);
+                    if (new_b < b) {
+                        b = new_b;
+                        current_subset = sub_copy;
+                        if (b < best_bad) {
+                            best_bad = b;
+                            best_subset = current_subset;
+                        }
+                        improved = true;
+                        break;
+                    }
+                    swap(sub_copy[i], outside[j]);
+                    if (swaps_checked >= 500) break;
+                }
+                if (improved) break;
+                if (swaps_checked >= 500) break;
+            }
+        }
+    }
+
+    if (best_bad == 0) {
+        cout << K << "\n";
+        for (size_t i = 0; i < best_subset.size(); ++i) {
+            cout << best_subset[i] << (i + 1 == best_subset.size() ? "" : " ");
+        }
+        cout << "\n";
+    } else {
+        cout << -1 << "\n";
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    solve();
+    return 0;
+}

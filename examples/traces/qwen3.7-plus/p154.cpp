@@ -1,0 +1,41 @@
+#include <iostream>
+
+using namespace std;
+
+long long getZeros(long long n) {
+    long long res = 0;
+    while (n > 0) {
+        res += n / 5;
+        n /= 5;
+    }
+    return res;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    long long q;
+    if (cin >> q) {
+        long long l = 1, r = 5000000000LL;
+        long long ans = -1;
+        
+        while (l <= r) {
+            long long mid = l + (r - l) / 2;
+            if (getZeros(mid) >= q) {
+                ans = mid;
+                r = mid - 1;
+            } else {
+                l = mid + 1;
+            }
+        }
+        
+        if (ans != -1 && getZeros(ans) == q) {
+            cout << ans << "\n";
+        } else {
+            cout << "No solution\n";
+        }
+    }
+    
+    return 0;
+}

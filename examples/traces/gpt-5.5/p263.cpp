@@ -1,0 +1,276 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+static const int MAXC = 1000000;
+
+struct FastInput {
+    static const int BUFSIZE = 1 << 20;
+    int idx = 0, size = 0;
+    char buf[BUFSIZE];
+
+    inline char getChar() {
+        if (idx >= size) {
+            size = (int)fread(buf, 1, BUFSIZE, stdin);
+            idx = 0;
+            if (size == 0) return 0;
+        }
+        return buf[idx++];
+    }
+
+    template <class T>
+    bool readInt(T &out) {
+        char c;
+        T sign = 1;
+        T num = 0;
+
+        c = getChar();
+        while (c && (c < '0' || c > '9') && c != '-') c = getChar();
+        if (!c) return false;
+
+        if (c == '-') {
+            sign = -1;
+            c = getChar();
+        }
+
+        while (c >= '0' && c <= '9') {
+            num = num * 10 + (c - '0');
+            c = getChar();
+        }
+
+        out = num * sign;
+        return true;
+    }
+
+    bool readWord(char *s) {
+        char c = getChar();
+        while (c && c <= ' ') c = getChar();
+        if (!c) return false;
+
+        int len = 0;
+        while (c > ' ') {
+            s[len++] = c;
+            c = getChar();
+        }
+        s[len] = '\0';
+        return true;
+    }
+};
+
+struct FastOutput {
+    static const int BUFSIZE = 1 << 20;
+    int idx = 0;
+    char buf[BUFSIZE];
+
+    ~FastOutput() {
+        flush();
+    }
+
+    inline void flush() {
+        if (idx) {
+            fwrite(buf, 1, idx, stdout);
+            idx = 0;
+        }
+    }
+
+    inline void putChar(char c) {
+        if (idx == BUFSIZE) flush();
+        buf[idx++] = c;
+    }
+
+    void writeStr(const char *s) {
+        while (*s) putChar(*s++);
+    }
+
+    void writeLL(long long x) {
+        if (x == 0) {
+            putChar('0');
+            return;
+        }
+        if (x < 0) {
+            putChar('-');
+            x = -x;
+        }
+        char s[25];
+        int n = 0;
+        while (x) {
+            s[n++] = char('0' + x % 10);
+            x /= 10;
+        }
+        while (n--) putChar(s[n]);
+    }
+};
+
+struct Fenwick {
+    int n;
+    vector<int> bit;
+
+    Fenwick(int n = 0) : n(n), bit(n + 2, 0) {}
+
+    void add(int idx, int val) {
+        for (; idx <= n; idx += idx & -idx) bit[idx] += val;
+    }
+
+    int sumPrefix(int idx) const {
+        int res = 0;
+        for (; idx > 0; idx -= idx & -idx) res += bit[idx];
+        return res;
+    }
+
+    int kth(int k) const {
+        int pos = 0;
+        int step = 1;
+        while ((step << 1) <= n) step <<= 1;
+
+        for (; step; step >>= 1) {
+            int next = pos + step;
+            if (next <= n && bit[next] < k) {
+                pos = next;
+                k -= bit[next];
+            }
+        }
+        return pos + 1;
+    }
+};
+
+Fenwick starts(MAXC);
+bool occupied[MAXC + 2];
+long long heightCell[MAXC + 2];
+int towerEnd[MAXC + 2];
+long long towerSum[MAXC + 2];
+int towerCount = 0;
+
+int getTowerStartByCell(int x) {
+    int cnt = starts.sumPrefix(x);
+    return starts.kth(cnt);
+}
+
+void addToOccupiedCell(int x, long long c) {
+    heightCell[x] += c;
+    int s = getTowerStartByCell(x);
+    towerSum[s] += c;
+}
+
+void putCell(int x, long long c) {
+    if (occupied[x]) {
+        addToOccupiedCell(x, c);
+        return;
+    }
+
+    occupied[x] = true;
+    heightCell[x] = c;
+
+    bool left = (x > 1 && occupied[x - 1]);
+    bool right = (x < MAXC && occupied[x + 1]);
+
+    if (!left && !right) {
+        starts.add(x, 1);
+        towerCount++;
+
+        towerEnd[x] = x;
+        towerSum[x] = c;
+    } else if (left && !right) {
+        int ls = getTowerStartByCell(x - 1);
+        towerEnd[ls] = x;
+        towerSum[ls] += c;
+    } else if (!left && right) {
+        int rs = x + 1;
+
+        starts.add(rs, -1);
+        starts.add(x, 1);
+
+        towerEnd[x] = towerEnd[rs];
+        towerSum[x] = towerSum[rs] + c;
+
+        towerEnd[rs] = 0;
+        towerSum[rs] = 0;
+    } else {
+        int ls = getTowerStartByCell(x - 1);
+        int rs = x + 1;
+
+        starts.add(rs, -1);
+        towerCount--;
+
+        towerEnd[ls] = towerEnd[rs];
+        towerSum[ls] += towerSum[rs] + c;
+
+        towerEnd[rs] = 0;
+        towerSum[rs] = 0;
+    }
+}
+
+int main() {
+    FastInput in;
+    FastOutput out;
+
+    int N;
+    in.readInt(N);
+
+    char cmd[16];
+
+    for (int i = 0; i < N; ++i) {
+        in.readWord(cmd);
+
+        if (cmd[0] == 'p') {
+            int x;
+            long long c;
+            in.readInt(x);
+            in.readInt(c);
+            putCell(x, c);
+        } else if (cmd[0] == 't') {
+            if (cmd[1] == 'p') {
+                int t, x;
+                long long c;
+                in.readInt(t);
+                in.readInt(x);
+                in.readInt(c);
+
+                int s = starts.kth(t);
+                int cell = s + x - 1;
+
+                heightCell[cell] += c;
+                towerSum[s] += c;
+            } else if (cmd[1] == 'o') {
+                out.writeLL(towerCount);
+                out.writeStr(" towers\n");
+            } else {
+                int t, x;
+                in.readInt(t);
+                in.readInt(x);
+
+                int s = starts.kth(t);
+                int cell = s + x - 1;
+
+                out.writeLL(heightCell[cell]);
+                out.writeStr(" cubes in ");
+                out.writeLL(x);
+                out.writeStr("th column of ");
+                out.writeLL(t);
+                out.writeStr("th tower\n");
+            }
+        } else if (cmd[0] == 'l') {
+            int t;
+            in.readInt(t);
+
+            int s = starts.kth(t);
+            int len = towerEnd[s] - s + 1;
+
+            out.writeStr("length of ");
+            out.writeLL(t);
+            out.writeStr("th tower is ");
+            out.writeLL(len);
+            out.putChar('\n');
+        } else {
+            int t;
+            in.readInt(t);
+
+            int s = starts.kth(t);
+
+            out.writeLL(towerSum[s]);
+            out.writeStr(" cubes in ");
+            out.writeLL(t);
+            out.writeStr("th tower\n");
+        }
+    }
+
+    return 0;
+}

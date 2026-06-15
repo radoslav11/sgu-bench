@@ -1,0 +1,45 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main(){
+    int n,m;
+    scanf("%d %d",&n,&m);
+    // adjacency: from vertex, list of (to, color)
+    vector<vector<pair<int,int>>> adj(n+1);
+    for(int i=0;i<m;i++){
+        int x,y,c;
+        scanf("%d %d %d",&x,&y,&c);
+        adj[x].push_back({y,c});
+    }
+    // state: (vertex, lastColor) lastColor 0..3, 0 means none
+    // dist[v][c]
+    vector<array<int,4>> dist(n+1);
+    for(int i=0;i<=n;i++) dist[i]={-1,-1,-1,-1};
+    queue<pair<int,int>> q;
+    dist[1][0]=0;
+    q.push({1,0});
+    int ans=-1;
+    while(!q.empty()){
+        auto [v,lc]=q.front();q.pop();
+        int d=dist[v][lc];
+        if(v==n){ ans=d; break; }
+        for(auto&e:adj[v]){
+            int to=e.first, c=e.second;
+            if(c==lc) continue;
+            if(dist[to][c]==-1){
+                dist[to][c]=d+1;
+                q.push({to,c});
+            }
+        }
+    }
+    if(n==1){ printf("0\n"); return 0;}
+    // find min over colors at n
+    ans=-1;
+    for(int c=0;c<4;c++){
+        if(dist[n][c]!=-1){
+            if(ans==-1||dist[n][c]<ans) ans=dist[n][c];
+        }
+    }
+    printf("%d\n",ans);
+    return 0;
+}

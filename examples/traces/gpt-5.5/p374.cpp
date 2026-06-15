@@ -1,0 +1,20 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+int main() {
+    int a, b, k;
+    cin >> a >> b >> k;
+
+    cpp_int ans = 1;
+    int base = a + b;
+
+    for (int i = 0; i < k; ++i) {
+        ans *= base;
+    }
+
+    cout << ans << '\n';
+    return 0;
+}

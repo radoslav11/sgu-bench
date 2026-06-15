@@ -1,0 +1,37 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <set>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+    
+    vector<string> req(N + 1, string(M, '0'));
+    
+    for (int i = 0; i < M; ++i) {
+        int K;
+        cin >> K;
+        for (int k = 0; k < K; ++k) {
+            int res;
+            cin >> res;
+            req[res][i] = '1';
+        }
+    }
+    
+    set<string> unique_reqs;
+    for (int j = 1; j <= N; ++j) {
+        if (req[j].find('1') != string::npos) {
+            unique_reqs.insert(req[j]);
+        }
+    }
+    
+    cout << unique_reqs.size() << "\n";
+    
+    return 0;
+}

@@ -1,0 +1,61 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<string> grid(n);
+    int start_r = -1, start_c = -1;
+    for (int i = 0; i < n; ++i) {
+        cin >> grid[i];
+        for (int j = 0; j < m; ++j) {
+            if (grid[i][j] == 'P') {
+                start_r = i;
+                start_c = j;
+            }
+        }
+    }
+
+    int r = start_r;
+    int c = start_c;
+
+    while (true) {
+        if (r == n - 1) {
+            cout << c + 1 << "\n";
+            return 0;
+        }
+
+        if (grid[r + 1][c] == '.') {
+            r++;
+        } else if (grid[r + 1][c] == '/' || grid[r + 1][c] == '\\') {
+            char obs = grid[r + 1][c];
+            int dir = (obs == '/') ? -1 : 1;
+            while (true) {
+                c += dir;
+                if (c < 0 || c >= m) {
+                    cout << -1 << "\n";
+                    return 0;
+                }
+                if (grid[r + 1][c] == '.') {
+                    break;
+                }
+                if (grid[r + 1][c] != obs) {
+                    cout << -1 << "\n";
+                    return 0;
+                }
+            }
+        } else {
+            cout << -1 << "\n";
+            return 0;
+        }
+    }
+
+    return 0;
+}

@@ -1,0 +1,109 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+class FastInput {
+    static const int BUFSIZE = 1 << 16;
+    char buf[BUFSIZE];
+    int idx, size;
+
+public:
+    FastInput() : idx(0), size(0) {}
+
+    inline char readChar() {
+        if (idx >= size) {
+            size = fread(buf, 1, BUFSIZE, stdin);
+            idx = 0;
+            if (size == 0) return 0;
+        }
+        return buf[idx++];
+    }
+
+    int readInt() {
+        char c;
+        int sign = 1, x = 0;
+
+        do {
+            c = readChar();
+        } while (c <= ' ' && c);
+
+        if (c == '-') {
+            sign = -1;
+            c = readChar();
+        }
+
+        while (c > ' ') {
+            x = x * 10 + (c - '0');
+            c = readChar();
+        }
+
+        return x * sign;
+    }
+};
+
+const int MAXN = 16000 + 5;
+const int MAXE = 2 * MAXN;
+
+int n;
+int profit[MAXN], dp[MAXN];
+int head[MAXN], to[MAXE], nxt[MAXE], edgeCnt = 0;
+int parentArr[MAXN], orderArr[MAXN], stackArr[MAXN];
+
+void addEdge(int a, int b) {
+    to[edgeCnt] = b;
+    nxt[edgeCnt] = head[a];
+    head[a] = edgeCnt++;
+}
+
+int main() {
+    FastInput in;
+
+    n = in.readInt();
+
+    for (int i = 1; i <= n; ++i) {
+        profit[i] = in.readInt();
+        head[i] = -1;
+    }
+
+    for (int i = 0; i < n - 1; ++i) {
+        int a = in.readInt();
+        int b = in.readInt();
+        addEdge(a, b);
+        addEdge(b, a);
+    }
+
+    int top = 0, ordSize = 0;
+    stackArr[top++] = 1;
+    parentArr[1] = 0;
+
+    while (top > 0) {
+        int u = stackArr[--top];
+        orderArr[ordSize++] = u;
+
+        for (int e = head[u]; e != -1; e = nxt[e]) {
+            int v = to[e];
+            if (v == parentArr[u]) continue;
+            parentArr[v] = u;
+            stackArr[top++] = v;
+        }
+    }
+
+    int answer = -1000000000;
+
+    for (int i = ordSize - 1; i >= 0; --i) {
+        int u = orderArr[i];
+        dp[u] = profit[u];
+
+        for (int e = head[u]; e != -1; e = nxt[e]) {
+            int v = to[e];
+            if (parentArr[v] == u && dp[v] > 0) {
+                dp[u] += dp[v];
+            }
+        }
+
+        if (dp[u] > answer) answer = dp[u];
+    }
+
+    printf("%d\n", answer);
+
+    return 0;
+}

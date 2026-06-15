@@ -1,0 +1,192 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <stack>
+#include <bitset>
+
+using namespace std;
+
+/**
+ * Problem: 525. Revolutionary Roads
+ * Goal: Find all one-way roads that, when turned into two-way roads, 
+ * maximize the size of the largest strongly connected component (SCC).
+ * 
+ * Approach:
+ * 1. Find all SCCs of the original graph.
+ * 2. Build a Directed Acyclic Graph (DAG) where each node is an SCC.
+ * 3. For any road (u, v), turning it into a two-way road is equivalent to adding the 
+ *    edge (v, u). This creates a cycle in the DAG involving all SCCs that lie 
+ *    on any path from SCC(u) to SCC(v).
+ * 4. The size of the new SCC formed by merging these SCCs is the sum of the sizes
+ *    of all SCCs S_j such that SCC(u) -> ... -> S_j -> ... -> SCC(v).
+ * 5. The new maximum SCC size will be max(original_max_SCC_size, new_SCC_size).
+ * 6. Precompute the reachability between SCCs using bitsets to quickly compute 
+ *    the sum of sizes of SCCs on paths from SCC(u) to SCC(v).
+ */
+
+const int MAXN = 1005;
+const int MAXM = 20005;
+
+vector<int> adj[MAXN];
+int dfn[MAXN], low[MAXN], scc[MAXN], scc_size[MAXN], timer, scc_cnt;
+bool in_stack[MAXN];
+stack<int> st;
+
+struct Edge {
+    int u, v, id;
+};
+vector<Edge> edges;
+
+// Tarjan's algorithm for finding Strongly Connected Components
+void tarjan(int u) {
+    dfn[u] = low[u] = ++timer;
+    st.push(u);
+    in_stack[u] = true;
+
+    for (int v : adj[u]) {
+        if (!dfn[v]) {
+            tarjan(v);
+            low[u] = min(low[u], low[v]);
+        } else if (in_stack[v]) {
+            low[u] = min(low[u], dfn[v]);
+        }
+    }
+
+    if (low[u] == dfn[u]) {
+        scc_cnt++;
+        while (true) {
+            int v = st.top();
+            st.pop();
+            in_stack[v] = false;
+            scc[v] = scc_cnt;
+            scc_size[scc_cnt]++;
+            if (u == v) break;
+        }
+    }
+}
+
+bitset<MAXN> reachable[MAXN];
+vector<int> dag_adj[MAXN];
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    for (int i = 1; i <= m; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        edges.push_back({u, v, i});
+    }
+
+    // Step 1: Find all SCCs
+    for (int i = 1; i <= n; ++i) {
+        if (!dfn[i]) tarjan(i);
+    }
+
+    int max_original_scc = 0;
+    for (int i = 1; i <= scc_cnt; ++i) {
+        max_original_scc = max(max_original_scc, scc_size[i]);
+    }
+
+    // Step 2: Build the DAG of SCCs
+    for (const auto& e : edges) {
+        if (scc[e.u] != scc[e.v]) {
+            dag_adj[scc[e.u]].push_back(scc[e.v]);
+        }
+    }
+
+    // Remove duplicate edges in the DAG for efficiency
+    for (int i = 1; i <= scc_cnt; ++i) {
+        sort(dag_adj[i].begin(), dag_adj[i].end());
+        dag_adj[i].erase(unique(dag_adj[i].begin(), dag_adj[i].end()), dag_adj[i].end());
+    }
+
+    // Step 3: Compute reachability in the DAG using bitsets
+    // Using dynamic programming on the topological order for efficiency
+    // But since n is small, we can just use DFS or topological sort.
+    // Let's compute it using a simple topological-like method.
+    vector<int> in_degree(scc_cnt + 1, 0);
+    for (int i = 1; i <= scc_cnt; ++i) {
+        for (int next_scc : dag_adj[i]) {
+            in_degree[next_scc]++;
+        }
+    }
+
+    // We compute reachability from each node in the DAG using a simple iterative bitset approach.
+    // First, find topological order.
+    vector<int> topo_order;
+    vector<int> temp_in_degree = in_degree;
+    stack<int> zero_in;
+    for (int i = 1; i <= scc_cnt; ++i) {
+        if (temp_in_degree[i] == 0) zero_in.push(i);
+    }
+
+    while (!zero_in.empty()) {
+        int u = zero_in.top();
+        zero_in.pop();
+        topo_order.push_back(u);
+        for (int v : dag_adj[u]) {
+            if (--temp_in_degree[v] == 0) zero_in.push(v);
+        }
+    }
+
+    // Compute reachability in reverse topological order
+    for (int i = (int)topo_order.size() - 1; i >= 0; --i) {
+        int u = topo_order[i];
+        reachable[u].set(u);
+        for (int v : dag_adj[u]) {
+            reachable[u] |= reachable[v];
+        }
+    }
+
+    // Step 4: For each road, calculate W(e)
+    vector<int> W(m);
+    int max_W = 0;
+    for (int i = 0; i < m; ++i) {
+        int u = edges[i].u;
+        int v = edges[i].v;
+        int su = scc[u];
+        int sv = scc[v];
+
+        if (su == sv) {
+            W[i] = scc_size[su];
+        } else {
+            // Check if there is a path from su to sv (it must exist because u->v is a road)
+            // The new SCC size is the sum of scc_size[j] for all j such that su -> j and j -> sv
+            int current_W = 0;
+            for (int j = 1; j <= scc_cnt; ++j) {
+                if (reachable[su].test(j) && reachable[j].test(sv)) {
+                    current_W += scc_size[j];
+                }
+            }
+            W[i] = current_W;
+        }
+        max_W = max(max_W, W[i]);
+    }
+
+    // The maximum degree possible
+    int w = max(max_original_scc, max_W);
+
+    // Step 5: Identify good roads
+    vector<int> good_roads;
+    for (int i = 0; i < m; ++i) {
+        if (max(max_original_scc, W[i]) == w) {
+            good_roads.push_back(edges[i].id);
+        }
+    }
+
+    // Output results
+    cout << w << "\n";
+    cout << good_roads.size() << "\n";
+    for (int i = 0; i < (int)good_roads.size(); ++i) {
+        cout << good_roads[i] << (i == (int)good_roads.size() - 1 ? "" : " ");
+    }
+    cout << endl;
+
+    return 0;
+}
+

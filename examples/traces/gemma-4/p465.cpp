@@ -1,0 +1,147 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem Summary:
+ * Given N cities and M roads with lengths, find the best place for a fire station to minimize the
+ * expected distance to any city in case of fire. The location can be a city or on a road.
+ * Constraints:
+ * 1. All cities must be reachable from the fire station.
+ * 2. The fire station must be at least distance R from any city.
+ * 3. If a station is on an edge (u, v) of length L, it can be placed only if L >= 2R.
+ * 
+ * Mathematical Insight:
+ * The expected distance function E(x) = sum(P_i * dist(station, i)) is a concave function 
+ * because each dist(station, i) is the minimum of two linear functions (x + dist(u, i)) 
+ * and (L - x + dist(v, i)), which is a concave function. 
+ * The sum of concave functions is also concave.
+ * A concave function on a closed interval [R, L-R] attains its minimum at the boundaries 
+ * of the interval, i.e., at x = R or x = L-R.
+ * 
+ * Complexity:
+ * All-pairs shortest paths using Floyd-Warshall: O(N^3).
+ * Checking every edge and its two possible critical points: O(M * N).
+ * Total complexity: O(N^3), where N is up to 100.
+ */
+
+const long long INF = 1e15;
+
+struct Edge {
+    int u, v, l;
+};
+
+int main() {
+    // Optimized I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    long long r;
+    // Read N, M, and R
+    if (!(cin >> n >> m >> r)) return 0;
+
+    // Read probabilities and convert them to decimals
+    vector<double> p(n + 1);
+    for (int i = 1; i <= n; ++i) {
+        int prob;
+        cin >> prob;
+        p[i] = prob / 10000.0;
+    }
+
+    // Initialize distance matrix for Floyd-Warshall
+    vector<vector<long long>> dist(n + 1, vector<long long>(n + 1, INF));
+    for (int i = 1; i <= n; ++i) dist[i][i] = 0;
+
+    vector<Edge> edges;
+    for (int i = 0; i < m; ++i) {
+        int u, v, l;
+        cin >> u >> v >> l;
+        edges.push_back({u, v, l});
+        // Update adjacency matrix with road lengths
+        if (l < dist[u][v]) {
+            dist[u][v] = dist[v][u] = l;
+        }
+    }
+
+    // All-pairs shortest paths: Floyd-Warshall algorithm
+    for (int k = 1; k <= n; ++k) {
+        for (int i = 1; i <= n; ++i) {
+            for (int j = 1; j <= n; ++j) {
+                if (dist[i][k] != INF && dist[k][j] != INF) {
+                    if (dist[i][k] + dist[k][j] < dist[i][j]) {
+                        dist[i][j] = dist[i][k] + dist[k][j];
+                    }
+                }
+            }
+        }
+    }
+
+    // All cities must be in the same connected component for any fire station location to be valid
+    bool connected = true;
+    for (int i = 1; i <= n; ++i) {
+        for (int j = 1; j <= n; ++j) {
+            if (dist[i][j] == INF) {
+                connected = false;
+                break;
+            }
+        }
+        if (!connected) break;
+    }
+
+    if (!connected) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    double min_e = -1.0;
+
+    // If R = 0, a fire station can be placed in a city
+    if (r == 0) {
+        for (int i = 1; i <= n; ++i) {
+            double current_e = 0;
+            for (int j = 1; j <= n; ++j) {
+                current_e += p[j] * (double)dist[i][j];
+            }
+            if (min_e < 0 || current_e < min_e) {
+                min_e = current_e;
+            }
+        }
+    }
+
+    // Check valid fire station locations on each edge (u, v)
+    for (const auto& edge : edges) {
+        // The condition L >= 2R ensures there's a point x such that R <= x <= L-R
+        if (edge.l >= 2 * r) {
+            // Based on concavity, the minimum must be at x = R or x = L-R
+            long long x_vals[2] = {r, (long long)edge.l - r};
+            for (int k = 0; k < 2; ++k) {
+                long long x = x_vals[k];
+                double current_e = 0;
+                for (int j = 1; j <= n; ++j) {
+                    double d_uj = (double)dist[edge.u][j];
+                    double d_vj = (double)dist[edge.v][j];
+                    // Distance from station to city j
+                    double d_station_j = min((double)x + d_uj, (double)(edge.l - x) + d_vj);
+                    current_e += p[j] * d_station_j;
+                }
+                if (min_e < 0 || current_e < min_e) {
+                    min_e = current_e;
+                }
+            }
+        }
+    }
+
+    // Output the minimum expected distance or -1 if no valid location was found
+    if (min_e < 0) {
+        cout << -1 << endl;
+    } else {
+        cout << fixed << setprecision(5) << min_e << endl;
+    }
+
+    return 0;
+}
+

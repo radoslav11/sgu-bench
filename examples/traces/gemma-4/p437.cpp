@@ -1,0 +1,144 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+// Use long long for N and counts to handle values up to 10^18.
+typedef long long ll;
+
+int K;
+ll N;
+int initial_board[31];
+int board[31];
+uint32_t row_masks[28];
+int cell_to_rows[31][10];
+int cell_to_rows_count[31];
+bool found = false;
+
+/**
+ * Apply a value to a cell and update all the constraint masks it belongs to.
+ * @param cell_idx The 0-indexed cell being filled.
+ * @param v The value (1 to K) being placed in the cell.
+ */
+void apply(int cell_idx, int v) {
+    board[cell_idx] = v;
+    for (int i = 0; i < cell_to_rows_count[cell_idx]; ++i) {
+        row_masks[cell_to_rows[cell_idx][i]] |= (1u << (v - 1));
+    }
+}
+
+/**
+ * Remove a value from a cell and clear its contribution from the constraint masks.
+ * @param cell_idx The 0-indexed cell being cleared.
+ * @param v The value (1 to K) being removed.
+ */
+void unapply(int cell_idx, int v) {
+    board[cell_idx] = 0;
+    for (int i = 0; i < cell_to_rows_count[cell_idx]; ++i) {
+        row_masks[cell_to_rows[cell_idx][i]] &= ~(1u << (v - 1));
+    }
+}
+
+/**
+ * Check if placing value v in cell_idx violates any row constraints.
+ * @param cell_idx The 0-indexed cell being checked.
+ * @param v The value (1 to K) being checked.
+ * @return true if the value is valid, false otherwise.
+ */
+bool is_valid(int cell_idx, int v) {
+    for (int i = 0; i < cell_to_rows_count[cell_idx]; ++i) {
+        if (row_masks[cell_to_rows[cell_idx][i]] & (1u << (v - 1))) return false;
+    }
+    return true;
+}
+
+/**
+ * Backtracking function to find the N-th lexicographical solution.
+ * Since we search cell by cell (0 to 30) and values in increasing order (1 to K),
+ * the solutions are naturally found in lexicographical order.
+ * @param cell_idx The current cell index being filled.
+ */
+void backtrack(int cell_idx) {
+    if (found) return;
+    if (cell_idx == 31) {
+        N--;
+        if (N == 0) found = true;
+        return;
+    }
+
+    // If the cell has a prefilled value from the input.
+    if (initial_board[cell_idx] != 0) {
+        int v = initial_board[cell_idx];
+        if (is_valid(cell_idx, v)) {
+            apply(cell_idx, v);
+            backtrack(cell_idx + 1);
+            unapply(cell_idx, v);
+        }
+        return;
+    }
+
+    // Try all possible values from 1 to K in increasing order.
+    for (int v = 1; v <= K; ++v) {
+        if (is_valid(cell_idx, v)) {
+            apply(cell_idx, v);
+            backtrack(cell_idx + 1);
+            if (found) return;
+            unapply(cell_idx, v);
+        }
+    }
+}
+
+int main() {
+    // Fast I/O.
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    if (!(cin >> K >> N)) return 0;
+    for (int i = 0; i < 31; ++i) cin >> initial_board[i];
+
+    // Define all 28 constraint rows (7 horizontal + 7 "/" diagonal + 7 "\" diagonal + 7 special groups)
+    // 0-indexed cell indices are used.
+    vector<vector<int>> all_rows = {
+        // Horizontal rows
+        {0, 1}, {2, 3, 4, 5, 6}, {7, 8, 9, 10, 11, 12}, {13, 14, 15, 16, 17},
+        {18, 19, 20, 21, 22, 23}, {24, 25, 26, 27, 28}, {29, 30},
+        // "/" diagonal rows
+        {2, 7}, {0, 3, 8, 13, 18}, {1, 4, 9, 14, 19, 24}, {5, 10, 15, 20, 25},
+        {6, 11, 16, 21, 26, 29}, {12, 17, 22, 27, 30}, {23, 28},
+        // "\" diagonal rows
+        {6, 12}, {1, 5, 11, 17, 23}, {0, 4, 10, 16, 22, 28}, {3, 9, 15, 21, 27},
+        {2, 8, 14, 20, 26, 30}, {7, 13, 19, 25, 29}, {18, 24},
+        // Special marked cells (and their neighbors)
+        {0, 1, 3, 4, 5, 9, 10}, {2, 3, 7, 8, 9, 13, 14}, {5, 6, 10, 11, 12, 16, 17},
+        {9, 10, 14, 15, 16, 20, 21}, {13, 14, 18, 19, 20, 24, 25}, {16, 17, 21, 22, 23, 27, 28},
+        {20, 21, 25, 26, 27, 29, 30}
+    };
+
+    // Initialize data structures.
+    for (int i = 0; i < 31; ++i) cell_to_rows_count[i] = 0;
+    for (int i = 0; i < 28; ++i) {
+        for (int cell : all_rows[i]) {
+            cell_to_rows[cell][cell_to_rows_count[cell]++] = i;
+        }
+    }
+
+    for (int i = 0; i < 31; ++i) board[i] = 0;
+    for (int i = 0; i < 28; ++i) row_masks[i] = 0;
+
+    // Solve.
+    backtrack(0);
+
+    // Output results.
+    if (found) {
+        cout << "Found" << "\n";
+        for (int i = 0; i < 31; ++i) {
+            cout << board[i] << (i == 30 ? "" : " ");
+        }
+        cout << endl;
+    } else {
+        cout << "No way" << endl;
+    }
+
+    return 0;
+}
+

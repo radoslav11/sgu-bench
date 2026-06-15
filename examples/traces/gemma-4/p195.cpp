@@ -1,0 +1,95 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * The company structure is a tree with Bill Hates (node 1) at the root.
+ * Rules for grant assignment:
+ * 1. A programmer can assign a grant to at most one subordinate.
+ * 2. A programmer can receive a grant from their chief.
+ * 3. A programmer cannot simultaneously receive a grant and assign a grant.
+ * 
+ * These rules imply that if we represent a grant assignment as an edge (u, v) where
+ * u is the parent of v, then:
+ * - u is a "giver" and v is a "receiver".
+ * - Each node can be at most one of: a giver, a receiver, or neither.
+ * - This is equivalent to finding a maximum matching in the tree. 
+ *   Each edge in the matching represents one grant, and the node that is the 
+ *   child in that edge is the receiver.
+ * 
+ * To maximize the total amount of money (number of receivers * 1000), we need 
+ * to find the maximum cardinality matching in the tree.
+ * 
+ * Algorithm:
+ * A greedy approach for maximum matching in a tree:
+ * 1. Traverse the tree bottom-up (post-order).
+ * 2. For each unmatched node, if it has an unmatched child, match them.
+ * 
+ * Since the problem states every programmer (except node 1) has a chief with a 
+ * smaller identifier, the parent of node i is always less than i. This means
+ * iterating from N down to 2 is a valid post-order traversal for matching.
+ * 
+ * Complexity:
+ * - Time: O(N log N) due to sorting the receivers at the end. The matching step is O(N).
+ * - Space: O(N) to store parent relations, matching status, and receivers.
+ * 
+ * Constraints:
+ * - N <= 500,000.
+ * - Time limit 0.75s.
+ * - Memory limit 64MB.
+ */
+
+int main() {
+    // Speed up I/O performance
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    // The problem states N >= 2.
+    // parent[i] will store the chief (parent) of worker i.
+    // Using N + 1 for 1-based indexing.
+    vector<int> parent(N + 1);
+    for (int i = 2; i <= N; ++i) {
+        if (!(cin >> parent[i])) break;
+    }
+
+    // matched[i] is true if node i is part of the matching (as a giver or a receiver).
+    vector<bool> matched(N + 1, false);
+    // receivers will store the IDs of all programmers who receive a grant.
+    vector<int> receivers;
+
+    // Greedy matching: starting from the leaves up to the root.
+    // Because parent[i] < i, we iterate from N down to 2.
+    for (int i = N; i >= 2; --i) {
+        // If node i is not already matched, try to match it with its parent.
+        // This is equivalent to the standard greedy tree matching algorithm.
+        if (!matched[i] && !matched[parent[i]]) {
+            matched[i] = true;
+            matched[parent[i]] = true;
+            // In the edge (parent[i], i), i is the receiver.
+            receivers.push_back(i);
+        }
+    }
+
+    // The problem asks for receivers in ascending order.
+    sort(receivers.begin(), receivers.end());
+
+    // Total amount of money: number of receivers * 1000.
+    long long total_money = (long long)receivers.size() * 1000;
+
+    // Output the results.
+    cout << total_money << "\n";
+    for (size_t i = 0; i < receivers.size(); ++i) {
+        if (i > 0) cout << " ";
+        cout << receivers[i];
+    }
+    cout << "\n";
+
+    return 0;
+}
+

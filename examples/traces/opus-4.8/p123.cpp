@@ -1,0 +1,12 @@
+#include <iostream>
+using namespace std;
+int main(){
+    int k; cin>>k;
+    long long a=1,b=1,s=0;
+    for(int i=0;i<k;i++){
+        s+=a;
+        long long c=a+b;
+        a=b; b=c;
+    }
+    cout<<s<<endl;
+}

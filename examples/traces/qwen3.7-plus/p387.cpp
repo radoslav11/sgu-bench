@@ -1,0 +1,181 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <set>
+#include <iomanip>
+
+using namespace std;
+
+typedef long double ld;
+const ld EPS = 1e-10;
+
+struct Point {
+    ld x, y;
+    bool operator==(const Point& o) const {
+        return abs(x - o.x) < EPS && abs(y - o.y) < EPS;
+    }
+    bool operator<(const Point& o) const {
+        if (abs(x - o.x) > EPS) return x < o.x;
+        return y < o.y;
+    }
+};
+
+struct Segment {
+    Point p1, p2;
+    ld length() const {
+        return hypot(p1.x - p2.x, p1.y - p2.y);
+    }
+};
+
+ld cross_product(Point o, Point a, Point b) {
+    return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+bool on_segment(Point p, Point a, Point b) {
+    return p.x >= min(a.x, b.x) - EPS && p.x <= max(a.x, b.x) + EPS &&
+           p.y >= min(a.y, b.y) - EPS && p.y <= max(a.y, b.y) + EPS;
+}
+
+vector<Segment> intersect(Point a, Point b, Point c, Point d) {
+    ld cp1 = cross_product(a, b, c);
+    ld cp2 = cross_product(a, b, d);
+    ld cp3 = cross_product(c, d, a);
+    ld cp4 = cross_product(c, d, b);
+
+    bool c_on_ab = (abs(cp1) < EPS) && on_segment(c, a, b);
+    bool d_on_ab = (abs(cp2) < EPS) && on_segment(d, a, b);
+    bool a_on_cd = (abs(cp3) < EPS) && on_segment(a, c, d);
+    bool b_on_cd = (abs(cp4) < EPS) && on_segment(b, c, d);
+
+    if (abs(cp1) < EPS && abs(cp2) < EPS) {
+        if (!c_on_ab && !d_on_ab && !a_on_cd && !b_on_cd) return {};
+        vector<Point> pts;
+        if (c_on_ab) pts.push_back(c);
+        if (d_on_ab) pts.push_back(d);
+        if (a_on_cd) pts.push_back(a);
+        if (b_on_cd) pts.push_back(b);
+        
+        sort(pts.begin(), pts.end(), [](const Point& p1, const Point& p2){
+            if (abs(p1.x - p2.x) > EPS) return p1.x < p2.x;
+            return p1.y < p2.y;
+        });
+        
+        vector<Point> unique_pts;
+        for (auto& p : pts) {
+            if (unique_pts.empty() || !(unique_pts.back() == p)) {
+                unique_pts.push_back(p);
+            }
+        }
+        
+        vector<Segment> res;
+        if (unique_pts.size() >= 2) {
+            res.push_back({unique_pts.front(), unique_pts.back()});
+        } else if (unique_pts.size() == 1) {
+            res.push_back({unique_pts.front(), unique_pts.front()});
+        }
+        return res;
+    }
+
+    if ((cp1 > EPS && cp2 > EPS) || (cp1 < -EPS && cp2 < -EPS)) return {};
+    if ((cp3 > EPS && cp4 > EPS) || (cp3 < -EPS && cp4 < -EPS)) return {};
+
+    ld dx1 = b.x - a.x, dy1 = b.y - a.y;
+    ld dx2 = d.x - c.x, dy2 = d.y - c.y;
+    ld det = dx1 * dy2 - dy1 * dx2;
+    if (abs(det) < EPS) return {};
+
+    ld t = ((c.x - a.x) * dy2 - (c.y - a.y) * dx2) / det;
+    Point p = {a.x + t * dx1, a.y + t * dy1};
+    return {{p, p}};
+}
+
+bool bbox_intersect(const Segment& s1, const Segment& s2) {
+    ld min_x1 = min(s1.p1.x, s1.p2.x), max_x1 = max(s1.p1.x, s1.p2.x);
+    ld min_y1 = min(s1.p1.y, s1.p2.y), max_y1 = max(s1.p1.y, s1.p2.y);
+    ld min_x2 = min(s2.p1.x, s2.p2.x), max_x2 = max(s2.p1.x, s2.p2.x);
+    ld min_y2 = min(s2.p1.y, s2.p2.y), max_y2 = max(s2.p1.y, s2.p2.y);
+    return max_x1 + EPS >= min_x2 && min_x1 - EPS <= max_x2 &&
+           max_y1 + EPS >= min_y2 && min_y1 - EPS <= max_y2;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<Segment> S(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> S[i].p1.x >> S[i].p1.y >> S[i].p2.x >> S[i].p2.y;
+    }
+
+    vector<Segment> neg_S(n);
+    vector<Segment> rot_S(n);
+    vector<Segment> rot2_S(n);
+
+    for (int i = 0; i < n; ++i) {
+        neg_S[i] = {{-S[i].p1.x, -S[i].p1.y}, {-S[i].p2.x, -S[i].p2.y}};
+        rot_S[i] = {{S[i].p1.y, -S[i].p1.x}, {S[i].p2.y, -S[i].p2.x}};
+        rot2_S[i] = {{-S[i].p1.y, S[i].p1.x}, {-S[i].p2.y, S[i].p2.x}};
+    }
+
+    vector<vector<vector<Segment>>> T2_cache(n, vector<vector<Segment>>(n));
+    for (int j = 0; j < n; ++j) {
+        for (int l = 0; l < n; ++l) {
+            T2_cache[j][l] = intersect(rot_S[j].p1, rot_S[j].p2, rot2_S[l].p1, rot2_S[l].p2);
+        }
+    }
+
+    ld total_length = 0;
+    ld total_area_integral = 0;
+    set<Point> valid_points;
+
+    for (int i = 0; i < n; ++i) {
+        for (int k = 0; k < n; ++k) {
+            vector<Segment> T1 = intersect(S[i].p1, S[i].p2, neg_S[k].p1, neg_S[k].p2);
+            if (T1.empty()) continue;
+            for (int j = 0; j < n; ++j) {
+                for (int l = 0; l < n; ++l) {
+                    if (T2_cache[j][l].empty()) continue;
+                    for (auto& t1 : T1) {
+                        for (auto& t2 : T2_cache[j][l]) {
+                            if (!bbox_intersect(t1, t2)) continue;
+                            vector<Segment> T_valid = intersect(t1.p1, t1.p2, t2.p1, t2.p2);
+                            for (auto& seg : T_valid) {
+                                ld len = seg.length();
+                                if (len > 1e-6) {
+                                    total_length += len;
+                                    ld sx1 = seg.p1.x, sx2 = seg.p2.x;
+                                    ld sy1 = seg.p1.y, sy2 = seg.p2.y;
+                                    ld area_int = 2.0L * len * ((sx1*sx1 + sx1*sx2 + sx2*sx2)/3.0L + (sy1*sy1 + sy1*sy2 + sy2*sy2)/3.0L);
+                                    total_area_integral += area_int;
+                                } else {
+                                    valid_points.insert(seg.p1);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ld ans = 0;
+    if (total_length > 1e-6) {
+        ans = total_area_integral / total_length;
+    } else {
+        ld sum_area = 0;
+        for (const auto& p : valid_points) {
+            sum_area += 2.0L * (p.x * p.x + p.y * p.y);
+        }
+        if (valid_points.size() > 0) {
+            ans = sum_area / valid_points.size();
+        }
+    }
+
+    cout << fixed << setprecision(10) << (double)ans << "\n";
+
+    return 0;
+}

@@ -1,0 +1,123 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * We are given K symbols on an N x M grid. We need to find a minimal set of pixels
+ * such that each symbol's color pattern on these pixels is unique.
+ * This can be framed as a Set Cover problem. Each pair of symbols (i, j) must be 
+ * "separated" by at least one selected pixel (a pixel where symbol i and symbol j 
+ * have different colors).
+ * 
+ * There are K symbols, so there are K*(K-1)/2 pairs of symbols.
+ * For K=6, there are 15 pairs.
+ * Let the pairs be elements to cover. Each pixel represents a set that covers 
+ * a subset of these pairs.
+ * We need the minimum number of pixels to cover all 15 pairs.
+ * 
+ * Constraints:
+ * N, M <= 10 (Total pixels <= 100)
+ * K <= 6 (Pairs <= 15)
+ * Time limit: 0.25 sec
+ * Memory limit: 64 MB
+ * 
+ * Complexity:
+ * DP state: dp[mask] is the minimum pixels to cover the set of pairs represented by 'mask'.
+ * Number of states: 2^15 = 32,768.
+ * Number of items (pixels): 100.
+ * Complexity: O(N * M * 2^(K*(K-1)/2)), roughly 100 * 32768 = 3.2 * 10^6.
+ * This is well within the 0.25s time limit.
+ */
+
+const int INF = 1000000;
+
+int main() {
+    // Faster I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M, K;
+    if (!(cin >> N >> M >> K)) return 0;
+
+    // Read K symbols
+    vector<vector<string>> symbols(K, vector<string>(N));
+    for (int k = 0; k < K; ++k) {
+        for (int i = 0; i < N; ++i) {
+            cin >> symbols[k][i];
+        }
+    }
+
+    // Generate all pairs of symbols
+    vector<pair<int, int>> pairs;
+    for (int i = 0; i < K; ++i) {
+        for (int j = i + 1; j < K; ++j) {
+            pairs.push_back({i, j});
+        }
+    }
+
+    int num_pairs = (int)pairs.size();
+    int NM = N * M;
+    
+    // Calculate the mask for each pixel (which pairs of symbols it separates)
+    vector<int> pixel_mask(NM, 0);
+    for (int p = 0; p < NM; ++p) {
+        int r = p / M;
+        int c = p % M;
+        for (int i = 0; i < num_pairs; ++i) {
+            int s1 = pairs[i].first;
+            int s2 = pairs[i].second;
+            if (symbols[s1][r][c] != symbols[s2][r][c]) {
+                pixel_mask[p] |= (1 << i);
+            }
+        }
+    }
+
+    // DP to solve the Set Cover problem
+    // dp[mask] = min pixels to cover the pairs in mask
+    int num_states = 1 << num_pairs;
+    vector<int> dp(num_states, INF);
+    vector<int> parent_mask(num_states, -1);
+    vector<int> parent_pixel(num_states, -1);
+
+    dp[0] = 0;
+    for (int p = 0; p < NM; ++p) {
+        if (pixel_mask[p] == 0) continue;
+        // Standard 0/1 knapsack-style update to ensure each pixel is used at most once
+        for (int m = num_states - 1; m >= 0; --m) {
+            if (dp[m] != INF) {
+                int nm = m | pixel_mask[p];
+                if (dp[nm] > dp[m] + 1) {
+                    dp[nm] = dp[m] + 1;
+                    parent_mask[nm] = m;
+                    parent_pixel[nm] = p;
+                }
+            }
+        }
+    }
+
+    int target = num_states - 1;
+    // Since symbols are unique, dp[target] must be finite.
+    cout << dp[target] << "\n";
+
+    // Reconstruct the set of pixels used
+    vector<string> res(N, string(M, '0'));
+    int curr = target;
+    while (curr > 0) {
+        int p = parent_pixel[curr];
+        if (p == -1) break;
+        res[p / M][p % M] = '1';
+        curr = parent_mask[curr];
+    }
+
+    // Output the pixel grid
+    for (int i = 0; i < N; ++i) {
+        cout << res[i] << "\n";
+    }
+
+    return 0;
+}
+

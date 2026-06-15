@@ -1,0 +1,63 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+int dp[105][105];
+int C[10005];
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    for (int i = 1; i <= N; ++i) {
+        cin >> C[i];
+    }
+
+    for (int i = 0; i < 105; ++i) {
+        for (int j = 0; j < 105; ++j) {
+            dp[i][j] = INF;
+        }
+    }
+
+    for (int k = 2; k <= N; ++k) {
+        if (k <= M) {
+            for (int j = 1; j <= k - 1; ++j) {
+                dp[k % 105][j % 105] = C[k] + C[j];
+            }
+        } else {
+            for (int i = k - M; i <= k - 1; ++i) {
+                int min_val = INF;
+                int i_mod = i % 105;
+                for (int j = k - M; j <= i - 1; ++j) {
+                    int val = dp[i_mod][j % 105];
+                    if (val < min_val) {
+                        min_val = val;
+                    }
+                }
+                if (min_val != INF) {
+                    dp[k % 105][i % 105] = min_val + C[k];
+                }
+            }
+        }
+    }
+
+    int ans = INF;
+    int min_j = max(1, N + 1 - M);
+    for (int i = 2; i <= N; ++i) {
+        for (int j = min_j; j < i; ++j) {
+            if (dp[i % 105][j % 105] < ans) {
+                ans = dp[i % 105][j % 105];
+            }
+        }
+    }
+
+    cout << ans << "\n";
+
+    return 0;
+}

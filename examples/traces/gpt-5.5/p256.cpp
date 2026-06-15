@@ -1,0 +1,92 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int M, N;
+    cin >> M >> N;
+
+    vector<int> A(N), B(N);
+    int bestA = 0;
+    for (int i = 0; i < N; i++) {
+        cin >> A[i] >> B[i];
+        bestA = max(bestA, A[i]);
+    }
+
+    if (bestA == 0) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    const int IDLE = N;
+    const int BASE = N + 1;
+
+    int states = 1;
+    for (int i = 0; i < 4; i++) states *= BASE;
+
+    vector<array<int, 4>> digits(states);
+    for (int s = 0; s < states; s++) {
+        int x = s;
+        for (int i = 0; i < 4; i++) {
+            digits[s][i] = x % BASE;
+            x /= BASE;
+        }
+    }
+
+    int initial = 0;
+    int mul = 1;
+    for (int i = 0; i < 4; i++) {
+        initial += IDLE * mul;
+        mul *= BASE;
+    }
+
+    const int NEG = -1e9;
+    vector<int> dp(states, NEG), ndp(states, NEG);
+    dp[initial] = 0;
+
+    for (int t = 1; t <= 1000; t++) {
+        fill(ndp.begin(), ndp.end(), NEG);
+
+        for (int s = 0; s < states; s++) {
+            if (dp[s] < 0) continue;
+
+            for (int who = 0; who <= N; who++) {
+                bool ok = true;
+
+                if (who != IDLE) {
+                    for (int back = 0; back < B[who] - 1; back++) {
+                        if (digits[s][back] == who) {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (!ok) continue;
+
+                int ns = who;
+                int p = BASE;
+                for (int k = 0; k < 3; k++) {
+                    ns += digits[s][k] * p;
+                    p *= BASE;
+                }
+
+                int add = (who == IDLE ? 0 : A[who]);
+                ndp[ns] = max(ndp[ns], dp[s] + add);
+            }
+        }
+
+        dp.swap(ndp);
+
+        int mx = *max_element(dp.begin(), dp.end());
+        if (mx >= M) {
+            cout << t << '\n';
+            return 0;
+        }
+    }
+
+    cout << -1 << '\n';
+    return 0;
+}

@@ -1,0 +1,117 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem: What? Where? When?
+ * The problem asks for the probability of each final score when two teams (club and viewers)
+ * play a game involving 13 sectors. The game ends when one team reaches 6 points.
+ * The sectors 1-12 have envelopes with questions, while sector 13 provides internet questions.
+ * The probability of picking a sector depends on the remaining envelopes and a random rotation.
+ * 
+ * State: dp[mask][c]
+ * mask: bitmask of remaining sectors (0 to 12)
+ * c: current score of the club team
+ * rounds_played: 13 - popcount(mask)
+ * v: current score of the viewers team (v = rounds_played - c)
+ * 
+ * Time Complexity: O(2^13 * 7 * 13)
+ * Memory Complexity: O(2^13 * 7)
+ */
+
+double dp[1 << 13][7];
+double p[14];
+double final_probs[7][7];
+
+int main() {
+    // Standard optimization for faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    // Input probabilities for sectors 1-12
+    for (int i = 1; i <= 12; ++i) {
+        cin >> p[i];
+    }
+
+    // Input probabilities for Internet questions and calculate average
+    double p_internet_sum = 0;
+    for (int i = 0; i < N; ++i) {
+        double pi;
+        cin >> pi;
+        p_internet_sum += pi;
+    }
+    p[13] = p_internet_sum / N;
+
+    // Initialize DP: starting mask with all 13 sectors present, 0 club points
+    dp[(1 << 13) - 1][0] = 1.0;
+
+    // Iterate masks in decreasing order of set bits (using integer mask order)
+    for (int mask = (1 << 13) - 1; mask > 0; --mask) {
+        int r = __builtin_popcount(mask);
+        int rounds_played = 13 - r;
+
+        // Identify which sectors are currently in the set S
+        int S[13];
+        int m = 0;
+        for (int i = 0; i < 13; ++i) {
+            if ((mask >> i) & 1) {
+                S[m++] = i + 1;
+            }
+        }
+
+        for (int c = 0; c <= 6; ++c) {
+            // Skip if this state was not reachable or club score is already 6
+            if (dp[mask][c] <= 0) continue;
+            int v = rounds_played - c;
+            
+            // If the viewer score is invalid (negative), skip
+            if (v < 0) continue;
+
+            // If someone has reached 6 points, it's a final score state
+            if (c == 6 || v == 6) {
+                final_probs[c][v] += dp[mask][c];
+                continue;
+            }
+
+            // For each remaining sector s, calculate the probability it is chosen
+            for (int i = 0; i < m; ++i) {
+                int s = S[i];
+                int s_prev = (i == 0) ? S[m - 1] : S[i - 1];
+                
+                // Probability P(s | S) is (number of elements in (s_prev, s] modulo 13) / 13
+                int count = (i == 0) ? (13 - s_prev + s) : (s - s_prev);
+                double prob_s = (double)count / 13.0;
+                double prob_club = p[s];
+                
+                int next_mask = mask ^ (1 << (s - 1));
+                
+                // Update next states for club team getting a point or viewers getting a point
+                dp[next_mask][c + 1] += dp[mask][c] * prob_s * prob_club;
+                dp[next_mask][c] += dp[mask][c] * prob_s * (1.0 - prob_club);
+            }
+        }
+    }
+
+    // Output the final scores in the requested order:
+    // 6:0, 6:1, 6:2, 6:3, 6:4, 6:5, 5:6, 4:6, 3:6, 2:6, 1:6, 0:6
+    cout << fixed << setprecision(4);
+    for (int i = 0; i < 12; ++i) {
+        int c, v;
+        if (i < 6) {
+            c = 6; v = i;
+        } else {
+            c = 6 - (i - 5); v = 6;
+        }
+        if (i > 0) cout << " ";
+        cout << final_probs[c][v];
+    }
+    cout << endl;
+
+    return 0;
+}
+

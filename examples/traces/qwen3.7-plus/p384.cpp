@@ -1,0 +1,157 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+struct Edge {
+    int u, w;
+};
+
+struct Triangle {
+    int u, v;
+    int e0, e1, e2;
+    bool ok0 = true, ok1 = true, ok2 = true;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<Edge> edges(m + 1);
+    vector<int> deg(n + 1, 0);
+
+    for (int i = 1; i <= m; i++) {
+        cin >> edges[i].u >> edges[i].w;
+        deg[edges[i].u]++;
+        deg[edges[i].w]++;
+    }
+
+    int V = 1;
+    int max_deg = -1;
+    for (int i = 1; i <= n; i++) {
+        if (deg[i] > max_deg) {
+            max_deg = deg[i];
+            V = i;
+        }
+    }
+
+    vector<int> edge_to_V(n + 1, 0);
+    for (int i = 1; i <= m; i++) {
+        int u = edges[i].u;
+        int w = edges[i].w;
+        if (u == V) edge_to_V[w] = i;
+        else if (w == V) edge_to_V[u] = i;
+    }
+
+    int num_triangles = 0;
+    vector<Triangle> tri(m + 1);
+    vector<int> tri_node(n + 1, 0);
+    vector<int> edge_tri(m + 1, 0);
+    vector<int> edge_type(m + 1, 0);
+
+    for (int i = 1; i <= m; i++) {
+        int u = edges[i].u;
+        int w = edges[i].w;
+        if (u != V && w != V) {
+            num_triangles++;
+            int t = num_triangles;
+            tri[t].u = u;
+            tri[t].v = w;
+            tri[t].e0 = i;
+            tri_node[u] = t;
+            tri_node[w] = t;
+
+            tri[t].e1 = edge_to_V[u];
+            tri[t].e2 = edge_to_V[w];
+
+            edge_tri[i] = t;
+            edge_type[i] = 0;
+
+            edge_tri[tri[t].e1] = t;
+            edge_type[tri[t].e1] = 1;
+
+            edge_tri[tri[t].e2] = t;
+            edge_type[tri[t].e2] = 2;
+        }
+    }
+
+    auto get_dist_to_V = [&](int node) {
+        if (node == V) return 0;
+        int t = tri_node[node];
+        if (t == 0) return -1;
+
+        bool is_u = (tri[t].u == node);
+        if (is_u) {
+            if (tri[t].ok1) return 1;
+            if (tri[t].ok0 && tri[t].ok2) return 2;
+            return -1;
+        } else {
+            if (tri[t].ok2) return 1;
+            if (tri[t].ok0 && tri[t].ok1) return 2;
+            return -1;
+        }
+    };
+
+    string type;
+    while (cin >> type) {
+        if (type == "DELETE") {
+            int x;
+            cin >> x;
+            int t = edge_tri[x];
+            int et = edge_type[x];
+            if (et == 0) tri[t].ok0 = false;
+            else if (et == 1) tri[t].ok1 = false;
+            else if (et == 2) tri[t].ok2 = false;
+        } else if (type == "LENGTH") {
+            int x, y;
+            cin >> x >> y;
+            if (x == y) {
+                cout << 0 << "\n";
+                continue;
+            }
+            if (x == V) {
+                cout << get_dist_to_V(y) << "\n";
+                continue;
+            }
+            if (y == V) {
+                cout << get_dist_to_V(x) << "\n";
+                continue;
+            }
+
+            int tx = tri_node[x];
+            int ty = tri_node[y];
+
+            if (tx == ty) {
+                if (tx == 0) {
+                    cout << -1 << "\n";
+                    continue;
+                }
+                if (tri[tx].ok0) {
+                    cout << 1 << "\n";
+                } else {
+                    int dx = get_dist_to_V(x);
+                    int dy = get_dist_to_V(y);
+                    if (dx != -1 && dy != -1) {
+                        cout << dx + dy << "\n";
+                    } else {
+                        cout << -1 << "\n";
+                    }
+                }
+            } else {
+                int dx = get_dist_to_V(x);
+                int dy = get_dist_to_V(y);
+                if (dx != -1 && dy != -1) {
+                    cout << dx + dy << "\n";
+                } else {
+                    cout << -1 << "\n";
+                }
+            }
+        }
+    }
+
+    return 0;
+}

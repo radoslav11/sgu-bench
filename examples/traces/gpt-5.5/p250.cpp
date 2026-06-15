@@ -1,0 +1,143 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Info {
+    int area = -1;
+    int r1 = -1, r2 = -1, w = -1;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<vector<int>> a(N + 1, vector<int>(M + 1));
+    for (int i = 1; i <= N; ++i)
+        for (int j = 1; j <= M; ++j)
+            cin >> a[i][j];
+
+    vector<vector<int>> rightZero(N + 1, vector<int>(M + 2, 0));
+    for (int i = 1; i <= N; ++i) {
+        for (int j = M; j >= 1; --j) {
+            if (a[i][j] == 0) rightZero[i][j] = rightZero[i][j + 1] + 1;
+            else rightZero[i][j] = 0;
+        }
+    }
+
+    int bestArea = -1;
+    int bestCol = -1;
+    Info bestTop, bestBottom;
+    int bestMidR1 = -1, bestMidR2 = -1, bestMidW = -1;
+
+    for (int col = 1; col <= M; ++col) {
+        vector<int> len(N + 1);
+        for (int i = 1; i <= N; ++i) len[i] = rightZero[i][col];
+
+        vector<vector<Info>> top(M + 1, vector<Info>(N + 2));
+        vector<vector<Info>> bottom(M + 1, vector<Info>(N + 2));
+
+        // top[k][i]: best upper rectangle ending exactly at row i,
+        // with width strictly greater than k.
+        for (int bot = 1; bot <= N; ++bot) {
+            int mn = M + 1;
+            for (int up = bot; up >= 1; --up) {
+                mn = min(mn, len[up]);
+                if (mn <= 1) break;
+                int area = (bot - up + 1) * mn;
+                for (int k = 1; k < mn; ++k) {
+                    if (area > top[k][bot].area) {
+                        top[k][bot].area = area;
+                        top[k][bot].r1 = up;
+                        top[k][bot].r2 = bot;
+                        top[k][bot].w = mn;
+                    }
+                }
+            }
+        }
+
+        // bottom[k][i]: best lower rectangle starting exactly at row i,
+        // with width strictly greater than k.
+        for (int up = 1; up <= N; ++up) {
+            int mn = M + 1;
+            for (int bot = up; bot <= N; ++bot) {
+                mn = min(mn, len[bot]);
+                if (mn <= 1) break;
+                int area = (bot - up + 1) * mn;
+                for (int k = 1; k < mn; ++k) {
+                    if (area > bottom[k][up].area) {
+                        bottom[k][up].area = area;
+                        bottom[k][up].r1 = up;
+                        bottom[k][up].r2 = bot;
+                        bottom[k][up].w = mn;
+                    }
+                }
+            }
+        }
+
+        for (int k = 1; k < M; ++k) {
+            int bestStartVal = INT_MIN;
+            int bestStartRow = -1;
+
+            for (int e = 1; e <= N; ++e) {
+                if (len[e] < k) {
+                    bestStartVal = INT_MIN;
+                    bestStartRow = -1;
+                    continue;
+                }
+
+                // Start middle block at row e.
+                if (e > 1 && top[k][e - 1].area >= 0) {
+                    int val = top[k][e - 1].area - k * e;
+                    if (val > bestStartVal) {
+                        bestStartVal = val;
+                        bestStartRow = e;
+                    }
+                }
+
+                // End middle block at row e.
+                if (bestStartRow != -1 && e < N && bottom[k][e + 1].area >= 0) {
+                    int area = bestStartVal + bottom[k][e + 1].area + k * e + k;
+                    if (area > bestArea) {
+                        bestArea = area;
+                        bestCol = col;
+                        bestMidR1 = bestStartRow;
+                        bestMidR2 = e;
+                        bestMidW = k;
+                        bestTop = top[k][bestStartRow - 1];
+                        bestBottom = bottom[k][e + 1];
+                    }
+                }
+            }
+        }
+    }
+
+    if (bestArea < 0) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<vector<int>> ans = a;
+
+    auto paint = [&](int r1, int r2, int c, int w) {
+        for (int i = r1; i <= r2; ++i)
+            for (int j = c; j < c + w; ++j)
+                ans[i][j] = 8;
+    };
+
+    paint(bestTop.r1, bestTop.r2, bestCol, bestTop.w);
+    paint(bestMidR1, bestMidR2, bestCol, bestMidW);
+    paint(bestBottom.r1, bestBottom.r2, bestCol, bestBottom.w);
+
+    cout << bestArea << '\n';
+    for (int i = 1; i <= N; ++i) {
+        for (int j = 1; j <= M; ++j) {
+            if (j > 1) cout << ' ';
+            cout << ans[i][j];
+        }
+        cout << '\n';
+    }
+
+    return 0;
+}

@@ -1,0 +1,90 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Query {
+    int a, b;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    vector<pair<int,int>> edges(M);
+    for (int i = 0; i < M; ++i) {
+        cin >> edges[i].first >> edges[i].second;
+    }
+
+    int Q;
+    cin >> Q;
+
+    int maxNodes = N + Q + 5;
+    vector<int> lc(maxNodes, 0), rc(maxNodes, 0);
+
+    int nodes = N;
+    vector<Query> asks;
+
+    for (int i = 0; i < Q; ++i) {
+        int type, a, b;
+        cin >> type >> a >> b;
+
+        if (type == 1) {
+            asks.push_back({a, b});
+        } else {
+            ++nodes;
+            lc[nodes] = a;
+            rc[nodes] = b;
+        }
+    }
+
+    int K = (int)asks.size();
+    vector<char> answer(K, 0);
+
+    const int B = 64;
+
+    vector<unsigned long long> leftMask(nodes + 1), rightMask(nodes + 1);
+
+    for (int start = 0; start < K; start += B) {
+        int len = min(B, K - start);
+
+        fill(leftMask.begin(), leftMask.end(), 0);
+        fill(rightMask.begin(), rightMask.end(), 0);
+
+        for (int i = 0; i < len; ++i) {
+            leftMask[asks[start + i].a] |= (1ULL << i);
+            rightMask[asks[start + i].b] |= (1ULL << i);
+        }
+
+        for (int v = nodes; v > N; --v) {
+            unsigned long long lm = leftMask[v];
+            unsigned long long rm = rightMask[v];
+
+            if (lm) {
+                leftMask[lc[v]] |= lm;
+                leftMask[rc[v]] |= lm;
+            }
+            if (rm) {
+                rightMask[lc[v]] |= rm;
+                rightMask[rc[v]] |= rm;
+            }
+        }
+
+        for (auto [u, v] : edges) {
+            unsigned long long ok = leftMask[u] & rightMask[v];
+
+            while (ok) {
+                int bit = __builtin_ctzll(ok);
+                answer[start + bit] = 1;
+                ok &= ok - 1;
+            }
+        }
+    }
+
+    for (int i = 0; i < K; ++i) {
+        cout << (answer[i] ? "YES" : "NO") << '\n';
+    }
+
+    return 0;
+}

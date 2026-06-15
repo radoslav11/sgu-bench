@@ -1,0 +1,66 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<vector<int>> adj(n + 1);
+    for (int i = 0; i < m; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    vector<int> dist(n + 1, -1);
+    queue<int> q;
+    q.push(1);
+    dist[1] = 0;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        for (int v : adj[u]) {
+            if (dist[v] == -1) {
+                dist[v] = dist[u] + 1;
+                q.push(v);
+            }
+        }
+    }
+
+    // dp[v][t] is true if the current player can force a win from city v on day t
+    vector<vector<bool>> dp(n + 2, vector<bool>(n + 2, false));
+
+    for (int t = n; t >= 1; --t) {
+        for (int v = 1; v <= n; ++v) {
+            for (int u : adj[v]) {
+                // A move to city u is valid if it is not on fire on day t
+                if (dist[u] >= t) {
+                    // If there is at least one valid move that leads to a losing state for the opponent,
+                    // the current state is a winning state.
+                    if (!dp[u][t + 1]) {
+                        dp[v][t] = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Nikolay plays on day 1 starting from city 1.
+    // If dp[1][1] is true, Nikolay can force a win, meaning Vladimir will be the one to pay the fine.
+    // Otherwise, Nikolay will be forced to lose and will have to pay the fine.
+    if (dp[1][1]) {
+        cout << "Vladimir\n";
+    } else {
+        cout << "Nikolay\n";
+    }
+
+    return 0;
+}

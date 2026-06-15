@@ -1,0 +1,53 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, k;
+    cin >> n >> k;
+
+    vector<int> diag[2];
+
+    for (int i = 1; i <= 2 * n - 1; ++i) {
+        int len = (i <= n) ? i : (2 * n - i);
+        diag[i % 2].push_back(len);
+    }
+
+    for (int c = 0; c < 2; ++c) {
+        sort(diag[c].begin(), diag[c].end());
+    }
+
+    vector<cpp_int> ways[2];
+
+    for (int c = 0; c < 2; ++c) {
+        ways[c].assign(k + 1, 0);
+        ways[c][0] = 1;
+
+        for (int len : diag[c]) {
+            for (int placed = k; placed >= 1; --placed) {
+                int available = len - (placed - 1);
+                if (available > 0) {
+                    ways[c][placed] += ways[c][placed - 1] * available;
+                }
+            }
+        }
+    }
+
+    cpp_int answer = 0;
+
+    for (int black = 0; black <= k; ++black) {
+        int white = k - black;
+        if (black <= k && white <= k) {
+            answer += ways[0][black] * ways[1][white];
+        }
+    }
+
+    cout << answer << '\n';
+
+    return 0;
+}

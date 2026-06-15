@@ -1,0 +1,88 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+#include <algorithm>
+
+using namespace std;
+
+struct BigInt {
+    vector<int> d;
+    BigInt(long long v = 0) {
+        if (v == 0) {
+            d.push_back(0);
+        } else {
+            while (v > 0) {
+                d.push_back(v % 1000000000);
+                v /= 1000000000;
+            }
+        }
+    }
+    
+    BigInt mul(int b) const {
+        if (b == 0 || (d.size() == 1 && d[0] == 0)) return BigInt();
+        BigInt res;
+        res.d.clear();
+        res.d.reserve(d.size() + 2);
+        long long carry = 0;
+        for (size_t i = 0; i < d.size(); ++i) {
+            long long cur = (long long)d[i] * b + carry;
+            res.d.push_back(cur % 1000000000);
+            carry = cur / 1000000000;
+        }
+        while (carry > 0) {
+            res.d.push_back(carry % 1000000000);
+            carry /= 1000000000;
+        }
+        return res;
+    }
+    
+    BigInt add(const BigInt& o) const {
+        BigInt res;
+        res.d.clear();
+        res.d.reserve(max(d.size(), o.d.size()) + 1);
+        long long carry = 0;
+        size_t n = max(d.size(), o.d.size());
+        for (size_t i = 0; i < n; ++i) {
+            long long cur = carry;
+            if (i < d.size()) cur += d[i];
+            if (i < o.d.size()) cur += o.d[i];
+            res.d.push_back(cur % 1000000000);
+            carry = cur / 1000000000;
+        }
+        if (carry > 0) res.d.push_back(carry);
+        return res;
+    }
+    
+    void print() const {
+        if (d.empty() || (d.size() == 1 && d[0] == 0)) {
+            cout << 0 << "\n";
+            return;
+        }
+        cout << d.back();
+        for (int i = (int)d.size() - 2; i >= 0; --i) {
+            cout << setfill('0') << setw(9) << d[i];
+        }
+        cout << "\n";
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+    
+    BigInt W0(1);
+    BigInt W1(0);
+    
+    for (int k = 1; k <= m; ++k) {
+        BigInt nxt_W0 = W1.mul(n);
+        BigInt nxt_W1 = W0.add(W1.mul(2));
+        W0 = nxt_W0;
+        W1 = nxt_W1;
+    }
+    
+    W0.print();
+    return 0;
+}

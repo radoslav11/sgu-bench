@@ -1,0 +1,133 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+
+struct Edge {
+    int to;
+    int cap;
+    int flow;
+    int rev;
+};
+
+vector<vector<Edge>> adj;
+vector<int> level;
+vector<int> ptr;
+
+bool bfs(int s, int t) {
+    fill(level.begin(), level.end(), -1);
+    level[s] = 0;
+    queue<int> q;
+    q.push(s);
+    while (!q.empty()) {
+        int v = q.front();
+        q.pop();
+        for (auto& edge : adj[v]) {
+            if (edge.cap - edge.flow > 0 && level[edge.to] == -1) {
+                level[edge.to] = level[v] + 1;
+                q.push(edge.to);
+            }
+        }
+    }
+    return level[t] != -1;
+}
+
+int dfs(int v, int t, int pushed) {
+    if (pushed == 0) return 0;
+    if (v == t) return pushed;
+    for (int& cid = ptr[v]; cid < (int)adj[v].size(); ++cid) {
+        auto& edge = adj[v][cid];
+        int tr = edge.to;
+        if (level[v] + 1 != level[tr] || edge.cap - edge.flow == 0) continue;
+        int push = dfs(tr, t, min(pushed, edge.cap - edge.flow));
+        if (push == 0) continue;
+        edge.flow += push;
+        adj[tr][edge.rev].flow -= push;
+        return push;
+    }
+    return 0;
+}
+
+int dinic(int s, int t) {
+    int flow = 0;
+    while (bfs(s, t)) {
+        fill(ptr.begin(), ptr.end(), 0);
+        while (int pushed = dfs(s, t, INF)) {
+            flow += pushed;
+        }
+    }
+    return flow;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<int> w(n + 1);
+    for (int i = 1; i <= n; ++i) cin >> w[i];
+
+    vector<int> r(n + 1);
+    for (int i = 1; i <= n; ++i) cin >> r[i];
+
+    vector<vector<int>> a(n + 1, vector<int>(n + 1));
+    for (int i = 1; i <= n; ++i) {
+        for (int j = 1; j <= n; ++j) {
+            cin >> a[i][j];
+        }
+    }
+
+    int M = w[1] + r[1];
+    for (int i = 2; i <= n; ++i) {
+        if (w[i] > M) {
+            cout << "NO\n";
+            return 0;
+        }
+    }
+
+    int total_games = 0;
+    int S = 0;
+    int T = 221;
+    adj.assign(225, vector<Edge>());
+    level.resize(225);
+    ptr.resize(225);
+
+    auto add_edge_local = [&](int u, int v, int c) {
+        adj[u].push_back({v, c, 0, (int)adj[v].size()});
+        adj[v].push_back({u, 0, 0, (int)adj[u].size() - 1});
+    };
+
+    int game_idx = 1;
+    for (int i = 2; i <= n; ++i) {
+        for (int j = i + 1; j <= n; ++j) {
+            if (a[i][j] > 0) {
+                int u = game_idx++;
+                add_edge_local(S, u, a[i][j]);
+                add_edge_local(u, 200 + i, INF);
+                add_edge_local(u, 200 + j, INF);
+                total_games += a[i][j];
+            }
+        }
+    }
+
+    for (int i = 2; i <= n; ++i) {
+        int cap = M - w[i];
+        add_edge_local(200 + i, T, cap);
+    }
+
+    int flow = dinic(S, T);
+
+    if (flow == total_games) {
+        cout << "YES\n";
+    } else {
+        cout << "NO\n";
+    }
+
+    return 0;
+}

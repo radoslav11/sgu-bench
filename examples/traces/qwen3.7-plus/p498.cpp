@@ -1,0 +1,39 @@
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
+
+void solve() {
+    int n1, m1, n2, m2;
+    cin >> n1 >> m1 >> n2 >> m2;
+    
+    double R = 1.0;
+    for (int k = 1; k <= m1 + 1; ++k) {
+        R *= (double)(n1 - m1 + k) / (double)(n1 + n2 - m1 + k + 1);
+    }
+    
+    double ans = 0.0;
+    double C = 1.0;
+    for (int j = 0; j <= m2; ++j) {
+        ans += C * R;
+        
+        if (j < m2) {
+            C = C * (double)(n2 + 1 - j) / (double)(j + 1);
+            R = R * (double)(m1 + j + 1) / (double)(n1 + n2 - m1 - j + 1);
+        }
+    }
+    
+    cout << fixed << setprecision(10) << ans << "\n";
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int T;
+    if (cin >> T) {
+        while (T--) {
+            solve();
+        }
+    }
+    return 0;
+}

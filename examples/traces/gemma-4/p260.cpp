@@ -1,0 +1,136 @@
+#include <iostream>
+#include <vector>
+#include <bitset>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Solve a puzzle where clicking a cell flips its color and its neighbors.
+ * Each cell has a predefined set of cells that change color when it's clicked.
+ * Goal: Make all cells the same color (either all 0 or all 1).
+ * N <= 200, which suggests an O(N^3/w) approach using Gaussian elimination.
+ * 
+ * Approach:
+ * Let x_i be a variable in {0, 1} indicating whether cell i is clicked.
+ * Let c_j be the initial color of cell j.
+ * Let S_i be the set of cells that change color when cell i is clicked.
+ * The final color c'_j is: c'_j = (c_j + sum_{i: j in S_i} x_i) mod 2.
+ * We want c'_j = target for all j, where target is 0 or 1.
+ * This means sum_{i: j in S_i} x_i = (target - c_j) mod 2.
+ * 
+ * This is a system of N linear equations in N variables over GF(2).
+ */
+
+// Function to solve the linear system using Gaussian elimination to get the Reduced Row Echelon Form (RREF)
+bool solve_system(int n, vector<bitset<201>>& matrix, vector<int>& solution) {
+    int pivot_row = 0;
+    vector<int> pivot_col(n, -1);
+    
+    // Perform Gaussian elimination to transform into RREF
+    for (int j = 0; j < n && pivot_row < n; ++j) {
+        int sel = -1;
+        for (int i = pivot_row; i < n; ++i) {
+            if (matrix[i][j]) {
+                sel = i;
+                break;
+            }
+        }
+        
+        if (sel != -1) {
+            swap(matrix[sel], matrix[pivot_row]);
+            pivot_col[pivot_row] = j;
+            
+            // Eliminate the j-th column in all other rows
+            for (int i = 0; i < n; ++i) {
+                if (i != pivot_row && matrix[i][j]) {
+                    matrix[i] ^= matrix[pivot_row];
+                }
+            }
+            pivot_row++;
+        }
+    }
+
+    // Check for consistency: any row with all zeros in the coefficient part must have zero in the augmented part
+    for (int i = pivot_row; i < n; ++i) {
+        if (matrix[i][n]) return false;
+    }
+
+    // Find a solution: set free variables (those not in pivot_col) to 0
+    solution.assign(n, 0);
+    for (int i = 0; i < pivot_row; ++i) {
+        solution[pivot_col[i]] = matrix[i][n];
+    }
+    return true;
+}
+
+int main() {
+    // Faster input and output
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    // Read the set of cells affected by each click
+    vector<vector<int>> sets(n);
+    for (int i = 0; i < n; ++i) {
+        int k;
+        if (!(cin >> k)) break;
+        for (int j = 0; j < k; ++j) {
+            int cell;
+            cin >> cell;
+            sets[i].push_back(cell - 1); // Convert 1-based to 0-based index
+        }
+    }
+
+    // Read initial colors
+    vector<int> c(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> c[i];
+    }
+
+    // Try to find a solution for both possible target colors: 0 and 1
+    for (int target = 0; target <= 1; ++target) {
+        // matrix[j][i] represents the coefficient of x_i in the j-th equation
+        // matrix[j][n] is the augmented part of the j-th equation
+        vector<bitset<201>> matrix(n);
+        for (int i = 0; i < n; ++i) {
+            for (int cell_idx : sets[i]) {
+                if (cell_idx >= 0 && cell_idx < n) {
+                    // Clicking cell i affects cell cell_idx
+                    matrix[cell_idx][i] = 1;
+                }
+            }
+        }
+        for (int j = 0; j < n; ++j) {
+            // The equation: sum_{i} A_ji * x_i = (target - c_j) mod 2
+            matrix[j][n] = (target ^ c[j]);
+        }
+
+        vector<int> solution;
+        if (solve_system(n, matrix, solution)) {
+            // If a solution is found, collect the indices of cells that should be clicked
+            vector<int> clicked;
+            for (int i = 0; i < n; ++i) {
+                if (solution[i]) {
+                    clicked.push_back(i + 1); // Back to 1-based index
+                }
+            }
+            
+            // Output the number of clicks and the indices
+            cout << clicked.size() << "\n";
+            for (int i = 0; i < (int)clicked.size(); ++i) {
+                cout << clicked[i] << (i == (int)clicked.size() - 1 ? "" : " ");
+            }
+            cout << endl;
+            return 0;
+        }
+    }
+
+    // If no solution is found for either target color, output -1
+    cout << -1 << endl;
+
+    return 0;
+}
+

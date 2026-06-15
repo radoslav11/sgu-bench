@@ -1,0 +1,154 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+// Big integer with base 10^9
+typedef vector<unsigned int> Big;
+const unsigned long long BASE = 1000000000ULL;
+
+Big fromInt(unsigned long long x){
+    Big r;
+    if(x==0){ r.push_back(0); return r; }
+    while(x){ r.push_back((unsigned int)(x%BASE)); x/=BASE; }
+    return r;
+}
+
+void addInPlace(Big &a, const Big &b){
+    unsigned long long carry=0;
+    size_t n=max(a.size(), b.size());
+    a.resize(n,0);
+    for(size_t i=0;i<n;i++){
+        unsigned long long cur = carry + a[i] + (i<b.size()? (unsigned long long)b[i]:0ULL);
+        a[i]=(unsigned int)(cur%BASE);
+        carry=cur/BASE;
+    }
+    if(carry) a.push_back((unsigned int)carry);
+}
+
+// multiply big by small (fits in 32 bits)
+Big mulSmall(const Big &a, unsigned int m){
+    Big r(a.size(),0);
+    unsigned long long carry=0;
+    for(size_t i=0;i<a.size();i++){
+        unsigned long long cur = (unsigned long long)a[i]*m + carry;
+        r[i]=(unsigned int)(cur%BASE);
+        carry=cur/BASE;
+    }
+    while(carry){ r.push_back((unsigned int)(carry%BASE)); carry/=BASE; }
+    while(r.size()>1 && r.back()==0) r.pop_back();
+    return r;
+}
+
+// divide big by small, return quotient (assume divisible eventually)
+Big divSmall(const Big &a, unsigned long long d){
+    Big r(a.size(),0);
+    unsigned long long rem=0;
+    for(int i=(int)a.size()-1;i>=0;i--){
+        unsigned long long cur = rem*BASE + a[i];
+        r[i]=(unsigned int)(cur/d);
+        rem = cur%d;
+    }
+    while(r.size()>1 && r.back()==0) r.pop_back();
+    return r;
+}
+
+// 2^e as Big
+Big powTwo(long long e){
+    Big r = fromInt(1);
+    Big base = fromInt(2);
+    while(e>0){
+        if(e&1) {
+            // multiply r by base - but base can be big, need big-big mult
+            // implement below
+        }
+        e>>=1;
+    }
+    return r;
+}
+
+// big * big
+Big mulBig(const Big &a, const Big &b){
+    vector<unsigned long long> tmp(a.size()+b.size(),0);
+    for(size_t i=0;i<a.size();i++){
+        unsigned long long carry=0;
+        unsigned long long ai=a[i];
+        for(size_t j=0;j<b.size();j++){
+            unsigned long long cur = tmp[i+j] + ai*b[j] + carry;
+            tmp[i+j]=cur%BASE;
+            carry=cur/BASE;
+        }
+        size_t k=i+b.size();
+        while(carry){
+            unsigned long long cur = tmp[k]+carry;
+            tmp[k]=cur%BASE;
+            carry=cur/BASE;
+            k++;
+        }
+    }
+    Big r(tmp.size());
+    for(size_t i=0;i<tmp.size();i++) r[i]=(unsigned int)tmp[i];
+    while(r.size()>1 && r.back()==0) r.pop_back();
+    return r;
+}
+
+Big powTwoBig(long long e){
+    Big r = fromInt(1);
+    Big base = fromInt(2);
+    while(e>0){
+        if(e&1) r = mulBig(r, base);
+        base = mulBig(base, base);
+        e>>=1;
+    }
+    return r;
+}
+
+string toStr(const Big &a){
+    string s = to_string(a.back());
+    for(int i=(int)a.size()-2;i>=0;i--){
+        string part = to_string(a[i]);
+        s += string(9-part.size(),'0') + part;
+    }
+    return s;
+}
+
+unsigned long long phi(unsigned long long n){
+    unsigned long long result = n;
+    for(unsigned long long p=2;p*p<=n;p++){
+        if(n%p==0){
+            while(n%p==0) n/=p;
+            result -= result/p;
+        }
+    }
+    if(n>1) result -= result/n;
+    return result;
+}
+
+int main(){
+    long long n;
+    if(!(cin>>n)) return 0;
+    
+    // sum over divisors d of n: phi(d)*2^(n/d)
+    Big total = fromInt(0);
+    for(long long d=1;(long long)d*d<=n;d++){
+        if(n%d==0){
+            long long d1=d, d2=n/d;
+            // d1
+            {
+                unsigned long long p = phi(d1);
+                Big term = powTwoBig(n/d1);
+                // multiply by p (could exceed 32 bit? phi < n <= 200000, fits)
+                term = mulSmall(term, (unsigned int)p);
+                addInPlace(total, term);
+            }
+            if(d2!=d1){
+                unsigned long long p = phi(d2);
+                Big term = powTwoBig(n/d2);
+                term = mulSmall(term, (unsigned int)p);
+                addInPlace(total, term);
+            }
+        }
+    }
+    
+    Big ans = divSmall(total, (unsigned long long)n);
+    cout << toStr(ans) << "\n";
+    return 0;
+}

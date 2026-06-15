@@ -1,0 +1,98 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Point {
+    int x, y;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<Point> p(N);
+    for (int i = 0; i < N; ++i) {
+        cin >> p[i].x >> p[i].y;
+    }
+
+    const long double PI = acosl(-1.0L);
+    const long double HALF_PI = PI / 2.0L;
+
+    vector<pair<long double, long double>> intervals;
+
+    for (int k = 1; k <= 9; ++k) {
+        long double angleL = HALF_PI / (k + 1); // open
+        long double angleR = HALF_PI / k;       // closed
+
+        for (int t = k; t <= 999; t += 10) {
+            long double cLow = (long double)t / 1000.0L;
+            long double cHigh = (long double)(t + 1) / 1000.0L;
+
+            if (cHigh > 1.0L) cHigh = 1.0L;
+
+            long double digitL = acosl(cHigh); // open
+            long double digitR = acosl(cLow);  // closed
+
+            long double L = max(angleL, digitL);
+            long double R = min(angleR, digitR);
+
+            if (L < R) {
+                intervals.push_back({L, R});
+            }
+        }
+    }
+
+    long long answer = 0;
+
+    for (int center = 0; center < N; ++center) {
+        vector<long double> ang;
+
+        for (int i = 0; i < N; ++i) {
+            if (i == center) continue;
+
+            long double a = atan2l(
+                (long double)p[i].y - p[center].y,
+                (long double)p[i].x - p[center].x
+            );
+
+            if (a < 0) a += 2.0L * PI;
+            ang.push_back(a);
+        }
+
+        sort(ang.begin(), ang.end());
+
+        int m = (int)ang.size();
+        vector<long double> ext(2 * m);
+
+        for (int i = 0; i < m; ++i) {
+            ext[i] = ang[i];
+            ext[i + m] = ang[i] + 2.0L * PI;
+        }
+
+        for (auto [L, R] : intervals) {
+            int leftPtr = 1;
+            int rightPtr = 1;
+
+            for (int i = 0; i < m; ++i) {
+                if (leftPtr < i + 1) leftPtr = i + 1;
+                if (rightPtr < i + 1) rightPtr = i + 1;
+
+                while (leftPtr < i + m && ext[leftPtr] - ext[i] <= L) {
+                    ++leftPtr;
+                }
+
+                while (rightPtr < i + m && ext[rightPtr] - ext[i] <= R) {
+                    ++rightPtr;
+                }
+
+                answer += rightPtr - leftPtr;
+            }
+        }
+    }
+
+    cout << answer << '\n';
+
+    return 0;
+}

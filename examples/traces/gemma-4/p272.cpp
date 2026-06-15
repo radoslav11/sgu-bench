@@ -1,0 +1,230 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+
+// Structure for the flow network edges
+struct Edge {
+    int to, cap, flow, rev;
+};
+
+// Global adjacency list and helper arrays for Dinic's algorithm
+vector<Edge> adj_flow[20010];
+int level[20010];
+int ptr[20010];
+
+// Add a directed edge to the flow network
+void add_edge(int from, int to, int cap) {
+    adj_flow[from].push_back({to, cap, 0, (int)adj_flow[to].size()});
+    adj_flow[to].push_back({from, 0, 0, (int)adj_flow[from].size() - 1});
+}
+
+// BFS to find levels in the residual graph
+bool bfs(int s, int t, int n_nodes) {
+    for (int i = 0; i < n_nodes; ++i) level[i] = -1;
+    level[s] = 0;
+    queue<int> q;
+    q.push(s);
+    while (!q.empty()) {
+        int v = q.front();
+        q.pop();
+        for (auto& edge : adj_flow[v]) {
+            if (edge.cap - edge.flow > 0 && level[edge.to] == -1) {
+                level[edge.to] = level[v] + 1;
+                q.push(edge.to);
+            }
+        }
+    }
+    return level[t] != -1;
+}
+
+// DFS to find augmenting paths in the level graph
+int dfs(int v, int t, int pushed) {
+    if (pushed == 0) return 0;
+    if (v == t) return pushed;
+    for (int& cid = ptr[v]; cid < (int)adj_flow[v].size(); ++cid) {
+        auto& edge = adj_flow[v][cid];
+        int tr = edge.to;
+        if (level[v] + 1 != level[tr] || edge.cap - edge.flow == 0) continue;
+        int push = dfs(tr, t, min(pushed, edge.cap - edge.flow));
+        if (push == 0) continue;
+        edge.flow += push;
+        adj_flow[tr][edge.rev].flow -= push;
+        return push;
+    }
+    return 0;
+}
+
+// Dinic's algorithm implementation
+int dinic(int s, int t, int n_nodes) {
+    int flow = 0;
+    while (bfs(s, t, n_nodes)) {
+        for (int i = 0; i < n_nodes; ++i) ptr[i] = 0;
+        while (int pushed = dfs(s, t, INF)) {
+            flow += pushed;
+        }
+    }
+    return flow;
+}
+
+int main() {
+    // Fast I/O
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    // Original graph adjacency list
+    vector<vector<int>> adj(N + 1);
+    for (int i = 0; i < M; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    // A-department laboratories
+    int N1;
+    cin >> N1;
+    vector<int> A_list(N1);
+    vector<bool> is_A(N + 1, false);
+    for (int i = 0; i < N1; ++i) {
+        cin >> A_list[i];
+        is_A[A_list[i]] = true;
+    }
+
+    // B-department laboratories
+    int N2;
+    cin >> N2;
+    vector<int> B_list(N2);
+    vector<bool> is_B(N + 1, false);
+    for (int i = 0; i < N2; ++i) {
+        cin >> B_list[i];
+        is_B[B_list[i]] = true;
+    }
+
+    // BFS from set A to find distA[v] (distance to nearest A node)
+    vector<int> distA(N + 1, INF);
+    queue<int> q;
+    for (int a : A_list) {
+        distA[a] = 0;
+        q.push(a);
+    }
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        for (int v : adj[u]) {
+            if (distA[v] == INF) {
+                distA[v] = distA[u] + 1;
+                q.push(v);
+            }
+        }
+    }
+
+    // BFS from set B to find distB[v] (distance to nearest B node)
+    vector<int> distB(N + 1, INF);
+    for (int b : B_list) {
+        distB[b] = 0;
+        q.push(b);
+    }
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+        for (int v : adj[u]) {
+            if (distB[v] == INF) {
+                distB[v] = distB[u] + 1;
+                q.push(v);
+            }
+        }
+    }
+
+    // Find global shortest path distance K from set A to set B
+    int K = INF;
+    for (int a : A_list) {
+        if (distB[a] != INF) K = min(K, distB[a]);
+    }
+
+    // Build the flow network to find vertex-disjoint paths of length K
+    // Each laboratory v is split into v_in (v) and v_out (v + N) with capacity 1
+    int S = 0, T = 2 * N + 1;
+    for (int i = 1; i <= N; ++i) {
+        add_edge(i, i + N, 1);
+    }
+    for (int a : A_list) {
+        add_edge(S, a, 1);
+    }
+    for (int b : B_list) {
+        add_edge(b + N, T, 1);
+    }
+    for (int u = 1; u <= N; ++u) {
+        // To avoid adding multiple edges between the same u and v
+        sort(adj[u].begin(), adj[u].end());
+        adj[u].erase(unique(adj[u].begin(), adj[u].end()), adj[u].end());
+        for (int v : adj[u]) {
+            // Only add edge if it is part of a shortest path from A to B
+            if (distA[u] != INF && distB[v] != INF && distA[u] + 1 + distB[v] == K) {
+                add_edge(u + N, v, 1);
+            }
+        }
+    }
+
+    // Calculate max flow
+    dinic(S, T, 2 * N + 2);
+
+    // Path reconstruction by following flow in the network
+    vector<vector<int>> paths;
+    for (int a : A_list) {
+        bool used_a = false;
+        for (auto& edge : adj_flow[S]) {
+            if (edge.to == a && edge.flow == 1) {
+                used_a = true;
+                break;
+            }
+        }
+        if (!used_a) continue;
+
+        vector<int> path;
+        path.push_back(a);
+        int curr_out = a + N;
+        while (true) {
+            int next_in = -1;
+            for (auto& edge : adj_flow[curr_out]) {
+                if (edge.to >= 1 && edge.to <= N && edge.flow == 1) {
+                    next_in = edge.to;
+                    break;
+                }
+            }
+            if (next_in == -1) break;
+            path.push_back(next_in);
+            if (is_B[next_in]) break;
+            
+            int next_out = -1;
+            for (auto& edge : adj_flow[next_in]) {
+                if (edge.to == next_in + N && edge.flow == 1) {
+                    next_out = edge.to;
+                    break;
+                }
+            }
+            if (next_out == -1) break;
+            curr_out = next_out;
+        }
+        paths.push_back(path);
+    }
+
+    // Output the number of paths and their length
+    cout << paths.size() << " " << K << "\n";
+    for (const auto& path : paths) {
+        for (int i = 0; i < (int)path.size(); ++i) {
+            cout << path[i] << (i == (int)path.size() - 1 ? "" : " ");
+        }
+        cout << "\n";
+    }
+
+    return 0;
+}
+

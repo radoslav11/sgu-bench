@@ -1,0 +1,76 @@
+#include <iostream>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, a, b;
+    if (!(cin >> n >> a >> b)) return 0;
+    
+    string s;
+    cin >> s;
+
+    if (a + b > n) {
+        cout << -1 << "\n";
+        return 0;
+    }
+
+    int c0 = 0, c1 = 0, c2 = 0;
+    for (char c : s) {
+        if (c == '0') c0++;
+        else if (c == '1') c1++;
+        else if (c == '2') c2++;
+    }
+
+    int req0 = a;
+    int req1 = b;
+    int req2 = n - a - b;
+
+    int e0 = max(0, c0 - req0);
+    int e1 = max(0, c1 - req1);
+    int e2 = max(0, c2 - req2);
+
+    int t = e0 + e1 + e2;
+    cout << t << "\n";
+
+    for (int i = 0; i < n; i++) {
+        if (s[i] == '0' && e0 > 0) {
+            if (c1 < req1) {
+                s[i] = '1';
+                c1++;
+                e0--;
+            } else if (c2 < req2) {
+                s[i] = '2';
+                c2++;
+                e0--;
+            }
+        } else if (s[i] == '1' && e1 > 0) {
+            if (c0 < req0) {
+                s[i] = '0';
+                c0++;
+                e1--;
+            } else if (c2 < req2) {
+                s[i] = '2';
+                c2++;
+                e1--;
+            }
+        } else if (s[i] == '2' && e2 > 0) {
+            if (c0 < req0) {
+                s[i] = '0';
+                c0++;
+                e2--;
+            } else if (c1 < req1) {
+                s[i] = '1';
+                c1++;
+                e2--;
+            }
+        }
+    }
+
+    cout << s << "\n";
+    return 0;
+}

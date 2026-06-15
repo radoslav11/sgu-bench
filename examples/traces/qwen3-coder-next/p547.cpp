@@ -1,0 +1,245 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const int INF = 1e9;
+
+int n, D1, C1, D2, C2;
+vector<int> p;
+vector<vector<int>> adj;
+vector<vector<int>> dist;
+
+// Compute all-pairs shortest paths
+void computeDistances() {
+    dist.assign(n, vector<int>(n, INF));
+    for (int i = 0; i < n; i++) {
+        dist[i][i] = 0;
+        queue<int> q;
+        q.push(i);
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (int v : adj[u]) {
+                if (dist[i][v] == INF) {
+                    dist[i][v] = dist[i][u] + 1;
+                    q.push(v);
+                }
+            }
+        }
+    }
+}
+
+// Check if a subset of cities (given by mask) satisfies King's requirements
+bool checkKing(int mask) {
+    if (mask == 0) return false;
+    
+    // Extract cities in the subset
+    vector<int> cities;
+    for (int i = 0; i < n; i++) {
+        if (mask & (1 << i)) cities.push_back(i);
+    }
+    
+    // Check connectivity (BFS from first city)
+    vector<bool> visited(n, false);
+    queue<int> q;
+    q.push(cities[0]);
+    visited[cities[0]] = true;
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (int v : adj[u]) {
+            if ((mask & (1 << v)) && !visited[v]) {
+                visited[v] = true;
+                q.push(v);
+            }
+        }
+    }
+    
+    // Check all cities in subset are visited
+    for (int c : cities) {
+        if (!visited[c]) return false;
+    }
+    
+    // Find max distance (diameter) among subset
+    int maxDist = 0;
+    for (int i = 0; i < (int)cities.size(); i++) {
+        for (int j = i + 1; j < (int)cities.size(); j++) {
+            maxDist = max(maxDist, dist[cities[i]][cities[j]]);
+        }
+    }
+    
+    if (maxDist != D1) return false;
+    
+    // Count distinct cities that appear in pairs at distance D1
+    vector<bool> inMaxPair(n, false);
+    for (int i = 0; i < (int)cities.size(); i++) {
+        for (int j = i + 1; j < (int)cities.size(); j++) {
+            if (dist[cities[i]][cities[j]] == D1) {
+                inMaxPair[cities[i]] = true;
+                inMaxPair[cities[j]] = true;
+            }
+        }
+    }
+    
+    int count = 0;
+    for (int i = 0; i < n; i++) {
+        if (inMaxPair[i]) count++;
+    }
+    
+    return count <= C1;
+}
+
+// Check if a subset of cities (given by mask) satisfies Queen's requirements
+bool checkQueen(int mask) {
+    if (mask == 0) return false;
+    
+    // Extract cities in the subset
+    vector<int> cities;
+    for (int i = 0; i < n; i++) {
+        if (mask & (1 << i)) cities.push_back(i);
+    }
+    
+    // Check connectivity
+    vector<bool> visited(n, false);
+    queue<int> q;
+    q.push(cities[0]);
+    visited[cities[0]] = true;
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        for (int v : adj[u]) {
+            if ((mask & (1 << v)) && !visited[v]) {
+                visited[v] = true;
+                q.push(v);
+            }
+        }
+    }
+    
+    for (int c : cities) {
+        if (!visited[c]) return false;
+    }
+    
+    // Find max distance (diameter) among subset
+    int maxDist = 0;
+    for (int i = 0; i < (int)cities.size(); i++) {
+        for (int j = i + 1; j < (int)cities.size(); j++) {
+            maxDist = max(maxDist, dist[cities[i]][cities[j]]);
+        }
+    }
+    
+    if (maxDist != D2) return false;
+    
+    // Count distinct cities that appear in pairs at distance D2
+    vector<bool> inMaxPair(n, false);
+    for (int i = 0; i < (int)cities.size(); i++) {
+        for (int j = i + 1; j < (int)cities.size(); j++) {
+            if (dist[cities[i]][cities[j]] == D2) {
+                inMaxPair[cities[i]] = true;
+                inMaxPair[cities[j]] = true;
+            }
+        }
+    }
+    
+    int count = 0;
+    for (int i = 0; i < n; i++) {
+        if (inMaxPair[i]) count++;
+    }
+    
+    return count <= C2;
+}
+
+// Check that King's and Queen's cities are disjoint and not adjacent
+bool checkSeparation(int kingMask, int queenMask) {
+    // Disjoint
+    if (kingMask & queenMask) return false;
+    
+    // No adjacent cities between the two sets
+    for (int i = 0; i < n; i++) {
+        if (kingMask & (1 << i)) {
+            for (int j : adj[i]) {
+                if (queenMask & (1 << j)) return false;
+            }
+        }
+    }
+    return true;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cin >> n;
+    cin >> D1 >> C1 >> D2 >> C2;
+    p.resize(n);
+    for (int i = 0; i < n; i++) {
+        cin >> p[i];
+    }
+    
+    adj.resize(n);
+    for (int i = 0; i < n - 1; i++) {
+        int a, b;
+        cin >> a >> b;
+        a--; b--;
+        adj[a].push_back(b);
+        adj[b].push_back(a);
+    }
+    
+    computeDistances();
+    
+    // Precompute all valid subsets for King and Queen
+    vector<int> validKing;
+    vector<int> validQueen;
+    
+    // Enumerate all non-empty subsets
+    for (int mask = 1; mask < (1 << n); mask++) {
+        if (checkKing(mask)) {
+            validKing.push_back(mask);
+        }
+        if (checkQueen(mask)) {
+            validQueen.push_back(mask);
+        }
+    }
+    
+    // Try all pairs of valid King and Queen subsets
+    int bestCost = INF;
+    vector<int> bestDestroyed;
+    
+    for (int km : validKing) {
+        for (int qm : validQueen) {
+            if (!checkSeparation(km, qm)) continue;
+            
+            // Cities to destroy = all cities not in King's nor Queen's subset
+            int destroyedMask = ((1 << n) - 1) ^ (km | qm);
+            
+            // Check that destroyed cities are not connected to each other via destroyed cities?
+            // Actually, the problem says "Destroying the i-th city will cost pi burles"
+            // and the destroyed cities are just removed along with their roads.
+            // The only requirement is that King and Queen's cities are connected and disjoint and not adjacent.
+            // There's no constraint on the destroyed part beyond cost minimization.
+            
+            int cost = 0;
+            vector<int> destroyedList;
+            for (int i = 0; i < n; i++) {
+                if (destroyedMask & (1 << i)) {
+                    cost += p[i];
+                    destroyedList.push_back(i + 1); // 1-indexed for output
+                }
+            }
+            
+            if (cost < bestCost) {
+                bestCost = cost;
+                bestDestroyed = destroyedList;
+            }
+        }
+    }
+    
+    if (bestCost == INF) {
+        cout << "-1\n";
+    } else {
+        cout << bestCost << "\n";
+        for (int i = 0; i < (int)bestDestroyed.size(); i++) {
+            if (i > 0) cout << " ";
+            cout << bestDestroyed[i];
+        }
+        if (!bestDestroyed.empty()) cout << "\n";
+        else cout << "\n";
+    }
+    
+    return 0;
+}

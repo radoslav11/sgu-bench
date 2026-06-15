@@ -1,0 +1,66 @@
+#include <iostream>
+
+using namespace std;
+
+void solve() {
+    long long N;
+    int M;
+    cin >> N >> M;
+    
+    bool moves[10] = {false};
+    moves[1] = true;
+    for (int i = 0; i < M; ++i) {
+        int p;
+        cin >> p;
+        if (p >= 1 && p <= 9) {
+            moves[p] = true;
+        }
+    }
+    
+    bool W[2048];
+    W[0] = true;
+    for (int i = 1; i < 2048; ++i) {
+        W[i] = false;
+        for (int j = 1; j <= 9; ++j) {
+            if (moves[j] && i >= j) {
+                if (!W[i - j]) {
+                    W[i] = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    int period = 1024;
+    for (int p = 1; p <= 1024; ++p) {
+        bool ok = true;
+        for (int i = 0; i <= 1024; ++i) {
+            if (W[i] != W[i + p]) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            period = p;
+            break;
+        }
+    }
+    
+    if (W[N % period]) {
+        cout << "FIRST PLAYER MUST WIN\n";
+    } else {
+        cout << "SECOND PLAYER MUST WIN\n";
+    }
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int K;
+    if (cin >> K) {
+        while (K--) {
+            solve();
+        }
+    }
+    return 0;
+}

@@ -1,0 +1,93 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    unordered_map<string, int> manId, womanId;
+    manId.reserve(N * 2);
+    womanId.reserve(N * 2);
+
+    vector<string> manName(N), womanName;
+    womanName.reserve(N);
+
+    vector<vector<int>> pref(N, vector<int>(N));
+
+    auto getWomanId = [&](const string& s) -> int {
+        auto it = womanId.find(s);
+        if (it != womanId.end()) return it->second;
+        int id = (int)womanId.size();
+        womanId[s] = id;
+        womanName.push_back(s);
+        return id;
+    };
+
+    string s;
+
+    for (int i = 0; i < N; ++i) {
+        cin >> s;
+        manId[s] = i;
+        manName[i] = s;
+
+        for (int j = 0; j < N; ++j) {
+            cin >> s;
+            pref[i][j] = getWomanId(s);
+        }
+    }
+
+    vector<vector<int>> rankWoman(N, vector<int>(N));
+
+    for (int i = 0; i < N; ++i) {
+        cin >> s;
+        int w = womanId[s];
+
+        for (int j = 0; j < N; ++j) {
+            cin >> s;
+            int m = manId[s];
+            rankWoman[w][m] = j;
+        }
+    }
+
+    vector<int> nextProposal(N, 0);
+    vector<int> manPartner(N, -1);
+    vector<int> womanPartner(N, -1);
+
+    queue<int> freeMen;
+    for (int i = 0; i < N; ++i) {
+        freeMen.push(i);
+    }
+
+    while (!freeMen.empty()) {
+        int m = freeMen.front();
+        freeMen.pop();
+
+        int w = pref[m][nextProposal[m]++];
+
+        if (womanPartner[w] == -1) {
+            womanPartner[w] = m;
+            manPartner[m] = w;
+        } else {
+            int old = womanPartner[w];
+
+            if (rankWoman[w][m] < rankWoman[w][old]) {
+                womanPartner[w] = m;
+                manPartner[m] = w;
+                manPartner[old] = -1;
+                freeMen.push(old);
+            } else {
+                freeMen.push(m);
+            }
+        }
+    }
+
+    cout << "YES\n";
+    for (int m = 0; m < N; ++m) {
+        cout << manName[m] << ' ' << womanName[manPartner[m]] << '\n';
+    }
+
+    return 0;
+}

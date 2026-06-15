@@ -1,0 +1,21 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, m;
+    if (cin >> n >> m) {
+        vector<string> phrases(m);
+        for (int i = 0; i < m; ++i) {
+            cin >> phrases[i];
+        }
+        cout << phrases[(n - 1) % m] << "\n";
+    }
+    
+    return 0;
+}

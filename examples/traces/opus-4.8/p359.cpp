@@ -1,0 +1,48 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main(){
+    int n;
+    cin>>n;
+    cin.ignore();
+    // memory cells, initially 4 cells
+    vector<int> mem(4,0);
+    int ptr[4]={0,1,2,3}; // a,b,c,d
+    string line;
+    while(getline(cin,line)){
+        // remove spaces and trailing
+        string s;
+        for(char c:line) if(!isspace((unsigned char)c)) s+=c;
+        if(s.empty()) continue;
+        // remove trailing ;
+        if(!s.empty()&&s.back()==';') s.pop_back();
+        if(s.empty()) continue;
+        if(s.substr(0,8)=="writeln("){
+            // writeln(X^)
+            char p=s[8];
+            cout<<mem[ptr[p-'a']]<<"\n";
+        } else {
+            // assignment, find :=
+            size_t pos=s.find(":=");
+            string lhs=s.substr(0,pos);
+            string rhs=s.substr(pos+2);
+            // determine if lhs has ^
+            bool lhsDeref = lhs.size()>1 && lhs.back()=='^';
+            char lp = lhs[0];
+            if(!lhsDeref){
+                // pointer:=pointer
+                char rp=rhs[0];
+                ptr[lp-'a']=ptr[rp-'a'];
+            } else {
+                // pointer^:= something
+                if(isdigit((unsigned char)rhs[0])){
+                    mem[ptr[lp-'a']]=rhs[0]-'0';
+                } else {
+                    char rp=rhs[0];
+                    mem[ptr[lp-'a']]=mem[ptr[rp-'a']];
+                }
+            }
+        }
+    }
+    return 0;
+}

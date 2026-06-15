@@ -1,0 +1,213 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int n;
+vector<int> A_, B_, C_;
+bool lead_[26];
+int val_[26];
+bool used_[10];
+int solutions;
+
+void dfs(int pos, int carry) {
+    if (solutions > 1) return;
+    if (pos < 0) {
+        if (carry == 0) solutions++;
+        return;
+    }
+
+    int la = A_[pos], lb = B_[pos], lc = C_[pos];
+
+    vector<int> optsA;
+    if (val_[la] != -1) optsA.push_back(val_[la]);
+    else {
+        for (int d = 0; d <= 9; d++) {
+            if (!used_[d] && !(d == 0 && lead_[la])) optsA.push_back(d);
+        }
+    }
+
+    for (int da : optsA) {
+        bool seta = false;
+        if (val_[la] == -1) {
+            val_[la] = da;
+            used_[da] = true;
+            seta = true;
+        }
+
+        vector<int> optsB;
+        if (val_[lb] != -1) optsB.push_back(val_[lb]);
+        else {
+            for (int d = 0; d <= 9; d++) {
+                if (!used_[d] && !(d == 0 && lead_[lb])) optsB.push_back(d);
+            }
+        }
+
+        for (int db : optsB) {
+            bool setb = false;
+            if (val_[lb] == -1) {
+                val_[lb] = db;
+                used_[db] = true;
+                setb = true;
+            }
+
+            int sum = da + db + carry;
+            int dc = sum % 10;
+            int ncarry = sum / 10;
+
+            bool ok = true;
+            bool setc = false;
+
+            if (val_[lc] != -1) {
+                if (val_[lc] != dc) ok = false;
+            } else {
+                if (used_[dc]) ok = false;
+                if (dc == 0 && lead_[lc]) ok = false;
+                if (ok) {
+                    val_[lc] = dc;
+                    used_[dc] = true;
+                    setc = true;
+                }
+            }
+
+            if (ok) dfs(pos - 1, ncarry);
+
+            if (setc) {
+                used_[dc] = false;
+                val_[lc] = -1;
+            }
+
+            if (setb) {
+                used_[db] = false;
+                val_[lb] = -1;
+            }
+
+            if (solutions > 1) {
+                if (seta) {
+                    used_[da] = false;
+                    val_[la] = -1;
+                }
+                return;
+            }
+        }
+
+        if (seta) {
+            used_[da] = false;
+            val_[la] = -1;
+        }
+    }
+}
+
+bool unique_solution(const string &s) {
+    string a, b, c;
+    int p = s.find('+');
+    int q = s.find('=');
+    a = s.substr(0, p);
+    b = s.substr(p + 1, q - p - 1);
+    c = s.substr(q + 1);
+
+    n = (int)a.size();
+    A_.resize(n);
+    B_.resize(n);
+    C_.resize(n);
+
+    memset(lead_, false, sizeof(lead_));
+    for (int i = 0; i < n; i++) {
+        A_[i] = a[i] - 'A';
+        B_[i] = b[i] - 'A';
+        C_[i] = c[i] - 'A';
+    }
+
+    lead_[A_[0]] = true;
+    lead_[B_[0]] = true;
+    lead_[C_[0]] = true;
+
+    memset(val_, -1, sizeof(val_));
+    memset(used_, false, sizeof(used_));
+    solutions = 0;
+
+    dfs(n - 1, 0);
+    return solutions == 1;
+}
+
+string canonical(const vector<int> &a, const vector<int> &b, const vector<int> &c) {
+    int mp[10];
+    fill(mp, mp + 10, -1);
+    int nxt = 0;
+    string res;
+
+    auto add = [&](int d) {
+        if (mp[d] == -1) mp[d] = nxt++;
+        res.push_back(char('A' + mp[d]));
+    };
+
+    for (int d : a) add(d);
+    res.push_back('+');
+    for (int d : b) add(d);
+    res.push_back('=');
+    for (int d : c) add(d);
+
+    return res;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    mt19937 rng(428428);
+    uniform_int_distribution<int> dig(0, 9);
+
+    const int LEN = 32;
+    vector<string> answer;
+    unordered_set<string> seen;
+
+    while ((int)answer.size() < 1000) {
+        vector<int> a(LEN), b(LEN), c(LEN);
+        int carry = 0;
+        bool bad = false;
+
+        for (int pos = LEN - 1; pos >= 0; pos--) {
+            int da, db, sum;
+
+            if (pos == 0) {
+                vector<pair<int, int>> v;
+                for (int x = 1; x <= 9; x++) {
+                    for (int y = 1; y <= 9; y++) {
+                        int s = x + y + carry;
+                        if (s < 10 && s > 0) v.push_back({x, y});
+                    }
+                }
+                if (v.empty()) {
+                    bad = true;
+                    break;
+                }
+                auto pr = v[rng() % v.size()];
+                da = pr.first;
+                db = pr.second;
+            } else {
+                da = dig(rng);
+                db = dig(rng);
+            }
+
+            sum = da + db + carry;
+            a[pos] = da;
+            b[pos] = db;
+            c[pos] = sum % 10;
+            carry = sum / 10;
+        }
+
+        if (bad || carry != 0 || c[0] == 0) continue;
+
+        string rebus = canonical(a, b, c);
+        if (seen.count(rebus)) continue;
+
+        if (unique_solution(rebus)) {
+            seen.insert(rebus);
+            answer.push_back(rebus);
+        }
+    }
+
+    for (string &s : answer) {
+        cout << s << '\n';
+    }
+
+    return 0;
+}

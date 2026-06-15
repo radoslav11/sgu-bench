@@ -1,0 +1,130 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+bool hasWon(vector<string>& board, char player) {
+    // Check rows
+    for(int i = 0; i < 3; i++) {
+        if(board[i][0] == player && board[i][1] == player && board[i][2] == player)
+            return true;
+    }
+    // Check columns
+    for(int j = 0; j < 3; j++) {
+        if(board[0][j] == player && board[1][j] == player && board[2][j] == player)
+            return true;
+    }
+    // Check diagonals
+    if(board[0][0] == player && board[1][1] == player && board[2][2] == player)
+        return true;
+    if(board[0][2] == player && board[1][1] == player && board[2][0] == player)
+        return true;
+    return false;
+}
+
+bool isLegal(vector<string>& board) {
+    int countX = 0, count0 = 0;
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            if(board[i][j] == 'X') countX++;
+            else if(board[i][j] == '0') count0++;
+        }
+    }
+    
+    // X moves first, so countX == count0 or countX == count0 + 1
+    if(countX != count0 && countX != count0 + 1) return false;
+    
+    bool xWins = hasWon(board, 'X');
+    bool oWins = hasWon(board, '0');
+    
+    // Both can't win
+    if(xWins && oWins) return false;
+    
+    // If X wins, game should have ended immediately (0 shouldn't move after)
+    if(xWins && countX == count0) return false;
+    
+    // If 0 wins, game should have ended immediately (X shouldn't move after)
+    if(oWins && countX != count0) return false;
+    
+    return true;
+}
+
+// Returns: 1 if X wins, -1 if 0 wins, 0 if draw
+int minimax(vector<string> board, char player) {
+    if(hasWon(board, 'X')) return 1;
+    if(hasWon(board, '0')) return -1;
+    
+    bool hasEmpty = false;
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            if(board[i][j] == '.') {
+                hasEmpty = true;
+                break;
+            }
+        }
+        if(hasEmpty) break;
+    }
+    
+    if(!hasEmpty) return 0; // Draw
+    
+    if(player == 'X') {
+        int best = -2;
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < 3; j++) {
+                if(board[i][j] == '.') {
+                    board[i][j] = 'X';
+                    int val = minimax(board, '0');
+                    best = max(best, val);
+                    board[i][j] = '.';
+                    if(best == 1) return 1; // Alpha-beta pruning
+                }
+            }
+        }
+        return best;
+    } else {
+        int best = 2;
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < 3; j++) {
+                if(board[i][j] == '.') {
+                    board[i][j] = '0';
+                    int val = minimax(board, 'X');
+                    best = min(best, val);
+                    board[i][j] = '.';
+                    if(best == -1) return -1; // Alpha-beta pruning
+                }
+            }
+        }
+        return best;
+    }
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    string line;
+    while(getline(cin, line)) {
+        if(line == "Qc") break;
+        
+        vector<string> board;
+        board.push_back(line);
+        getline(cin, line);
+        board.push_back(line);
+        getline(cin, line);
+        board.push_back(line);
+        getline(cin, line); // empty line
+        
+        if(!isLegal(board)) {
+            cout << "Illegal position.\n";
+        } else {
+            int result = minimax(board, 'X');
+            if(result == 1) {
+                cout << "X wins.\n";
+            } else if(result == -1) {
+                cout << "0 wins.\n";
+            } else {
+                cout << "Game is a draw.\n";
+            }
+        }
+    }
+    
+    return 0;
+}

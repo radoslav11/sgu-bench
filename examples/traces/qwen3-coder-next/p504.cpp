@@ -1,0 +1,86 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+using namespace std;
+
+bool isPalindrome(const string& s) {
+    int n = s.size();
+    for (int i = 0; i < n/2; ++i) {
+        if (s[i] != s[n-1-i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int h, w;
+    cin >> h >> w;
+    vector<string> grid(h);
+    for (int i = 0; i < h; ++i) {
+        cin >> grid[i];
+    }
+
+    // We'll try all possible square sizes from largest to smallest
+    // For each size n, we'll check all possible positions
+    int bestSize = 0;
+    int bestR1 = 0, bestC1 = 0, bestR2 = 0, bestC2 = 0;
+
+    // Try all possible square sizes from min(h,w) down to 1
+    for (int n = min(h, w); n >= 1; --n) {
+        bool found = false;
+        // Try all possible top-left corners
+        for (int r = 0; r <= h - n; ++r) {
+            for (int c = 0; c <= w - n; ++c) {
+                // Check if this n x n square is a palindrome square
+                bool valid = true;
+                
+                // Check all rows
+                for (int i = 0; i < n; ++i) {
+                    string row = "";
+                    for (int j = 0; j < n; ++j) {
+                        row += grid[r+i][c+j];
+                    }
+                    if (!isPalindrome(row)) {
+                        valid = false;
+                        break;
+                    }
+                }
+                
+                if (!valid) continue;
+                
+                // Check all columns
+                for (int j = 0; j < n; ++j) {
+                    string col = "";
+                    for (int i = 0; i < n; ++i) {
+                        col += grid[r+i][c+j];
+                    }
+                    if (!isPalindrome(col)) {
+                        valid = false;
+                        break;
+                    }
+                }
+                
+                if (valid) {
+                    // Convert to 1-indexed output
+                    bestR1 = r + 1;
+                    bestC1 = c + 1;
+                    bestR2 = r + n;
+                    bestC2 = c + n;
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+        if (found) break;
+    }
+
+    cout << bestR1 << " " << bestC1 << " " << bestR2 << " " << bestC2 << endl;
+
+    return 0;
+}

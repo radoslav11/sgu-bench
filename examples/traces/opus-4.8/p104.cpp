@@ -1,0 +1,42 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    int F,V;
+    cin>>F>>V;
+    vector<vector<int>> A(F+1, vector<int>(V+1));
+    for(int i=1;i<=F;i++)for(int j=1;j<=V;j++)cin>>A[i][j];
+    const int NEG=-1000000000;
+    // dp[i][j] = max sum placing first i bunches, i-th in vase j
+    vector<vector<int>> dp(F+1, vector<int>(V+1, NEG));
+    vector<vector<int>> par(F+1, vector<int>(V+1, 0));
+    for(int j=1;j<=V;j++){
+        // first bunch in vase j, j must allow remaining
+        dp[1][j]=A[1][j];
+    }
+    for(int i=2;i<=F;i++){
+        for(int j=i;j<=V;j++){
+            int best=NEG, bp=0;
+            for(int k=i-1;k<j;k++){
+                if(dp[i-1][k]>best){best=dp[i-1][k];bp=k;}
+            }
+            if(best>NEG){
+                dp[i][j]=best+A[i][j];
+                par[i][j]=bp;
+            }
+        }
+    }
+    int best=NEG, bj=0;
+    for(int j=F;j<=V;j++){
+        if(dp[F][j]>best){best=dp[F][j];bj=j;}
+    }
+    vector<int> res(F+1);
+    int cur=bj;
+    for(int i=F;i>=1;i--){
+        res[i]=cur;
+        cur=par[i][cur];
+    }
+    cout<<best<<"\n";
+    for(int i=1;i<=F;i++){cout<<res[i];if(i<F)cout<<" ";}
+    cout<<"\n";
+    return 0;
+}

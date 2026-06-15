@@ -1,0 +1,100 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * Petya is at the leftmost bottom cell (1, 1) of an NxM grid. 
+ * All other cells are occupied by enemies.
+ * Petya can shoot along straight lines. Based on the sample outputs, 
+ * these shots must pass through Petya's position (1, 1).
+ * A shot is determined by its slope, which can be represented as (dr, dc) 
+ * where dr = r-1 and dc = c-1. For a shot to hit an enemy (r, c), 
+ * the reduced slope is (dr/gcd(dr, dc), dc/gcd(dr, dc)).
+ *
+ * The goal is to count the number of distinct reduced slopes (dr, dc) 
+ * such that 0 <= dr < N, 0 <= dc < M, and (dr, dc) != (0, 0).
+ * 
+ * The possible reduced slopes are:
+ * 1. (0, 1) if dc > 0 and dr = 0 (occurs if M > 1)
+ * 2. (1, 0) if dr > 0 and dc = 0 (occurs if N > 1)
+ * 3. (dr, dc) where gcd(dr, dc) = 1, dr > 0, and dc > 0.
+ * 
+ * For N > 1 and M > 1, the count is 2 + Sum_{i=1 to N-1} Sum_{j=1 to M-1} [gcd(i, j) = 1].
+ * Using Mobius inversion:
+ * Sum_{i=1 to N-1} Sum_{j=1 to M-1} [gcd(i, j) = 1] = Sum_{d=1 to min(N-1, M-1)} mu(d) * floor((N-1)/d) * floor((M-1)/d).
+ * 
+ * Corner cases:
+ * N=1, M=1: No enemies, output 0.
+ * N=1, M>1: Only the line (0, 1) is possible, output 1.
+ * M=1, N>1: Only the line (1, 0) is possible, output 1.
+ * 
+ * Constraints: N, M <= 10^6. Time limit: 0.75s.
+ * Memory limit: 64MB.
+ */
+
+const int MAX = 1000005;
+int mu[MAX];
+int primes[MAX], cnt = 0;
+bool is_not_prime[MAX];
+
+// Sieve to calculate Mobius function mu(n) in linear time
+void sieve(int n) {
+    mu[1] = 1;
+    for (int i = 2; i <= n; ++i) {
+        if (!is_not_prime[i]) {
+            primes[cnt++] = i;
+            mu[i] = -1;
+        }
+        for (int j = 0; j < cnt && i * primes[j] <= n; ++j) {
+            is_not_prime[i * primes[j]] = true;
+            if (i % primes[j] == 0) {
+                mu[i * primes[j]] = 0;
+                break;
+            }
+            mu[i * primes[j]] = -mu[i];
+        }
+    }
+}
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    // Corner cases
+    if (N == 1 && M == 1) {
+        cout << 0 << endl;
+        return 0;
+    }
+    if (N == 1 || M == 1) {
+        cout << 1 << endl;
+        return 0;
+    }
+
+    // Precompute mu values
+    sieve(max(N, M));
+
+    // Calculate S = sum_{i=1}^{N-1} sum_{j=1}^{M-1} [gcd(i, j) = 1]
+    long long S = 0;
+    int limit = min(N - 1, M - 1);
+    int n_minus_1 = N - 1;
+    int m_minus_1 = M - 1;
+
+    for (int d = 1; d <= limit; ++d) {
+        if (mu[d] == 0) continue;
+        // Cast to long long before multiplication to prevent overflow
+        S += (long long)mu[d] * (n_minus_1 / d) * (m_minus_1 / d);
+    }
+
+    // Total shots = 2 (for (0,1) and (1,0)) + S (for dr>0, dc>0)
+    cout << 2 + S << endl;
+
+    return 0;
+}
+

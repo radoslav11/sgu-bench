@@ -1,0 +1,52 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, t;
+    if (!(cin >> n >> t)) return 0;
+
+    vector<int> l(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> l[i];
+    }
+
+    vector<int> v(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> v[i];
+    }
+
+    vector<int> ans(n, 0);
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = i + 1; j < n; ++j) {
+            if ((v[i] > 0 && v[j] < 0) || (v[i] < 0 && v[j] > 0)) {
+                int pos_i = i, pos_j = j;
+                if (v[i] < 0) {
+                    pos_i = j;
+                    pos_j = i;
+                }
+                
+                int D = (l[pos_j] - l[pos_i] + 1000) % 1000;
+                int R = t * (v[pos_i] - v[pos_j]) - D;
+                
+                if (R >= 0) {
+                    int k = 1 + R / 1000;
+                    ans[i] += k;
+                    ans[j] += k;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        cout << ans[i] << (i == n - 1 ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

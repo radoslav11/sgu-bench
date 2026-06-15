@@ -1,0 +1,114 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Point {
+    double x, y;
+};
+
+double cross(const Point& a, const Point& b, const Point& c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<int> R(N);
+    for (int i = 0; i < N; ++i) cin >> R[i];
+
+    int A = R[0] + R[1] + R[2];
+
+    vector<Point> ans(N);
+    ans[0] = {0.0, 0.0};
+    ans[1] = {2.0 * A, 0.0};
+    ans[2] = {0.0, 1.0};
+
+    if (N == 3) {
+        cout << "YES\n";
+        cout << fixed << setprecision(4);
+        for (int i = 0; i < N; ++i) {
+            cout << ans[i].x << ' ' << ans[i].y << '\n';
+        }
+        return 0;
+    }
+
+    vector<vector<Point>> cand(N);
+
+    for (int k = 3; k < N; ++k) {
+        int a = R[k] + R[1] + R[2];
+        int b = R[0] + R[k] + R[2];
+        int c = R[0] + R[1] + R[k];
+
+        for (int sa : {-1, 1}) {
+            for (int sb : {-1, 1}) {
+                for (int sc : {-1, 1}) {
+                    int alpha = sa * a;
+                    int beta = sb * b;
+                    int gamma = sc * c;
+
+                    if (alpha + beta + gamma == A) {
+                        Point p;
+                        p.x = 2.0 * beta;
+                        p.y = (double)gamma / A;
+                        cand[k].push_back(p);
+                    }
+                }
+            }
+        }
+
+        sort(cand[k].begin(), cand[k].end(), [](const Point& p1, const Point& p2) {
+            if (fabs(p1.x - p2.x) > 1e-9) return p1.x < p2.x;
+            return p1.y < p2.y;
+        });
+
+        cand[k].erase(unique(cand[k].begin(), cand[k].end(), [](const Point& p1, const Point& p2) {
+            return fabs(p1.x - p2.x) < 1e-9 && fabs(p1.y - p2.y) < 1e-9;
+        }), cand[k].end());
+
+        if (cand[k].empty()) {
+            cout << "NO\n";
+            return 0;
+        }
+    }
+
+    const double EPS = 1e-6;
+
+    function<bool(int)> dfs = [&](int idx) -> bool {
+        if (idx == N) return true;
+
+        for (const Point& p : cand[idx]) {
+            bool ok = true;
+            ans[idx] = p;
+
+            for (int i = 0; i < idx && ok; ++i) {
+                for (int j = i + 1; j < idx && ok; ++j) {
+                    double dblArea = fabs(cross(ans[i], ans[j], ans[idx]));
+                    double need = 2.0 * (R[i] + R[j] + R[idx]);
+                    if (fabs(dblArea - need) > EPS) {
+                        ok = false;
+                    }
+                }
+            }
+
+            if (ok && dfs(idx + 1)) return true;
+        }
+
+        return false;
+    };
+
+    if (!dfs(3)) {
+        cout << "NO\n";
+        return 0;
+    }
+
+    cout << "YES\n";
+    cout << fixed << setprecision(4);
+    for (int i = 0; i < N; ++i) {
+        cout << ans[i].x << ' ' << ans[i].y << '\n';
+    }
+
+    return 0;
+}

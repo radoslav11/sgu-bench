@@ -1,0 +1,167 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+#include <cmath>
+#include <map>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * We need to find the minimum time to travel from point A (0) to point B (B > 0) on the Ox axis.
+ * There are N stables at positions X_i, each with M_i horses.
+ * Each horse has a speed v_j and a max distance d_j.
+ * The messenger can switch horses at any stable.
+ * 
+ * Approach:
+ * This can be modeled as a shortest path problem on a graph.
+ * The nodes in our graph are the unique stable positions between 0 and B, including 0 and B.
+ * Let P_0, P_1, ..., P_m be the sorted unique positions.
+ * For each position P_i, an edge exists to P_j if there's a horse at P_i that can cover distance |P_i - P_j|.
+ * The weight of the edge is |P_i - P_j| / (max speed of such a horse).
+ * We use Dijkstra's algorithm to find the shortest path from 0 to B.
+ * 
+ * To optimize Dijkstra, for a fixed node u, we iterate over all other nodes v and 
+ * quickly find the best horse at position P_u that can cover the distance |P_u - P_v|.
+ * This is done in O(M^2) overall, where M is the number of unique positions.
+ */
+
+struct Horse {
+    long long d, v;
+    bool operator<(const Horse& other) const {
+        return d < other.d;
+    }
+};
+
+const double INF = 1e18;
+
+int main() {
+    // Speed up I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    long long B;
+    int N;
+    if (!(cin >> B >> N)) return 0;
+
+    map<long long, vector<Horse>> stable_map;
+    for (int i = 0; i < N; ++i) {
+        long long x;
+        int m;
+        cin >> x >> m;
+        for (int j = 0; j < m; ++j) {
+            long long v, d;
+            cin >> v >> d;
+            stable_map[x].push_back({d, v});
+        }
+    }
+
+    // If there is no stable at X=0, the messenger can't start.
+    if (stable_map.find(0) == stable_map.end()) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    // Collect all unique positions P_i such that 0 <= P_i <= B.
+    // We also add B to the set of positions to represent the destination.
+    vector<long long> P;
+    P.push_back(0);
+    P.push_back(B);
+    for (auto const& [x, horses] : stable_map) {
+        if (x > 0 && x < B) {
+            P.push_back(x);
+        }
+    }
+    sort(P.begin(), P.end());
+    P.erase(unique(P.begin(), P.end()), P.end());
+
+    int m = P.size();
+    vector<vector<Horse>> horses_at(m);
+    vector<vector<int>> suffix_max_v(m);
+
+    for (int i = 0; i < m; ++i) {
+        if (stable_map.count(P[i])) {
+            horses_at[i] = stable_map[P[i]];
+            sort(horses_at[i].begin(), horses_at[i].end());
+            suffix_max_v[i].resize(horses_at[i].size());
+            int cur_max = 0;
+            for (int k = (int)horses_at[i].size() - 1; k >= 0; --k) {
+                cur_max = max(cur_max, (int)horses_at[i][k].v);
+                suffix_max_v[i][k] = cur_max;
+            }
+        }
+    }
+
+    // Dijkstra's Algorithm
+    vector<double> dist(m, INF);
+    vector<bool> visited(m, false);
+    dist[0] = 0.0;
+
+    for (int i = 0; i < m; ++i) {
+        int u = -1;
+        for (int j = 0; j < m; ++j) {
+            if (!visited[j] && (u == -1 || dist[j] < dist[u])) {
+                u = j;
+            }
+        }
+
+        if (u == -1 || dist[u] == INF) break;
+        visited[u] = true;
+
+        if (horses_at[u].empty()) continue;
+
+        // Optimized edge updates:
+        // For a fixed u, we update dist[v] for all v.
+        // We handle v > u (distance P[v] - P[u] increases)
+        // and v < u (distance P[u] - P[v] increases) separately to maintain a single pointer for the horses.
+        
+        // Case 1: v > u
+        int k = 0;
+        for (int v = u + 1; v < m; ++v) {
+            long long d_needed = P[v] - P[u];
+            while (k < (int)horses_at[u].size() && horses_at[u][k].d < d_needed) {
+                k++;
+            }
+            if (k < (int)horses_at[u].size()) {
+                double w = (double)d_needed / suffix_max_v[u][k];
+                if (dist[u] + w < dist[v]) {
+                    dist[v] = dist[u] + w;
+                }
+            }
+        }
+
+        // Case 2: v < u
+        k = 0;
+        for (int v = u - 1; v >= 0; --v) {
+            long long d_needed = P[u] - P[v];
+            while (k < (int)horses_at[u].size() && horses_at[u][k].d < d_needed) {
+                k++;
+            }
+            if (k < (int)horses_at[u].size()) {
+                double w = (double)d_needed / suffix_max_v[u][k];
+                if (dist[u] + w < dist[v]) {
+                    dist[v] = dist[u] + w;
+                }
+            }
+        }
+    }
+
+    // Find index of B in P to get the result.
+    int target_idx = -1;
+    for (int i = 0; i < m; ++i) {
+        if (P[i] == B) {
+            target_idx = i;
+            break;
+        }
+    }
+
+    if (target_idx != -1 && dist[target_idx] != INF) {
+        cout << fixed << setprecision(8) << dist[target_idx] << endl;
+    } else {
+        cout << -1 << endl;
+    }
+
+    return 0;
+}
+

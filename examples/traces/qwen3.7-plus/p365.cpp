@@ -1,0 +1,61 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    // Optimize standard I/O operations for competitive programming
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int S;
+    if (!(cin >> S)) return 0;
+
+    // dp0[d] stores the number of non-descending sequences of current length ending in digit d
+    vector<long long> dp0(10, 0);
+    // dp1[d] stores the number of valid unimodal sequences that have already had at least one 
+    // strict descent, and are currently in the non-ascending part, ending in digit d
+    vector<long long> dp1(10, 0);
+
+    // Base case: sequences of length 1
+    for (int d = 0; d <= 9; ++d) {
+        dp0[d] = 1;
+    }
+
+    // Build up the solution for lengths from 2 to S
+    for (int i = 2; i <= S; ++i) {
+        vector<long long> next_dp0(10, 0);
+        vector<long long> next_dp1(10, 0);
+
+        for (int d = 0; d <= 9; ++d) {
+            // To stay in or enter the non-descending part, the previous digit j must be <= d
+            for (int j = 0; j <= d; ++j) {
+                next_dp0[d] += dp0[j];
+            }
+            
+            // To stay in the non-ascending part, the previous digit j must be >= d
+            for (int j = d; j <= 9; ++j) {
+                next_dp1[d] += dp1[j];
+            }
+            
+            // To transition from non-descending to non-ascending part for the FIRST time, 
+            // the previous digit j must be strictly greater than d
+            for (int j = d + 1; j <= 9; ++j) {
+                next_dp1[d] += dp0[j];
+            }
+        }
+        
+        dp0 = next_dp0;
+        dp1 = next_dp1;
+    }
+
+    // The total number of dromedary tickets is the sum of all valid sequences of length S
+    long long ans = 0;
+    for (int d = 0; d <= 9; ++d) {
+        ans += dp0[d] + dp1[d];
+    }
+
+    cout << ans << "\n";
+
+    return 0;
+}

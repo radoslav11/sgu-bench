@@ -1,0 +1,116 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+struct Sphere {
+    double x, y, z, r;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<Sphere> spheres(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> spheres[i].x >> spheres[i].y >> spheres[i].z >> spheres[i].r;
+    }
+
+    double ax, ay, az, bx, by, bz;
+    cin >> ax >> ay >> az >> bx >> by >> bz;
+
+    double dx = bx - ax;
+    double dy = by - ay;
+    double dz = bz - az;
+    double len_d = sqrt(dx*dx + dy*dy + dz*dz);
+    
+    if (len_d > 1e-9) {
+        dx /= len_d;
+        dy /= len_d;
+        dz /= len_d;
+    }
+
+    vector<int> hits;
+    int last_hit = -1;
+
+    while (hits.size() <= 10) {
+        double min_t = 1e18;
+        int best_i = -1;
+        double best_px = 0, best_py = 0, best_pz = 0;
+
+        for (int i = 0; i < n; ++i) {
+            if (i == last_hit) continue;
+
+            double vx = ax - spheres[i].x;
+            double vy = ay - spheres[i].y;
+            double vz = az - spheres[i].z;
+
+            double b = 2.0 * (vx * dx + vy * dy + vz * dz);
+            double c = vx*vx + vy*vy + vz*vz - spheres[i].r * spheres[i].r;
+            double delta = b * b - 4.0 * c;
+
+            if (delta < -1e-7) continue;
+
+            double t = (-b - sqrt(max(0.0, delta))) / 2.0;
+            if (t < 1e-7) continue;
+
+            if (t < min_t) {
+                min_t = t;
+                best_i = i;
+                best_px = ax + t * dx;
+                best_py = ay + t * dy;
+                best_pz = az + t * dz;
+            }
+        }
+
+        if (best_i == -1) {
+            break;
+        }
+
+        hits.push_back(best_i + 1);
+        last_hit = best_i;
+
+        double nx = best_px - spheres[best_i].x;
+        double ny = best_py - spheres[best_i].y;
+        double nz = best_pz - spheres[best_i].z;
+        double len_n = sqrt(nx*nx + ny*ny + nz*nz);
+        
+        if (len_n > 1e-9) {
+            nx /= len_n;
+            ny /= len_n;
+            nz /= len_n;
+        }
+
+        double dot = dx * nx + dy * ny + dz * nz;
+        dx = dx - 2.0 * dot * nx;
+        dy = dy - 2.0 * dot * ny;
+        dz = dz - 2.0 * dot * nz;
+
+        double len_new_d = sqrt(dx*dx + dy*dy + dz*dz);
+        if (len_new_d > 1e-9) {
+            dx /= len_new_d;
+            dy /= len_new_d;
+            dz /= len_new_d;
+        }
+
+        ax = best_px;
+        ay = best_py;
+        az = best_pz;
+    }
+
+    size_t limit = min((size_t)10, hits.size());
+    for (size_t i = 0; i < limit; ++i) {
+        cout << hits[i] << (i + 1 == limit && hits.size() <= 10 ? "" : " ");
+    }
+    if (hits.size() > 10) {
+        cout << "etc.";
+    }
+    cout << "\n";
+
+    return 0;
+}

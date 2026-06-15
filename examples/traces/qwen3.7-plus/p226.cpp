@@ -1,0 +1,59 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const int INF = 1e9;
+int dist[205][4];
+vector<pair<int, int>> adj[205];
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+    
+    for (int i = 0; i <= n; ++i) {
+        for (int c = 0; c <= 3; ++c) {
+            dist[i][c] = INF;
+        }
+    }
+    
+    for (int i = 0; i < m; ++i) {
+        int u, v, c;
+        cin >> u >> v >> c;
+        adj[u].push_back({v, c});
+    }
+    
+    queue<pair<int, int>> q;
+    q.push({1, 0});
+    dist[1][0] = 0;
+    
+    while (!q.empty()) {
+        int u = q.front().first;
+        int color = q.front().second;
+        q.pop();
+        
+        for (const auto& edge : adj[u]) {
+            int v = edge.first;
+            int c = edge.second;
+            
+            if (c != color && dist[v][c] > dist[u][color] + 1) {
+                dist[v][c] = dist[u][color] + 1;
+                q.push({v, c});
+            }
+        }
+    }
+    
+    int ans = min(dist[n][1], min(dist[n][2], dist[n][3]));
+    if (ans == INF) {
+        cout << -1 << "\n";
+    } else {
+        cout << ans << "\n";
+    }
+    
+    return 0;
+}

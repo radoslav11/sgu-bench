@@ -1,0 +1,156 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int M, N;
+    cin >> M >> N;
+
+    int V = M * N;
+    vector<char> alive(V, 0);
+    vector<int> lefts;
+
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            int x;
+            cin >> x;
+            int id = i * N + j;
+            if (x == 1) {
+                alive[id] = 1;
+                if ((i + j) % 2 == 0) lefts.push_back(id);
+            }
+        }
+    }
+
+    vector<int> matchL(V, -1), matchR(V, -1), dist(V, -1);
+    const int dr[4] = {-1, 1, 0, 0};
+    const int dc[4] = {0, 0, -1, 1};
+
+    auto neighbors = [&](int u, vector<int>& nb) {
+        nb.clear();
+        int r = u / N, c = u % N;
+        for (int k = 0; k < 4; ++k) {
+            int nr = r + dr[k], nc = c + dc[k];
+            if (nr < 0 || nr >= M || nc < 0 || nc >= N) continue;
+            int v = nr * N + nc;
+            if (alive[v]) nb.push_back(v);
+        }
+    };
+
+    auto bfs = [&]() {
+        queue<int> q;
+        bool found = false;
+
+        for (int u : lefts) {
+            if (matchL[u] == -1) {
+                dist[u] = 0;
+                q.push(u);
+            } else {
+                dist[u] = -1;
+            }
+        }
+
+        vector<int> nb;
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            neighbors(u, nb);
+            for (int v : nb) {
+                int u2 = matchR[v];
+                if (u2 == -1) {
+                    found = true;
+                } else if (dist[u2] == -1) {
+                    dist[u2] = dist[u] + 1;
+                    q.push(u2);
+                }
+            }
+        }
+
+        return found;
+    };
+
+    function<bool(int)> dfs = [&](int u) {
+        vector<int> nb;
+        neighbors(u, nb);
+
+        for (int v : nb) {
+            int u2 = matchR[v];
+            if (u2 == -1 || (dist[u2] == dist[u] + 1 && dfs(u2))) {
+                matchL[u] = v;
+                matchR[v] = u;
+                return true;
+            }
+        }
+
+        dist[u] = -1;
+        return false;
+    };
+
+    while (bfs()) {
+        for (int u : lefts) {
+            if (matchL[u] == -1) {
+                dfs(u);
+            }
+        }
+    }
+
+    vector<char> visL(V, 0), visR(V, 0);
+    queue<int> q;
+
+    for (int u : lefts) {
+        if (matchL[u] == -1) {
+            visL[u] = 1;
+            q.push(u);
+        }
+    }
+
+    vector<int> nb;
+    while (!q.empty()) {
+        int u = q.front();
+        q.pop();
+
+        neighbors(u, nb);
+        for (int v : nb) {
+            if (matchL[u] == v) continue;
+
+            if (!visR[v]) {
+                visR[v] = 1;
+                int u2 = matchR[v];
+                if (u2 != -1 && !visL[u2]) {
+                    visL[u2] = 1;
+                    q.push(u2);
+                }
+            }
+        }
+    }
+
+    vector<string> ans(M, string(N, '.'));
+    int cnt = 0;
+
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            int id = i * N + j;
+            if (!alive[id]) {
+                ans[i][j] = '#';
+            } else {
+                bool left = ((i + j) % 2 == 0);
+                bool take = left ? visL[id] : !visR[id];
+
+                if (take) {
+                    ans[i][j] = 'G';
+                    ++cnt;
+                }
+            }
+        }
+    }
+
+    cout << cnt << '\n';
+    for (int i = 0; i < M; ++i) {
+        cout << ans[i] << '\n';
+    }
+
+    return 0;
+}

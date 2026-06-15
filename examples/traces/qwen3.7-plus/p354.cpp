@@ -1,0 +1,143 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<vector<int>> top(n, vector<int>(n));
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cin >> top[i][j];
+        }
+    }
+
+    vector<vector<int>> left(n, vector<int>(n));
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cin >> left[i][j];
+        }
+    }
+
+    int V = n * n;
+    int max_edges = V * 5;
+    vector<int> head(V, -1);
+    vector<int> to_vec(max_edges);
+    vector<int> nxt(max_edges);
+    vector<int> in_degree(V, 0);
+    int edge_cnt = 0;
+
+    auto add_edge = [&](int u, int v) {
+        to_vec[edge_cnt] = v;
+        nxt[edge_cnt] = head[u];
+        head[u] = edge_cnt++;
+        in_degree[v]++;
+    };
+
+    auto cell = [&](int r, int c) {
+        return r * n + c;
+    };
+
+    for (int j = 0; j < n; ++j) {
+        vector<int> col_list;
+        col_list.reserve(n);
+        for (int i = 0; i < n; ++i) {
+            int k = i - top[i][j];
+            if (k < 0 || k > i) {
+                cout << 0 << "\n";
+                return 0;
+            }
+            int curr = cell(i, j);
+            if (k > 0) {
+                add_edge(col_list[k - 1], curr);
+            }
+            if (k < i) {
+                add_edge(curr, col_list[k]);
+            }
+            col_list.insert(col_list.begin() + k, curr);
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        vector<int> row_list;
+        row_list.reserve(n);
+        for (int j = 0; j < n; ++j) {
+            int k = j - left[i][j];
+            if (k < 0 || k > j) {
+                cout << 0 << "\n";
+                return 0;
+            }
+            int curr = cell(i, j);
+            if (k > 0) {
+                add_edge(row_list[k - 1], curr);
+            }
+            if (k < j) {
+                add_edge(curr, row_list[k]);
+            }
+            row_list.insert(row_list.begin() + k, curr);
+        }
+    }
+
+    vector<int> q;
+    q.reserve(V);
+    for (int i = 0; i < V; ++i) {
+        if (in_degree[i] == 0) {
+            q.push_back(i);
+        }
+    }
+
+    size_t head_q = 0;
+    while (head_q < q.size()) {
+        int u = q[head_q++];
+        for (int e = head[u]; e != -1; e = nxt[e]) {
+            int v = to_vec[e];
+            if (--in_degree[v] == 0) {
+                q.push_back(v);
+            }
+        }
+    }
+
+    if (q.size() != (size_t)V) {
+        cout << 0 << "\n";
+        return 0;
+    }
+
+    vector<vector<int>> A(n, vector<int>(n));
+    for (int idx = 0; idx < V; ++idx) {
+        int u = q[idx];
+        int r = u / n;
+        int c = u % n;
+        A[r][c] = idx + 1;
+    }
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            int t = 0, l = 0;
+            int val = A[i][j];
+            for (int r = 0; r < i; ++r) {
+                if (A[r][j] > val) t++;
+            }
+            for (int c = 0; c < j; ++c) {
+                if (A[i][c] > val) l++;
+            }
+            if (t != top[i][j] || l != left[i][j]) {
+                cout << 0 << "\n";
+                return 0;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cout << A[i][j] << (j == n - 1 ? "" : " ");
+        }
+        cout << "\n";
+    }
+
+    return 0;
+}

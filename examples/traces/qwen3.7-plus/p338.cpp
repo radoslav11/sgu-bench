@@ -1,0 +1,205 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int X;
+    if (!(cin >> X)) return 0;
+
+    vector<int> action_BM(22, 0); // 0 = ROLL, 1 = STOP
+    vector<double> V_BM(28, 0.0);
+
+    int X_val = (X == 0) ? 1 : X; 
+
+    for (int S = 22; S <= 27; ++S) {
+        V_BM[S] = -(double)X_val;
+    }
+
+    for (int S_B = 21; S_B >= 1; --S_B) {
+        vector<double> V_BM_c(28, 0.0);
+        for (int C = 27; C >= 1; --C) {
+            if (C > 21) {
+                V_BM_c[C] = X_val; 
+            } else {
+                double stop_profit = 0.0;
+                if (C < S_B) stop_profit = X_val;
+                else if (C == S_B) stop_profit = 0.0;
+                else stop_profit = -X_val;
+
+                double roll_profit = 0.0;
+                for (int i = 1; i <= 6; ++i) {
+                    roll_profit += V_BM_c[C + i];
+                }
+                roll_profit /= 6.0;
+
+                if (roll_profit <= stop_profit) {
+                    V_BM_c[C] = roll_profit;
+                } else {
+                    V_BM_c[C] = stop_profit;
+                }
+            }
+        }
+        
+        double stop_profit_BM = 0.0;
+        for (int i = 1; i <= 6; ++i) {
+            stop_profit_BM += V_BM_c[i];
+        }
+        stop_profit_BM /= 6.0;
+
+        double roll_profit_BM = 0.0;
+        for (int i = 1; i <= 6; ++i) {
+            roll_profit_BM += V_BM[S_B + i];
+        }
+        roll_profit_BM /= 6.0;
+
+        if (roll_profit_BM >= stop_profit_BM) {
+            action_BM[S_B] = 0; // ROLL
+            V_BM[S_B] = roll_profit_BM;
+        } else {
+            action_BM[S_B] = 1; // STOP
+            V_BM[S_B] = stop_profit_BM;
+        }
+    }
+
+    action_BM[0] = 0;
+    V_BM[0] = 0.0;
+    for (int i = 1; i <= 6; ++i) V_BM[0] += V_BM[i];
+    V_BM[0] /= 6.0;
+
+    if (X == 0) {
+        for (int S_B = 1; S_B <= 21; ++S_B) {
+            action_BM[S_B] = 0;
+        }
+    }
+
+    vector<double> prob(22, 0.0);
+    prob[0] = 1.0;
+    double P_B_bust = 0.0;
+    vector<double> P_B(22, 0.0);
+
+    for (int S = 0; S <= 21; ++S) {
+        if (prob[S] == 0.0) continue;
+        if (S > 0 && action_BM[S] == 1) {
+            P_B[S] += prob[S];
+        } else {
+            for (int i = 1; i <= 6; ++i) {
+                if (S + i > 21) {
+                    P_B_bust += prob[S] / 6.0;
+                } else {
+                    prob[S + i] += prob[S] / 6.0;
+                }
+            }
+        }
+    }
+
+    auto CasinoProfit = [&](int S_B, int S_A, int C) {
+        double profit = 0.0;
+        if (S_B <= 21) {
+            if (C > 21 || C < S_B) profit -= (double)X;
+            else if (C == S_B) profit += 0.0;
+            else profit += (double)X;
+        } else {
+            profit += (double)X;
+        }
+        
+        if (S_A <= 21) {
+            if (C > 21 || C < S_A) profit -= 1.0;
+            else if (C == S_A) profit += 0.0;
+            else profit += 1.0;
+        } else {
+            profit += 1.0;
+        }
+        return profit;
+    };
+
+    double total_andrew_win_prob = 0.0;
+
+    for (int S_B = 1; S_B <= 22; ++S_B) {
+        double p_SB = (S_B <= 21) ? P_B[S_B] : P_B_bust;
+        if (p_SB == 0.0) continue;
+
+        vector<double> E_A_total(28, -1.0);
+        vector<double> W_A_total(28, 0.0);
+
+        for (int S_A = 21; S_A >= 0; --S_A) {
+            vector<double> V_casino(28, 0.0);
+            vector<double> E_A_c(28, 0.0);
+            vector<double> W_A_c(28, 0.0);
+
+            for (int C = 27; C >= 1; --C) {
+                if (C > 21) {
+                    V_casino[C] = CasinoProfit(S_B, S_A, C);
+                    E_A_c[C] = (S_A <= 21 ? 1.0 : -1.0);
+                    W_A_c[C] = (S_A <= 21 ? 1.0 : 0.0);
+                } else {
+                    double stop_profit_casino = CasinoProfit(S_B, S_A, C);
+                    double roll_profit_casino = 0.0;
+                    for (int i = 1; i <= 6; ++i) {
+                        roll_profit_casino += V_casino[C + i];
+                    }
+                    roll_profit_casino /= 6.0;
+
+                    bool croupier_rolls = (roll_profit_casino >= stop_profit_casino);
+
+                    if (croupier_rolls) {
+                        V_casino[C] = roll_profit_casino;
+                        double roll_E_A = 0.0;
+                        double roll_W_A = 0.0;
+                        for (int i = 1; i <= 6; ++i) {
+                            roll_E_A += E_A_c[C + i];
+                            roll_W_A += W_A_c[C + i];
+                        }
+                        E_A_c[C] = roll_E_A / 6.0;
+                        W_A_c[C] = roll_W_A / 6.0;
+                    } else {
+                        V_casino[C] = stop_profit_casino;
+                        E_A_c[C] = (S_A <= 21 ? (C < S_A ? 1.0 : (C == S_A ? 0.0 : -1.0)) : -1.0);
+                        W_A_c[C] = (S_A <= 21 ? (C < S_A ? 1.0 : 0.0) : 0.0);
+                    }
+                }
+            }
+
+            double E_A_stop = 0.0;
+            double W_A_stop = 0.0;
+            for (int i = 1; i <= 6; ++i) {
+                E_A_stop += E_A_c[i];
+                W_A_stop += W_A_c[i];
+            }
+            E_A_stop /= 6.0;
+            W_A_stop /= 6.0;
+
+            double E_A_roll = 0.0;
+            double W_A_roll = 0.0;
+            for (int i = 1; i <= 6; ++i) {
+                E_A_roll += E_A_total[S_A + i];
+                W_A_roll += W_A_total[S_A + i];
+            }
+            E_A_roll /= 6.0;
+            W_A_roll /= 6.0;
+
+            bool andrew_rolls = (E_A_roll >= E_A_stop);
+            if (S_A == 0) {
+                andrew_rolls = true;
+            }
+
+            if (andrew_rolls) {
+                E_A_total[S_A] = E_A_roll;
+                W_A_total[S_A] = W_A_roll;
+            } else {
+                E_A_total[S_A] = E_A_stop;
+                W_A_total[S_A] = W_A_stop;
+            }
+        }
+
+        total_andrew_win_prob += p_SB * W_A_total[0];
+    }
+
+    cout << fixed << setprecision(6) << total_andrew_win_prob << "\n";
+
+    return 0;
+}

@@ -1,0 +1,39 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    const int INF = 1e9;
+    int U = N + M;
+
+    vector<vector<int>> dp(U + 2, vector<int>(M + 2, INF));
+
+    for (int i = 1; i <= N; ++i) {
+        for (int j = 1; j <= M; ++j) {
+            int x;
+            cin >> x;
+            dp[i + j][j] = x;
+        }
+    }
+
+    for (int u = U; u >= 2; --u) {
+        for (int v = M; v >= 1; --v) {
+            dp[u][v] = min(dp[u][v], min(dp[u + 1][v], dp[u][v + 1]));
+        }
+    }
+
+    for (int i = 1; i <= N; ++i) {
+        for (int j = 1; j <= M; ++j) {
+            if (j > 1) cout << ' ';
+            cout << dp[i + j][j];
+        }
+        cout << '\n';
+    }
+
+    return 0;
+}

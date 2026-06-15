@@ -1,0 +1,25 @@
+weigh 1 vs 2
+case <:
+  weigh 1+2 vs 3+4
+  case <:
+    fake 1
+  case >:
+    fake 2
+  end
+case =:
+  weigh 1 vs 3
+  case =:
+    fake 4
+  case <:
+    fake 3
+  case >:
+    fake 3
+  end
+case >:
+  weigh 1+2 vs 4+3
+  case >:
+    fake 1
+  case <:
+    fake 2
+  end
+end

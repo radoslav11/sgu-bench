@@ -1,0 +1,126 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <random>
+#include <chrono>
+
+using namespace std;
+
+const int MAXN = 500005;
+unsigned long long hS[MAXN], pS[MAXN];
+unsigned long long hT[MAXN], pT[MAXN];
+unsigned long long BASE;
+
+void build_S(const string& s) {
+    int n = s.length();
+    pS[0] = 1;
+    for (int i = 0; i < n; ++i) {
+        hS[i+1] = hS[i] * BASE + (s[i] - 'A' + 1);
+        pS[i+1] = pS[i] * BASE;
+    }
+}
+
+void build_T(const string& t) {
+    int n = t.length();
+    pT[0] = 1;
+    for (int i = 0; i < n; ++i) {
+        hT[i+1] = hT[i] * BASE + (t[i] - 'A' + 1);
+        pT[i+1] = pT[i] * BASE;
+    }
+}
+
+unsigned long long get_hash_S(int l, int r) {
+    return hS[r] - hS[l-1] * pS[r - l + 1];
+}
+
+unsigned long long get_hash_T(int l, int r) {
+    return hT[r] - hT[l-1] * pT[r - l + 1];
+}
+
+int get_lcp(int l_S, int l_T, int max_len) {
+    int low = 1, high = max_len, ans = 0;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (get_hash_S(l_S, l_S + mid - 1) == get_hash_T(l_T, l_T + mid - 1)) {
+            ans = mid;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return ans;
+}
+
+int get_min_cyclic_shift(const string& s) {
+    int n = s.length();
+    int p = 0, q = 1, k = 0;
+    while (p < n && q < n && k < n) {
+        char a = s[(p + k) % n];
+        char b = s[(q + k) % n];
+        if (a == b) {
+            k++;
+        } else {
+            if (a > b) {
+                p += k + 1;
+            } else {
+                q += k + 1;
+            }
+            if (p == q) {
+                q++;
+            }
+            k = 0;
+        }
+    }
+    return min(p, q);
+}
+
+bool check(int L, int M) {
+    int len1 = get_lcp(L + 1, 1, M);
+    if (len1 == M) return true;
+    int rest_len = M - 1 - len1;
+    if (rest_len == 0) return true;
+    int len2 = get_lcp(L + 1 + len1 + 1, 1 + len1 + 1, rest_len);
+    return len2 == rest_len;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count());
+    BASE = uniform_int_distribution<unsigned long long>(1000000007ull, 2000000000ull)(rng) | 1ull;
+    
+    int n_input, m_input;
+    if (!(cin >> n_input >> m_input)) return 0;
+    
+    string s, t;
+    cin >> s >> t;
+    
+    int n = s.length();
+    int m = t.length();
+    
+    int min_t_shift = get_min_cyclic_shift(t);
+    string t_prime = t.substr(min_t_shift) + t.substr(0, min_t_shift);
+    
+    string s_ext = s + s;
+    build_S(s_ext);
+    build_T(t_prime);
+    
+    for (int c = 0; c <= n / 2; ++c) {
+        if (check(c, m)) {
+            cout << t_prime << "\n";
+            cout << s_ext.substr(c, n) << "\n";
+            return 0;
+        }
+        if (c > 0 && c < n - c) {
+            if (check(n - c, m)) {
+                cout << t_prime << "\n";
+                cout << s_ext.substr(n - c, n) << "\n";
+                return 0;
+            }
+        }
+    }
+    
+    return 0;
+}

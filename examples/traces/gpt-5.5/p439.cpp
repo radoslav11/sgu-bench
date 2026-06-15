@@ -1,0 +1,102 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+vector<int> z_function(const string& s) {
+    int n = (int)s.size();
+    vector<int> z(n);
+    int l = 0, r = 0;
+    for (int i = 1; i < n; i++) {
+        if (i <= r) z[i] = min(r - i + 1, z[i - l]);
+        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
+        if (i + z[i] - 1 > r) {
+            l = i;
+            r = i + z[i] - 1;
+        }
+    }
+    return z;
+}
+
+int booth(const string& s) {
+    string ss = s + s;
+    int n = (int)s.size();
+    int i = 0, j = 1, k = 0;
+
+    while (i < n && j < n && k < n) {
+        if (ss[i + k] == ss[j + k]) {
+            k++;
+        } else if (ss[i + k] > ss[j + k]) {
+            i = i + k + 1;
+            if (i <= j) i = j + 1;
+            k = 0;
+        } else {
+            j = j + k + 1;
+            if (j <= i) j = i + 1;
+            k = 0;
+        }
+    }
+
+    return min(i, j);
+}
+
+string rotate_left(const string& s, int k) {
+    return s.substr(k) + s.substr(0, k);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    string S, T;
+    cin >> S >> T;
+
+    int t_shift = booth(T);
+    string P = rotate_left(T, t_shift);
+
+    string C = S + S;
+
+    string combined = P + "#" + C;
+    vector<int> z1 = z_function(combined);
+
+    string revP = P;
+    reverse(revP.begin(), revP.end());
+
+    string revC = C;
+    reverse(revC.begin(), revC.end());
+
+    string combinedRev = revP + "#" + revC;
+    vector<int> z2 = z_function(combinedRev);
+
+    auto valid = [&](int k) -> bool {
+        int pref = min(z1[M + 1 + k], M);
+        if (pref >= M) return true;
+
+        int revStart = 2 * N - 1 - (k + M - 1);
+        int suff = min(z2[M + 1 + revStart], M);
+
+        return pref + suff >= M - 1;
+    };
+
+    int best = -1;
+
+    for (int d = 0; d <= N / 2; d++) {
+        int leftShift = d;
+        if (valid(leftShift)) {
+            best = leftShift;
+            break;
+        }
+
+        int rightShift = (N - d) % N;
+        if (d != 0 && rightShift != leftShift && valid(rightShift)) {
+            best = rightShift;
+            break;
+        }
+    }
+
+    cout << P << '\n';
+    cout << rotate_left(S, best) << '\n';
+
+    return 0;
+}

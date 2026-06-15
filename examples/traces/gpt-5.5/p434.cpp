@@ -1,0 +1,74 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<int> S(N), D(N);
+    long long sumS = 0, sumD = 0;
+
+    for (int i = 0; i < N; ++i) {
+        cin >> S[i];
+        sumS += S[i];
+    }
+
+    for (int i = 0; i < N; ++i) {
+        cin >> D[i];
+        sumD += D[i];
+    }
+
+    if (sumS != sumD) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<int> a;
+    for (int i = 0; i < N; ++i) {
+        int diff = S[i] - D[i];
+        if (diff != 0) a.push_back(diff);
+    }
+
+    int m = (int)a.size();
+    if (m == 0) {
+        cout << 0 << '\n';
+        return 0;
+    }
+
+    int totalMasks = 1 << m;
+
+    vector<int> subsetSum(totalMasks, 0);
+    for (int mask = 1; mask < totalMasks; ++mask) {
+        int bit = __builtin_ctz(mask);
+        int prev = mask ^ (1 << bit);
+        subsetSum[mask] = subsetSum[prev] + a[bit];
+    }
+
+    const int NEG = -1e9;
+    vector<int> best(totalMasks, NEG);
+    vector<int> dp(totalMasks, NEG);
+
+    best[0] = 0;
+
+    for (int mask = 0; mask < totalMasks; ++mask) {
+        if (mask != 0 && subsetSum[mask] == 0 && best[mask] != NEG) {
+            dp[mask] = best[mask] + 1;
+            best[mask] = max(best[mask], dp[mask]);
+        }
+
+        for (int bit = 0; bit < m; ++bit) {
+            if (!(mask & (1 << bit))) {
+                int nxt = mask | (1 << bit);
+                best[nxt] = max(best[nxt], best[mask]);
+            }
+        }
+    }
+
+    int maxZeroSumGroups = dp[totalMasks - 1];
+    cout << m - maxZeroSumGroups << '\n';
+
+    return 0;
+}

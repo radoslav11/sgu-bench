@@ -1,0 +1,96 @@
+#include <bits/stdc++.h>
+#include <boost/multiprecision/cpp_int.hpp>
+
+using namespace std;
+using boost::multiprecision::cpp_int;
+
+struct ColorInfo {
+    int id;
+    cpp_int total;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int c, k;
+    if (!(cin >> c >> k)) return 0;
+
+    vector<vector<int>> a(c, vector<int>(k));
+
+    vector<cpp_int> pow8(k + 1);
+    pow8[0] = 1;
+    for (int i = 1; i <= k; ++i) pow8[i] = pow8[i - 1] * 8;
+
+    cpp_int target = pow8[k];
+
+    vector<ColorInfo> colors(c);
+
+    for (int i = 0; i < c; ++i) {
+        cpp_int total = 0;
+        for (int j = 0; j < k; ++j) {
+            cin >> a[i][j];
+            total += cpp_int(a[i][j]) * pow8[j];
+            if (total > target) total = target;
+        }
+        colors[i] = {i, total};
+    }
+
+    sort(colors.begin(), colors.end(), [](const ColorInfo& x, const ColorInfo& y) {
+        return x.total > y.total;
+    });
+
+    cpp_int sum = 0;
+    vector<int> chosen;
+
+    for (const auto& col : colors) {
+        if (sum >= target) break;
+        if (col.total == 0) continue;
+        chosen.push_back(col.id);
+        sum += col.total;
+        if (sum > target) sum = target;
+    }
+
+    if (sum < target) {
+        cout << "NO SOLUTION\n";
+        return 0;
+    }
+
+    vector<tuple<int, int, int>> answer;
+    cpp_int remaining = target;
+
+    for (int j = k - 1; j >= 0; --j) {
+        cpp_int denom = pow8[j];
+
+        for (int id : chosen) {
+            if (remaining == 0) break;
+
+            cpp_int need = remaining / denom;
+            if (need == 0) continue;
+
+            int take;
+            if (need >= a[id][j]) {
+                take = a[id][j];
+            } else {
+                take = need.convert_to<int>();
+            }
+
+            if (take > 0) {
+                answer.emplace_back(id + 1, j, take);
+                remaining -= cpp_int(take) * denom;
+            }
+        }
+    }
+
+    if (remaining != 0) {
+        cout << "NO SOLUTION\n";
+        return 0;
+    }
+
+    cout << answer.size() << '\n';
+    for (auto [color, sizeIndex, cnt] : answer) {
+        cout << color << ' ' << sizeIndex << ' ' << cnt << '\n';
+    }
+
+    return 0;
+}

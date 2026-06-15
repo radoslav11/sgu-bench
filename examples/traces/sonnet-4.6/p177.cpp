@@ -1,0 +1,23 @@
+#include<bits/stdc++.h>
+using namespace std;
+int main(){
+    int N,M;
+    cin>>N>>M;
+    vector<vector<int>> grid(N+1, vector<int>(N+1, 0)); // 0=white, 1=black
+    for(int i=0;i<M;i++){
+        int x1,y1,x2,y2;
+        char c;
+        cin>>x1>>y1>>x2>>y2>>c;
+        if(x1>x2) swap(x1,x2);
+        if(y1>y2) swap(y1,y2);
+        int color = (c=='b')?1:0;
+        for(int x=x1;x<=x2;x++)
+            for(int y=y1;y<=y2;y++)
+                grid[x][y]=color;
+    }
+    int cnt=0;
+    for(int i=1;i<=N;i++)
+        for(int j=1;j<=N;j++)
+            if(grid[i][j]==0) cnt++;
+    cout<<cnt<<endl;
+}

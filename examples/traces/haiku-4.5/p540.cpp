@@ -1,0 +1,80 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int n, s, vmin, vmax;
+    cin >> n >> s >> vmin >> vmax;
+    
+    vector<int> x(n), r(n), g(n), d(n);
+    for(int i = 0; i < n; i++){
+        cin >> x[i] >> r[i] >> g[i] >> d[i];
+    }
+    
+    double best_v = vmin;
+    int min_reds = INT_MAX;
+    
+    // Try speeds from vmin to vmax with small steps
+    for(double v = vmin; v <= vmax + 1e-9; v += 0.001){
+        int reds = 0;
+        
+        for(int i = 0; i < n; i++){
+            double arrival_time = (double)x[i] / v;
+            int cycle = r[i] + g[i];
+            double phase = fmod(arrival_time, cycle);
+            
+            // Check if in red phase
+            // Green is [d[i], d[i] + g[i])
+            // Red is [d[i] + g[i], d[i] + cycle) which wraps to [d[i] + g[i], cycle) union [0, d[i])
+            
+            int red_end = (d[i] + g[i]) % cycle;
+            int red_start = d[i];
+            
+            bool is_green = false;
+            if(red_end > red_start){
+                // Green phase doesn't wrap
+                is_green = (phase >= d[i] && phase < d[i] + g[i]);
+            } else {
+                // Green phase wraps around
+                is_green = (phase >= d[i] || phase < red_end);
+            }
+            
+            if(!is_green) reds++;
+        }
+        
+        if(reds < min_reds || (reds == min_reds && v > best_v)){
+            min_reds = reds;
+            best_v = v;
+        }
+    }
+    
+    // Now find which lights are red at best_v
+    vector<int> red_lights;
+    for(int i = 0; i < n; i++){
+        double arrival_time = (double)x[i] / best_v;
+        int cycle = r[i] + g[i];
+        double phase = fmod(arrival_time, cycle);
+        
+        bool is_green = false;
+        if((r[i] + g[i] - d[i]) % (r[i] + g[i]) > g[i]){
+            // Doesn't wrap
+            is_green = (phase >= d[i] && phase < d[i] + g[i]);
+        } else {
+            // Wraps
+            is_green = (phase >= d[i] || phase < (d[i] + g[i]) % (r[i] + g[i]));
+        }
+        
+        if(!is_green) red_lights.push_back(i + 1);
+    }
+    
+    cout << fixed << setprecision(10) << best_v << "\n";
+    cout << red_lights.size() << "\n";
+    for(int light : red_lights){
+        cout << light << " ";
+    }
+    if(red_lights.size() > 0) cout << "\n";
+    
+    return 0;
+}

@@ -1,0 +1,118 @@
+#include <iostream>
+#include <vector>
+#include <unordered_set>
+#include <algorithm>
+
+using namespace std;
+
+const int MAX_PRIME = 1000000;
+vector<int> primes;
+bool is_prime[MAX_PRIME + 1];
+
+void sieve() {
+    fill(is_prime + 2, is_prime + MAX_PRIME + 1, true);
+    for (int p = 2; p * p <= MAX_PRIME; p++) {
+        if (is_prime[p]) {
+            for (int i = p * p; i <= MAX_PRIME; i += p)
+                is_prime[i] = false;
+        }
+    }
+    for (int p = 2; p <= MAX_PRIME; p++) {
+        if (is_prime[p]) primes.push_back(p);
+    }
+}
+
+vector<long long> get_valid_divisors(long long current, long long A) {
+    long long max_d = min(current / 2 - 1, current - A);
+    if (max_d < 2) return {};
+
+    long long temp = current;
+    vector<pair<long long, int>> factors;
+    for (int p : primes) {
+        if (1LL * p * p > temp) break;
+        if (temp % p == 0) {
+            int count = 0;
+            while (temp % p == 0) {
+                count++;
+                temp /= p;
+            }
+            factors.push_back({p, count});
+        }
+    }
+    if (temp > 1) {
+        factors.push_back({temp, 1});
+    }
+
+    vector<long long> divs;
+    divs.push_back(1);
+    for (const auto& factor : factors) {
+        long long p = factor.first;
+        int count = factor.second;
+        size_t current_size = divs.size();
+        for (size_t j = 0; j < current_size; j++) {
+            long long p_pow = 1;
+            for (int i = 0; i < count; i++) {
+                p_pow *= p;
+                divs.push_back(divs[j] * p_pow);
+            }
+        }
+    }
+
+    vector<long long> valid_d;
+    for (long long d : divs) {
+        if (d >= 2 && d <= max_d) {
+            valid_d.push_back(d);
+        }
+    }
+    sort(valid_d.rbegin(), valid_d.rend());
+    return valid_d;
+}
+
+unordered_set<long long> failed;
+
+bool dfs(long long current, long long A, vector<long long>& path) {
+    if (current == A) {
+        path.push_back(current);
+        return true;
+    }
+    if (current < A) {
+        return false;
+    }
+    if (path.size() >= 500) {
+        return false;
+    }
+    if (failed.count(current)) {
+        return false;
+    }
+    
+    vector<long long> valid_d = get_valid_divisors(current, A);
+    for (long long d : valid_d) {
+        long long next_val = current - d;
+        if (dfs(next_val, A, path)) {
+            path.push_back(current);
+            return true;
+        }
+    }
+    
+    failed.insert(current);
+    return false;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    sieve();
+    
+    long long A, B;
+    if (cin >> A >> B) {
+        vector<long long> path;
+        if (dfs(B, A, path)) {
+            for (size_t i = 0; i < path.size(); i++) {
+                cout << path[i] << "\n";
+            }
+        } else {
+            cout << "Impossible\n";
+        }
+    }
+    return 0;
+}

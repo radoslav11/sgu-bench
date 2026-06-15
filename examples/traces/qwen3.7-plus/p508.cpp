@@ -1,0 +1,45 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+unsigned long long nCr(int n, int r) {
+    if (r < 0 || r > n) return 0;
+    if (r > n / 2) r = n - r;
+    unsigned long long res = 1;
+    for (int i = 1; i <= r; ++i) {
+        res = res * (n - i + 1) / i;
+    }
+    return res;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n, l1, l2, p;
+    if (!(cin >> n >> l1 >> l2 >> p)) return 0;
+
+    vector<unsigned long long> w(n + 1, 0);
+    unsigned long long W = 0;
+    for (int k = 0; k <= n; ++k) {
+        w[k] = nCr(k, l1) * nCr(n - k, l2);
+        W += w[k];
+    }
+
+    for (int len = 0; len <= n; ++len) {
+        for (int a = 0; a <= n - len; ++a) {
+            int b = a + len;
+            unsigned long long sum = 0;
+            for (int k = a; k <= b; ++k) {
+                sum += w[k];
+            }
+            if (sum * 100 >= (unsigned long long)p * W) {
+                cout << a << " " << b << "\n";
+                return 0;
+            }
+        }
+    }
+
+    return 0;
+}

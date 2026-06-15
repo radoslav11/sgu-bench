@@ -1,0 +1,74 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <tuple>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    while (cin >> N >> M) {
+        vector<int> B(M + 1);
+        for (int i = 1; i <= M; ++i) {
+            cin >> B[i];
+        }
+
+        bool accepted_any = false;
+
+        for (int i = 0; i < N; ++i) {
+            string faculty_name;
+            getline(cin >> ws, faculty_name);
+
+            int K;
+            cin >> K;
+            vector<int> subjects(K);
+            for (int j = 0; j < K; ++j) {
+                cin >> subjects[j];
+            }
+
+            vector<tuple<int, int, int>> thresholds(K);
+            for (int j = 0; j < K; ++j) {
+                int x, y, z;
+                cin >> x >> y >> z;
+                thresholds[j] = make_tuple(x, y, z);
+            }
+
+            int S;
+            cin >> S;
+            vector<pair<string, int>> specialties(S);
+            for (int j = 0; j < S; ++j) {
+                getline(cin >> ws, specialties[j].first);
+                cin >> specialties[j].second;
+            }
+
+            int total_grade = 0;
+            for (int j = 0; j < K; ++j) {
+                int T = B[subjects[j]];
+                int x = get<0>(thresholds[j]);
+                int y = get<1>(thresholds[j]);
+                int z = get<2>(thresholds[j]);
+
+                if (T < x) total_grade += 2;
+                else if (T < y) total_grade += 3;
+                else if (T < z) total_grade += 4;
+                else total_grade += 5;
+            }
+
+            for (int j = 0; j < S; ++j) {
+                if (total_grade >= specialties[j].second) {
+                    cout << faculty_name << " " << specialties[j].first << "\n";
+                    accepted_any = true;
+                }
+            }
+        }
+
+        if (!accepted_any) {
+            cout << "Army\n";
+        }
+    }
+
+    return 0;
+}

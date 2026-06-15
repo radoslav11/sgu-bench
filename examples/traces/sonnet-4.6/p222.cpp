@@ -1,0 +1,33 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    long long n, k;
+    cin >> n >> k;
+    
+    if (k > n) {
+        cout << 0 << endl;
+        return 0;
+    }
+    
+    // C(n,k) * C(n,k) * k!
+    // C(n,k) = n! / (k! * (n-k)!)
+    // C(n,k) * k! = n! / (n-k)! = P(n,k)
+    // So answer = C(n,k) * P(n,k)
+    
+    // Compute C(n,k)
+    long long cnk = 1;
+    for (long long i = 0; i < k; i++) {
+        cnk = cnk * (n - i) / (i + 1);
+    }
+    
+    // Compute k!
+    long long kfact = 1;
+    for (long long i = 1; i <= k; i++) {
+        kfact *= i;
+    }
+    
+    cout << cnk * cnk * kfact << endl;
+    
+    return 0;
+}

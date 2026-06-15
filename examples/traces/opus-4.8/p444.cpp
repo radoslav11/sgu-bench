@@ -1,0 +1,20 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    long long x,y;
+    cin>>x>>y;
+    long long r=x%y;
+    map<long long,int> seen;
+    int pos=0;
+    while(r!=0){
+        if(seen.count(r)){
+            cout<<seen[r]<<" "<<(pos-seen[r])<<"\n";
+            return 0;
+        }
+        seen[r]=pos;
+        r=(r*10)%y;
+        pos++;
+    }
+    cout<<pos<<" "<<0<<"\n";
+    return 0;
+}

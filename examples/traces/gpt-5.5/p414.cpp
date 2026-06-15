@@ -1,0 +1,123 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Circle {
+    long double x, y, r;
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<Circle> c(n);
+
+    const long double EPS_COEF = 1e-18L;
+    const long double EPS_BAD = 1e-7L;
+
+    vector<array<long double, 4>> rows;
+    vector<int> pivot_col;
+
+    bool inconsistent = false;
+
+    auto add_equation = [&](array<long double, 4> a) {
+        if (inconsistent) return;
+
+        for (int i = 0; i < (int)rows.size(); ++i) {
+            long double k = a[pivot_col[i]];
+            if (fabsl(k) > EPS_COEF) {
+                for (int j = 0; j < 4; ++j)
+                    a[j] -= k * rows[i][j];
+            }
+        }
+
+        int p = -1;
+        for (int j = 0; j < 3; ++j) {
+            if (fabsl(a[j]) > EPS_COEF) {
+                p = j;
+                break;
+            }
+        }
+
+        if (p == -1) {
+            if (fabsl(a[3]) > EPS_BAD)
+                inconsistent = true;
+            return;
+        }
+
+        long double div = a[p];
+        for (int j = 0; j < 4; ++j)
+            a[j] /= div;
+
+        for (int i = 0; i < (int)rows.size(); ++i) {
+            long double k = rows[i][p];
+            if (fabsl(k) > EPS_COEF) {
+                for (int j = 0; j < 4; ++j)
+                    rows[i][j] -= k * a[j];
+            }
+        }
+
+        rows.push_back(a);
+        pivot_col.push_back(p);
+    };
+
+    for (int i = 0; i < n; ++i) {
+        long long xi, yi, ri;
+        cin >> xi >> yi >> ri;
+
+        c[i] = {(long double)xi, (long double)yi, (long double)ri};
+
+        array<long double, 4> eq;
+        eq[0] = -2.0L * xi;
+        eq[1] = -2.0L * yi;
+        eq[2] = 1.0L;
+        eq[3] = (long double)ri * ri - (long double)xi * xi - (long double)yi * yi;
+
+        add_equation(eq);
+    }
+
+    if (inconsistent) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    int rank = rows.size();
+
+    if (rank < 3) {
+        cout << -2 << '\n';
+        return 0;
+    }
+
+    vector<long double> sol(3, 0);
+    for (int i = 0; i < 3; ++i)
+        sol[pivot_col[i]] = rows[i][3];
+
+    long double x = sol[0];
+    long double y = sol[1];
+    long double s = sol[2];
+
+    for (const auto &ci : c) {
+        long double lhs = -2.0L * ci.x * x - 2.0L * ci.y * y + s;
+        long double rhs = ci.r * ci.r - ci.x * ci.x - ci.y * ci.y;
+        if (fabsl(lhs - rhs) > 1e-5L) {
+            cout << -1 << '\n';
+            return 0;
+        }
+    }
+
+    long double r2 = x * x + y * y - s;
+
+    if (r2 <= 0) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    long double r = sqrtl(r2);
+
+    cout << fixed << setprecision(12)
+         << (double)x << ' ' << (double)y << ' ' << (double)r << '\n';
+
+    return 0;
+}

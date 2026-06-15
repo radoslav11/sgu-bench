@@ -1,0 +1,61 @@
+#include <iostream>
+#include <string>
+#include <cstring>
+
+using namespace std;
+
+unsigned char visited[1 << 21];
+
+int main() {
+    // Optimize standard I/O operations for competitive programming
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    if (!(cin >> n)) return 0;
+    string s;
+    cin >> s;
+
+    // The maximum length of the missing substring for N <= 500,000 is 19.
+    // We check up to 20 to be absolutely safe.
+    for (int k = 1; k <= 20; ++k) {
+        int limit = 1 << k;
+        int mask = limit - 1;
+        
+        // Clear the visited array for the current length k
+        memset(visited, 0, limit);
+        
+        if (n >= k) {
+            unsigned int val = 0;
+            
+            // Compute the value of the first window of length k
+            for (int i = 0; i < k; ++i) {
+                val = (val << 1) | (s[i] == 'b' ? 1 : 0);
+            }
+            visited[val] = 1;
+            
+            // Slide the window across the rest of the string
+            for (int i = k; i < n; ++i) {
+                val = ((val << 1) | (s[i] == 'b' ? 1 : 0)) & mask;
+                visited[val] = 1;
+            }
+        }
+        
+        // Find the first unvisited value, which corresponds to the lexicographically 
+        // smallest missing string of length k
+        for (int i = 0; i < limit; ++i) {
+            if (!visited[i]) {
+                cout << k << "\n";
+                string ans;
+                ans.reserve(k);
+                for (int j = k - 1; j >= 0; --j) {
+                    ans += ((i >> j) & 1) ? 'b' : 'a';
+                }
+                cout << ans << "\n";
+                return 0;
+            }
+        }
+    }
+    
+    return 0;
+}

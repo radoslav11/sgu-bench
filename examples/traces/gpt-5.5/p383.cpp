@@ -1,0 +1,302 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Point {
+    long double x, y;
+};
+
+static inline long double dist2(const Point& a, const Point& b) {
+    long double dx = a.x - b.x;
+    long double dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
+struct DSU {
+    vector<int> p, sz;
+
+    DSU(int n = 0) {
+        init(n);
+    }
+
+    void init(int n) {
+        p.resize(n);
+        sz.assign(n, 1);
+        iota(p.begin(), p.end(), 0);
+    }
+
+    int find(int v) {
+        while (v != p[v]) {
+            p[v] = p[p[v]];
+            v = p[v];
+        }
+        return v;
+    }
+
+    bool unite(int a, int b) {
+        a = find(a);
+        b = find(b);
+        if (a == b) return false;
+        if (sz[a] < sz[b]) swap(a, b);
+        p[b] = a;
+        sz[a] += sz[b];
+        return true;
+    }
+};
+
+struct KDNode {
+    int idx = -1;
+    int left = -1, right = -1;
+    long double minx, maxx, miny, maxy;
+};
+
+struct KDTree {
+    const vector<Point>* pts;
+    vector<KDNode> tree;
+    vector<int> ord;
+    DSU* dsu;
+
+    KDTree(const vector<Point>& points) {
+        pts = &points;
+        int n = (int)points.size();
+        ord.resize(n);
+        iota(ord.begin(), ord.end(), 0);
+        tree.reserve(n);
+        build(0, n, 0);
+    }
+
+    int build(int l, int r, int depth) {
+        if (l >= r) return -1;
+
+        int m = (l + r) >> 1;
+        int axis = depth & 1;
+
+        nth_element(ord.begin() + l, ord.begin() + m, ord.begin() + r,
+            [&](int a, int b) {
+                if (axis == 0) {
+                    if ((*pts)[a].x != (*pts)[b].x) return (*pts)[a].x < (*pts)[b].x;
+                    return (*pts)[a].y < (*pts)[b].y;
+                } else {
+                    if ((*pts)[a].y != (*pts)[b].y) return (*pts)[a].y < (*pts)[b].y;
+                    return (*pts)[a].x < (*pts)[b].x;
+                }
+            });
+
+        int node = (int)tree.size();
+        tree.push_back(KDNode());
+        tree[node].idx = ord[m];
+
+        int lc = build(l, m, depth + 1);
+        int rc = build(m + 1, r, depth + 1);
+        tree[node].left = lc;
+        tree[node].right = rc;
+
+        const Point& p = (*pts)[tree[node].idx];
+        tree[node].minx = tree[node].maxx = p.x;
+        tree[node].miny = tree[node].maxy = p.y;
+
+        auto pull = [&](int ch) {
+            if (ch == -1) return;
+            tree[node].minx = min(tree[node].minx, tree[ch].minx);
+            tree[node].maxx = max(tree[node].maxx, tree[ch].maxx);
+            tree[node].miny = min(tree[node].miny, tree[ch].miny);
+            tree[node].maxy = max(tree[node].maxy, tree[ch].maxy);
+        };
+
+        pull(lc);
+        pull(rc);
+
+        return node;
+    }
+
+    long double boxDist2(int node, const Point& p) const {
+        long double dx = 0, dy = 0;
+
+        if (p.x < tree[node].minx) dx = tree[node].minx - p.x;
+        else if (p.x > tree[node].maxx) dx = p.x - tree[node].maxx;
+
+        if (p.y < tree[node].miny) dy = tree[node].miny - p.y;
+        else if (p.y > tree[node].maxy) dy = p.y - tree[node].maxy;
+
+        return dx * dx + dy * dy;
+    }
+
+    void queryRec(int node, int src, int comp, long double& bestD, int& bestIdx) {
+        if (node == -1) return;
+
+        long double bd = boxDist2(node, (*pts)[src]);
+        if (bd > bestD) return;
+
+        int id = tree[node].idx;
+        int cid = dsu->find(id);
+
+        if (cid != comp) {
+            long double d = dist2((*pts)[src], (*pts)[id]);
+            if (d < bestD) {
+                bestD = d;
+                bestIdx = id;
+            }
+        }
+
+        int l = tree[node].left;
+        int r = tree[node].right;
+
+        long double dl = (l == -1 ? numeric_limits<long double>::infinity() : boxDist2(l, (*pts)[src]));
+        long double dr = (r == -1 ? numeric_limits<long double>::infinity() : boxDist2(r, (*pts)[src]));
+
+        if (dl < dr) {
+            if (dl <= bestD) queryRec(l, src, comp, bestD, bestIdx);
+            if (dr <= bestD) queryRec(r, src, comp, bestD, bestIdx);
+        } else {
+            if (dr <= bestD) queryRec(r, src, comp, bestD, bestIdx);
+            if (dl <= bestD) queryRec(l, src, comp, bestD, bestIdx);
+        }
+    }
+
+    pair<int, long double> nearestOutside(int src, int comp, DSU& curDsu) {
+        dsu = &curDsu;
+        long double bestD = numeric_limits<long double>::infinity();
+        int bestIdx = -1;
+        queryRec(0, src, comp, bestD, bestIdx);
+        return {bestIdx, bestD};
+    }
+};
+
+struct EdgeCandidate {
+    int u = -1, v = -1;
+    long double w = numeric_limits<long double>::infinity();
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    vector<Point> p(n);
+    for (int i = 0; i < n; ++i) {
+        long long x, y;
+        cin >> x >> y;
+        p[i] = {(long double)x, (long double)y};
+    }
+
+    KDTree kd(p);
+    DSU dsu(n);
+
+    vector<vector<pair<int, long double>>> mst(n);
+    int components = n;
+
+    while (components > 1) {
+        vector<EdgeCandidate> best(n);
+
+        for (int i = 0; i < n; ++i) {
+            int c = dsu.find(i);
+            auto [to, w] = kd.nearestOutside(i, c, dsu);
+
+            if (to != -1 && w < best[c].w) {
+                best[c] = {i, to, w};
+            }
+        }
+
+        bool changed = false;
+
+        for (int i = 0; i < n; ++i) {
+            if (dsu.find(i) != i) continue;
+            if (best[i].u == -1) continue;
+
+            int u = best[i].u;
+            int v = best[i].v;
+            long double w = best[i].w;
+
+            if (dsu.unite(u, v)) {
+                mst[u].push_back({v, w});
+                mst[v].push_back({u, w});
+                --components;
+                changed = true;
+            }
+        }
+
+        if (!changed) break;
+    }
+
+    int LOG = 1;
+    while ((1 << LOG) <= n) ++LOG;
+
+    vector<int> depth(n, 0);
+    vector<vector<int>> up(LOG, vector<int>(n, 0));
+    vector<vector<long double>> mx(LOG, vector<long double>(n, 0));
+
+    queue<int> que;
+    vector<int> used(n, 0);
+    used[0] = 1;
+    que.push(0);
+
+    while (!que.empty()) {
+        int v = que.front();
+        que.pop();
+
+        for (auto [to, w] : mst[v]) {
+            if (used[to]) continue;
+            used[to] = 1;
+            depth[to] = depth[v] + 1;
+            up[0][to] = v;
+            mx[0][to] = w;
+            que.push(to);
+        }
+    }
+
+    for (int k = 1; k < LOG; ++k) {
+        for (int v = 0; v < n; ++v) {
+            up[k][v] = up[k - 1][up[k - 1][v]];
+            mx[k][v] = max(mx[k - 1][v], mx[k - 1][up[k - 1][v]]);
+        }
+    }
+
+    auto getMaxOnPath = [&](int a, int b) {
+        long double ans = 0;
+
+        if (depth[a] < depth[b]) swap(a, b);
+
+        int diff = depth[a] - depth[b];
+        for (int k = LOG - 1; k >= 0; --k) {
+            if (diff & (1 << k)) {
+                ans = max(ans, mx[k][a]);
+                a = up[k][a];
+            }
+        }
+
+        if (a == b) return ans;
+
+        for (int k = LOG - 1; k >= 0; --k) {
+            if (up[k][a] != up[k][b]) {
+                ans = max(ans, mx[k][a]);
+                ans = max(ans, mx[k][b]);
+                a = up[k][a];
+                b = up[k][b];
+            }
+        }
+
+        ans = max(ans, mx[0][a]);
+        ans = max(ans, mx[0][b]);
+
+        return ans;
+    };
+
+    int q;
+    cin >> q;
+
+    cout.setf(ios::fixed);
+    cout << setprecision(12);
+
+    while (q--) {
+        int s, t;
+        cin >> s >> t;
+        --s;
+        --t;
+
+        long double ans2 = getMaxOnPath(s, t);
+        cout << (double)sqrt(ans2) << '\n';
+    }
+
+    return 0;
+}

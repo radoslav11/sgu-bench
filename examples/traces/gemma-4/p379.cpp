@@ -1,0 +1,103 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Summary:
+ * We have N floors and an elevator with capacity C.
+ * People at floor i (where 1 <= i <= N) want to go to the basement (floor 0).
+ * Each floor travel takes P seconds. The elevator starts at the basement (floor 0).
+ * We need to find the maximum number of people delivered to the basement within time T.
+ * 
+ * Analysis:
+ * To minimize the time for a set of people, the people should be picked from the lowest floors.
+ * A person at floor i can be picked up by any trip that reaches floor i or higher.
+ * If we pick x_i people from floor i, let S_i be the number of people at floors i to N.
+ * Then S_i = x_i + x_{i+1} + ... + x_N.
+ * The number of trips required to pick up people from floors i to N is at least ceil(S_i / C).
+ * Let K_i be the number of trips that go to floor i or higher.
+ * The total time taken for the trips is 2 * P * sum_{i=1}^N K_i.
+ * To minimize time, K_i should be ceil(S_i / C).
+ * So, the total minimum time to deliver people x_1, x_2, ..., x_N is:
+ * Time = 2 * P * sum_{i=1}^N ceil(S_i / C).
+ * 
+ * We can binary search for the maximum number of people X.
+ * To minimize the time for X people, we pick them starting from floor 1.
+ */
+
+typedef long long ll;
+typedef __int128_t int128;
+
+bool check(ll X, int N, ll C, ll P, ll T, const vector<ll>& A) {
+    if (X == 0) return true;
+    
+    // x[i] is the number of people we take from floor i
+    // S[i] is the number of people from floors i to N
+    vector<ll> x(N + 1, 0);
+    ll remaining = X;
+    for (int i = 1; i <= N; ++i) {
+        ll take = min(A[i - 1], remaining);
+        x[i] = take;
+        remaining -= take;
+    }
+    
+    // If we couldn't take X people even by taking all available people
+    if (remaining > 0) return false;
+
+    // Calculate S[i] = x_i + ... + x_N
+    vector<ll> S(N + 2, 0);
+    for (int i = N; i >= 1; --i) {
+        S[i] = S[i + 1] + x[i];
+    }
+
+    int128 total_time = 0;
+    for (int i = 1; i <= N; ++i) {
+        if (S[i] > 0) {
+            // ceil(S[i] / C) = (S[i] + C - 1) / C
+            int128 trips = (int128)(S[i] + C - 1) / C;
+            total_time += trips;
+        }
+    }
+    
+    // The formula is total_time = 2 * P * sum(trips_i)
+    total_time *= (2 * (int128)P);
+
+    return total_time <= (int128)T;
+}
+
+int main() {
+    // Speed up I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    ll C, P, T;
+    if (!(cin >> N >> C >> P >> T)) return 0;
+
+    vector<ll> A(N);
+    ll sum_A = 0;
+    for (int i = 0; i < N; ++i) {
+        cin >> A[i];
+        sum_A += A[i];
+    }
+
+    // Binary search for the maximum number of people X
+    ll low = 0, high = sum_A;
+    ll ans = 0;
+    while (low <= high) {
+        ll mid = low + (high - low) / 2;
+        if (check(mid, N, C, P, T, A)) {
+            ans = mid;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+
+    cout << ans << endl;
+
+    return 0;
+}
+

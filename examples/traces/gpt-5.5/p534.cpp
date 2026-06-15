@@ -1,0 +1,279 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const long long INF = (1LL << 60);
+
+struct Edge {
+    int to, id;
+    long long t, p;
+};
+
+int n;
+vector<vector<Edge>> g;
+
+vector<long long> distA, distB;
+vector<int> par, parEdge, parEdgeCost;
+vector<long long> parW;
+
+int farthest_from(int src, vector<long long>& dist) {
+    dist.assign(n + 1, -1);
+    vector<int> st;
+    st.push_back(src);
+    dist[src] = 0;
+
+    while (!st.empty()) {
+        int v = st.back();
+        st.pop_back();
+
+        for (auto &e : g[v]) {
+            if (dist[e.to] == -1) {
+                dist[e.to] = dist[v] + e.t;
+                st.push_back(e.to);
+            }
+        }
+    }
+
+    int best = src;
+    for (int i = 1; i <= n; i++) {
+        if (dist[i] > dist[best]) best = i;
+    }
+    return best;
+}
+
+struct CalcResult {
+    bool has;
+    long long cost;
+    vector<int> chosen;
+};
+
+CalcResult calc_component(int start, int parent, long long startDist2, long long targetD2,
+                          long long parentCost, int parentEdgeId) {
+    vector<int> nodes;
+    vector<int> pnode(n + 1, -1), pedge(n + 1, -1);
+    vector<long long> pcost(n + 1, INF), d2(n + 1, 0);
+
+    stack<int> st;
+    st.push(start);
+    pnode[start] = parent;
+    pedge[start] = parentEdgeId;
+    pcost[start] = parentCost;
+    d2[start] = startDist2;
+
+    while (!st.empty()) {
+        int v = st.top();
+        st.pop();
+        nodes.push_back(v);
+
+        for (auto &e : g[v]) {
+            if (e.to == pnode[v]) continue;
+            long long nd = d2[v] + 2 * e.t;
+            if (nd > targetD2) continue;
+
+            pnode[e.to] = v;
+            pedge[e.to] = e.id;
+            pcost[e.to] = e.p;
+            d2[e.to] = nd;
+            st.push(e.to);
+        }
+    }
+
+    vector<char> has(n + 1, 0), takeParent(n + 1, 0);
+    vector<long long> dp(n + 1, 0);
+
+    reverse(nodes.begin(), nodes.end());
+
+    for (int v : nodes) {
+        if (d2[v] == targetD2) {
+            has[v] = 1;
+            dp[v] = pcost[v];
+            takeParent[v] = 1;
+            continue;
+        }
+
+        long long sum = 0;
+        bool any = false;
+
+        for (auto &e : g[v]) {
+            if (e.to == pnode[v]) continue;
+            if (pnode[e.to] == v && has[e.to]) {
+                any = true;
+                sum += dp[e.to];
+                if (sum > INF) sum = INF;
+            }
+        }
+
+        if (!any) {
+            has[v] = 0;
+            dp[v] = 0;
+        } else {
+            has[v] = 1;
+            if (pcost[v] <= sum) {
+                dp[v] = pcost[v];
+                takeParent[v] = 1;
+            } else {
+                dp[v] = sum;
+                takeParent[v] = 0;
+            }
+        }
+    }
+
+    vector<int> chosen;
+
+    if (has[start]) {
+        stack<int> cs;
+        cs.push(start);
+
+        while (!cs.empty()) {
+            int v = cs.top();
+            cs.pop();
+
+            if (takeParent[v]) {
+                if (pedge[v] != -1) chosen.push_back(pedge[v]);
+            } else {
+                for (auto &e : g[v]) {
+                    if (e.to == pnode[v]) continue;
+                    if (pnode[e.to] == v && has[e.to]) {
+                        cs.push(e.to);
+                    }
+                }
+            }
+        }
+    }
+
+    return {bool(has[start]), dp[start], chosen};
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    cin >> n;
+    g.assign(n + 1, {});
+
+    vector<long long> edgeCost(n);
+    for (int i = 1; i <= n - 1; i++) {
+        int a, b;
+        long long t, p;
+        cin >> a >> b >> t >> p;
+        g[a].push_back({b, i, t, p});
+        g[b].push_back({a, i, t, p});
+        edgeCost[i] = p;
+    }
+
+    int A = farthest_from(1, distA);
+    int B = farthest_from(A, distA);
+    farthest_from(B, distB);
+
+    long long D = distA[B];
+
+    par.assign(n + 1, -1);
+    parEdge.assign(n + 1, -1);
+    parEdgeCost.assign(n + 1, 0);
+    parW.assign(n + 1, 0);
+
+    stack<int> st;
+    st.push(A);
+    par[A] = 0;
+
+    while (!st.empty()) {
+        int v = st.top();
+        st.pop();
+
+        for (auto &e : g[v]) {
+            if (e.to == par[v]) continue;
+            par[e.to] = v;
+            parEdge[e.to] = e.id;
+            parEdgeCost[e.to] = e.p;
+            parW[e.to] = e.t;
+            st.push(e.to);
+        }
+    }
+
+    vector<int> path;
+    int cur = B;
+    while (cur != 0) {
+        path.push_back(cur);
+        if (cur == A) break;
+        cur = par[cur];
+    }
+    reverse(path.begin(), path.end());
+
+    vector<int> answer;
+    long long answerCost = 0;
+
+    int centerVertex = -1;
+    int leftNode = -1, rightNode = -1, centerEdge = -1;
+    long long leftOffset2 = 0, rightOffset2 = 0, centerEdgeCost = 0;
+
+    for (int i = 0; i < (int)path.size(); i++) {
+        int v = path[i];
+
+        if (2 * distA[v] == D) {
+            centerVertex = v;
+            break;
+        }
+
+        if (i + 1 < (int)path.size()) {
+            int u = path[i], w = path[i + 1];
+            if (2 * distA[u] < D && D < 2 * distA[w]) {
+                leftNode = u;
+                rightNode = w;
+                centerEdge = parEdge[w];
+                centerEdgeCost = parEdgeCost[w];
+
+                leftOffset2 = D - 2 * distA[u];
+                rightOffset2 = 2 * distA[w] - D;
+                break;
+            }
+        }
+    }
+
+    if (centerVertex != -1) {
+        vector<CalcResult> comps;
+        long long total = 0;
+        int skip = -1;
+        long long bestSaved = -1;
+
+        for (auto &e : g[centerVertex]) {
+            CalcResult res = calc_component(e.to, centerVertex, 2 * e.t, D, e.p, e.id);
+            if (res.has) {
+                comps.push_back(res);
+                total += res.cost;
+                if (res.cost > bestSaved) {
+                    bestSaved = res.cost;
+                    skip = (int)comps.size() - 1;
+                }
+            }
+        }
+
+        answerCost = total - bestSaved;
+
+        for (int i = 0; i < (int)comps.size(); i++) {
+            if (i == skip) continue;
+            for (int id : comps[i].chosen) answer.push_back(id);
+        }
+    } else {
+        CalcResult L = calc_component(leftNode, rightNode, leftOffset2, D, INF, -1);
+        CalcResult R = calc_component(rightNode, leftNode, rightOffset2, D, INF, -1);
+
+        answerCost = centerEdgeCost;
+        answer = {centerEdge};
+
+        if (L.has && L.cost < answerCost) {
+            answerCost = L.cost;
+            answer = L.chosen;
+        }
+
+        if (R.has && R.cost < answerCost) {
+            answerCost = R.cost;
+            answer = R.chosen;
+        }
+    }
+
+    cout << answerCost << '\n';
+    cout << answer.size() << '\n';
+    for (int id : answer) cout << id << ' ';
+    cout << '\n';
+
+    return 0;
+}

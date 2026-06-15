@@ -1,0 +1,110 @@
+#include <iostream>
+#include <vector>
+#include <numeric>
+#include <algorithm>
+
+using namespace std;
+
+struct Edge {
+    int id;
+    int u, v;
+    long long r, c;
+    bool in_S;
+};
+
+bool operator<(const Edge& a, const Edge& b) {
+    if (a.r != b.r) return a.r > b.r;
+    if (a.c != b.c) return a.c > b.c;
+    return a.id < b.id;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<Edge> edges(n);
+    vector<int> coords;
+    coords.reserve(2 * n);
+
+    for (int i = 0; i < n; i++) {
+        edges[i].id = i + 1;
+        cin >> edges[i].u >> edges[i].v >> edges[i].r >> edges[i].c;
+        coords.push_back(edges[i].u);
+        coords.push_back(edges[i].v);
+    }
+
+    sort(coords.begin(), coords.end());
+    coords.erase(unique(coords.begin(), coords.end()), coords.end());
+
+    auto get_id = [&](int x) {
+        return lower_bound(coords.begin(), coords.end(), x) - coords.begin();
+    };
+
+    int num_coords = coords.size();
+    vector<int> parent(num_coords);
+    vector<int> sz(num_coords, 1);
+    iota(parent.begin(), parent.end(), 0);
+
+    auto find = [&](auto& self, int i) -> int {
+        if (parent[i] == i) return i;
+        return parent[i] = self(self, parent[i]);
+    };
+
+    auto unite = [&](int i, int j) {
+        int root_i = find(find, i);
+        int root_j = find(find, j);
+        if (root_i != root_j) {
+            if (sz[root_i] < sz[root_j]) swap(root_i, root_j);
+            parent[root_j] = root_i;
+            sz[root_i] += sz[root_j];
+            return true;
+        }
+        return false;
+    };
+
+    sort(edges.begin(), edges.end());
+
+    long long total_cost = 0;
+    for (auto& edge : edges) {
+        int u_id = get_id(edge.u);
+        int v_id = get_id(edge.v);
+        if (unite(u_id, v_id)) {
+            edge.in_S = true;
+            total_cost += edge.c;
+        } else {
+            edge.in_S = false;
+        }
+    }
+
+    vector<int> order;
+    order.reserve(n);
+    int i = 0;
+    while (i < n) {
+        int j = i;
+        while (j < n && edges[j].r == edges[i].r) {
+            j++;
+        }
+        for (int k = i; k < j; k++) {
+            if (!edges[k].in_S) {
+                order.push_back(edges[k].id);
+            }
+        }
+        for (int k = i; k < j; k++) {
+            if (edges[k].in_S) {
+                order.push_back(edges[k].id);
+            }
+        }
+        i = j;
+    }
+
+    cout << total_cost << "\n";
+    for (int k = 0; k < n; k++) {
+        cout << order[k] << (k == n - 1 ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

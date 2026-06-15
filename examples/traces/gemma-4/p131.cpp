@@ -1,0 +1,95 @@
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+/**
+ * Problem: Hardwood floor
+ * 
+ * Given an M x N rectangle (1 <= M, N <= 9), find the number of ways to cover
+ * it using:
+ * 1) 2x1 (or 1x2) rectangles
+ * 2) 2x2 corner shapes (L-shapes)
+ * 
+ * We use profile dynamic programming with bitmasking. The state is (index, mask),
+ * where index is the current cell (in row-major order) and mask represents
+ * whether the next N+2 cells (from the current index) are already covered.
+ * This allows us to accommodate all pieces, including L-shapes that extend
+ * to the next row.
+ */
+
+long long dp[82][1 << 11];
+
+int main() {
+    // Faster I/O
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int M, N;
+    if (!(cin >> M >> N)) return 0;
+
+    // If N is large, it's better to ensure N is the smaller dimension to 
+    // keep the bitmask size small. However, the constraints M, N <= 9 
+    // mean any orientation will fit within the time and memory limits.
+    // Here, we use the given M and N directly.
+
+    int total_cells = M * N;
+    int mask_size = 1 << (N + 2);
+
+    // dp[i][mask] is the number of ways to cover cells from index i onwards
+    // given that cells i to i+N+1 are covered according to the bits in mask.
+    dp[0][0] = 1;
+
+    for (int i = 0; i < total_cells; ++i) {
+        int r = i / N;
+        int c = i % N;
+
+        for (int mask = 0; mask < mask_size; ++mask) {
+            if (dp[i][mask] == 0) continue;
+
+            // If current cell i is already covered
+            if (mask & 1) {
+                dp[i + 1][mask >> 1] += dp[i][mask];
+            } else {
+                // Try all possible pieces that start at the current cell (r, c)
+
+                // 1. 1x2 rectangle (horizontal)
+                if (c < N - 1 && !(mask & 2)) {
+                    dp[i + 1][(mask | 2) >> 1] += dp[i][mask];
+                }
+
+                // 2. 2x1 rectangle (vertical)
+                if (r < M - 1 && !(mask & (1 << N))) {
+                    dp[i + 1][(mask | (1 << N)) >> 1] += dp[i][mask];
+                }
+
+                // 3. L-shape type 1: (r, c), (r, c+1), (r+1, c)
+                if (c < N - 1 && r < M - 1 && !(mask & 2) && !(mask & (1 << N))) {
+                    dp[i + 1][(mask | 2 | (1 << N)) >> 1] += dp[i][mask];
+                }
+
+                // 4. L-shape type 2: (r, c), (r, c+1), (r+1, c+1)
+                if (c < N - 1 && r < M - 1 && !(mask & 2) && !(mask & (1 << (N + 1)))) {
+                    dp[i + 1][(mask | 2 | (1 << (N + 1))) >> 1] += dp[i][mask];
+                }
+
+                // 5. L-shape type 3: (r, c), (r+1, c), (r+1, c+1)
+                if (c < N - 1 && r < M - 1 && !(mask & (1 << N)) && !(mask & (1 << (N + 1)))) {
+                    dp[i + 1][(mask | (1 << N) | (1 << (N + 1))) >> 1] += dp[i][mask];
+                }
+
+                // 6. L-shape type 4: (r, c), (r+1, c-1), (r+1, c)
+                if (c > 0 && r < M - 1 && !(mask & (1 << (N - 1))) && !(mask & (1 << N))) {
+                    dp[i + 1][(mask | (1 << (N - 1)) | (1 << N)) >> 1] += dp[i][mask];
+                }
+            }
+        }
+    }
+
+    // The result is the number of ways to cover all cells up to total_cells.
+    // This is represented by dp[total_cells][0].
+    cout << dp[total_cells][0] << endl;
+
+    return 0;
+}
+

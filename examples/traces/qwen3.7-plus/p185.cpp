@@ -1,0 +1,230 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct Dinic {
+    struct Edge {
+        int to;
+        int cap;
+        int flow;
+        int next;
+    };
+    int n;
+    vector<Edge> edges;
+    vector<int> head;
+    vector<int> level;
+    vector<int> ptr;
+
+    Dinic(int n) : n(n), head(n + 1, -1), level(n + 1), ptr(n + 1) {}
+
+    void add_edge(int from, int to, int cap) {
+        edges.push_back({to, cap, 0, head[from]});
+        head[from] = edges.size() - 1;
+        edges.push_back({from, 0, 0, head[to]});
+        head[to] = edges.size() - 1;
+    }
+
+    bool bfs(int s, int t) {
+        fill(level.begin(), level.end(), -1);
+        level[s] = 0;
+        queue<int> q;
+        q.push(s);
+        while (!q.empty()) {
+            int v = q.front();
+            q.pop();
+            for (int e = head[v]; e != -1; e = edges[e].next) {
+                int to = edges[e].to;
+                if (edges[e].cap - edges[e].flow > 0 && level[to] == -1) {
+                    level[to] = level[v] + 1;
+                    q.push(to);
+                }
+            }
+        }
+        return level[t] != -1;
+    }
+
+    int dfs(int v, int t, int pushed) {
+        if (pushed == 0) return 0;
+        if (v == t) return pushed;
+        for (int& e = ptr[v]; e != -1; e = edges[e].next) {
+            int to = edges[e].to;
+            if (level[v] + 1 != level[to] || edges[e].cap - edges[e].flow == 0) continue;
+            int push = dfs(to, t, min(pushed, edges[e].cap - edges[e].flow));
+            if (push == 0) continue;
+            edges[e].flow += push;
+            edges[e ^ 1].flow -= push;
+            return push;
+        }
+        return 0;
+    }
+
+    int max_flow(int s, int t) {
+        int flow = 0;
+        while (bfs(s, t)) {
+            ptr = head;
+            while (int pushed = dfs(s, t, 1e9)) {
+                flow += pushed;
+            }
+        }
+        return flow;
+    }
+};
+
+struct UndirectedEdge {
+    int u, v, w;
+};
+
+struct DijEdge {
+    int to, w, next;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+
+    vector<UndirectedEdge> undirected_edges(M);
+    vector<int> head_dij(N + 1, -1);
+    vector<DijEdge> edges_dij;
+    edges_dij.reserve(2 * M);
+
+    for (int i = 0; i < M; ++i) {
+        cin >> undirected_edges[i].u >> undirected_edges[i].v >> undirected_edges[i].w;
+        int u = undirected_edges[i].u;
+        int v = undirected_edges[i].v;
+        int w = undirected_edges[i].w;
+        edges_dij.push_back({v, w, head_dij[u]});
+        head_dij[u] = edges_dij.size() - 1;
+        edges_dij.push_back({u, w, head_dij[v]});
+        head_dij[v] = edges_dij.size() - 1;
+    }
+
+    vector<long long> dist1(N + 1, INF);
+    dist1[1] = 0;
+    vector<bool> vis1(N + 1, false);
+    for (int i = 0; i < N; ++i) {
+        int u = -1;
+        long long min_d = INF;
+        for (int j = 1; j <= N; ++j) {
+            if (!vis1[j] && dist1[j] < min_d) {
+                min_d = dist1[j];
+                u = j;
+            }
+        }
+        if (u == -1) break;
+        vis1[u] = true;
+        for (int e = head_dij[u]; e != -1; e = edges_dij[e].next) {
+            int v = edges_dij[e].to;
+            long long w = edges_dij[e].w;
+            if (dist1[u] + w < dist1[v]) {
+                dist1[v] = dist1[u] + w;
+            }
+        }
+    }
+
+    if (dist1[N] == INF) {
+        cout << "No solution\n";
+        return 0;
+    }
+
+    vector<long long> distN(N + 1, INF);
+    distN[N] = 0;
+    vector<bool> visN(N + 1, false);
+    for (int i = 0; i < N; ++i) {
+        int u = -1;
+        long long min_d = INF;
+        for (int j = 1; j <= N; ++j) {
+            if (!visN[j] && distN[j] < min_d) {
+                min_d = distN[j];
+                u = j;
+            }
+        }
+        if (u == -1) break;
+        visN[u] = true;
+        for (int e = head_dij[u]; e != -1; e = edges_dij[e].next) {
+            int v = edges_dij[e].to;
+            long long w = edges_dij[e].w;
+            if (distN[u] + w < distN[v]) {
+                distN[v] = distN[u] + w;
+            }
+        }
+    }
+
+    edges_dij.clear();
+    edges_dij.shrink_to_fit();
+    head_dij.clear();
+    head_dij.shrink_to_fit();
+    vis1.clear();
+    vis1.shrink_to_fit();
+    visN.clear();
+    visN.shrink_to_fit();
+
+    long long D = dist1[N];
+
+    Dinic dinic(N);
+    for (int i = 0; i < M; ++i) {
+        int u = undirected_edges[i].u;
+        int v = undirected_edges[i].v;
+        long long w = undirected_edges[i].w;
+
+        if (dist1[u] != INF && distN[v] != INF && dist1[u] + w + distN[v] == D) {
+            dinic.add_edge(u, v, 1);
+        }
+        if (dist1[v] != INF && distN[u] != INF && dist1[v] + w + distN[u] == D) {
+            dinic.add_edge(v, u, 1);
+        }
+    }
+
+    undirected_edges.clear();
+    undirected_edges.shrink_to_fit();
+
+    int flow = dinic.max_flow(1, N);
+    if (flow < 2) {
+        cout << "No solution\n";
+        return 0;
+    }
+
+    vector<vector<int>> paths;
+    paths.reserve(2);
+    for (int p = 0; p < 2; ++p) {
+        vector<int> path;
+        int curr = 1;
+        path.push_back(curr);
+        while (curr != N) {
+            bool found = false;
+            for (int e = dinic.head[curr]; e != -1; e = dinic.edges[e].next) {
+                if (dinic.edges[e].flow > 0) {
+                    dinic.edges[e].flow--;
+                    curr = dinic.edges[e].to;
+                    path.push_back(curr);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) break;
+        }
+        if (curr == N) {
+            paths.push_back(path);
+        }
+    }
+
+    if (paths.size() < 2) {
+        cout << "No solution\n";
+    } else {
+        for (int i = 0; i < 2; ++i) {
+            for (int j = 0; j < (int)paths[i].size(); ++j) {
+                cout << paths[i][j] << (j + 1 == (int)paths[i].size() ? "" : " ");
+            }
+            cout << "\n";
+        }
+    }
+
+    return 0;
+}

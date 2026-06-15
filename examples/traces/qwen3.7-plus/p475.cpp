@@ -1,0 +1,77 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<long long> w(n), t(n), s(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> w[i] >> t[i] >> s[i];
+    }
+
+    vector<long long> c(m), D(m), d(m);
+    for (int i = 0; i < m; ++i) {
+        cin >> c[i] >> D[i] >> d[i];
+    }
+
+    vector<long long> dp(1 << n, INF);
+    dp[0] = 0;
+
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < n; ++j) {
+            for (int S = 0; S < (1 << n); ++S) {
+                if (S & (1 << j)) {
+                    int S2 = S ^ (1 << j);
+                    long long tmp = dp[S];
+                    dp[S] = min(dp[S], dp[S2] + s[j]);
+                    dp[S2] = min(dp[S2], tmp + s[j]);
+                }
+            }
+        }
+
+        dp[0] = INF;
+
+        for (int S = 1; S < (1 << n); ++S) {
+            if (dp[S] == INF) continue;
+
+            long long w_sum = 0;
+            long long t_walk = 0;
+            for (int j = 0; j < n; ++j) {
+                if (S & (1 << j)) {
+                    w_sum += w[j];
+                } else {
+                    t_walk = max(t_walk, t[j]);
+                }
+            }
+
+            long long t_raft = (w_sum > c[i]) ? D[i] : d[i];
+            long long move_time = max(t_raft, t_walk);
+
+            dp[S] += move_time;
+        }
+    }
+
+    for (int j = 0; j < n; ++j) {
+        for (int S = 0; S < (1 << n); ++S) {
+            if (S & (1 << j)) {
+                int S2 = S ^ (1 << j);
+                long long tmp = dp[S];
+                dp[S] = min(dp[S], dp[S2] + s[j]);
+                dp[S2] = min(dp[S2], tmp + s[j]);
+            }
+        }
+    }
+
+    cout << dp[0] << "\n";
+
+    return 0;
+}

@@ -1,0 +1,192 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Summary:
+ * Given a set Q of squares in an NxN grid, divide Q into two disjoint subsets Q1 and Q2
+ * such that Q2 is a rotation (0, 90, 180, or 270 degrees) and a translation of Q1.
+ * N <= 20.
+ */
+
+struct Point {
+    int r, c;
+};
+
+// Standard 4 rotations of a point (r, c)
+Point rotate(int rot, int r, int c) {
+    if (rot == 0) return {r, c};
+    if (rot == 1) return {c, -r};
+    if (rot == 2) return {-r, -c};
+    if (rot == 3) return {-c, r};
+    return {0, 0};
+}
+
+// Global arrays to speed up the check function
+int in_deg[20][20];
+int nxt_r[20][20];
+int nxt_c[20][20];
+bool visited[20][20];
+Point path_buf[405];
+
+/**
+ * check: Determines if a given rotation and translation vector (dr, dc) 
+ * can divide the set Q into the required Q1 and Q2.
+ */
+bool check(int rot, int dr, int dc, int N, const vector<Point>& Q, bool grid[20][20], vector<Point>& Q1) {
+    // Initialize helper arrays
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            in_deg[i][j] = 0;
+            nxt_r[i][j] = -1;
+            nxt_c[i][j] = -1;
+            visited[i][j] = false;
+        }
+    }
+
+    // Build the graph: for each p in Q, f(p) = rotate(p) + (dr, dc).
+    // If f(p) is also in Q, add a directed edge p -> f(p).
+    for (const auto& p : Q) {
+        Point rp = rotate(rot, p.r, p.c);
+        int nr = rp.r + dr;
+        int nc = rp.c + dc;
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && grid[nr][nc]) {
+            nxt_r[p.r][p.c] = nr;
+            nxt_c[p.r][p.c] = nc;
+            in_deg[nr][nc]++;
+        }
+    }
+
+    Q1.clear();
+    // Every node in this graph has in-degree <= 1 and out-degree <= 1.
+    // Thus, the graph consists of disjoint paths and cycles.
+    // For a valid division, every component must have an even number of nodes.
+
+    // 1. Traverse all paths (starting from nodes with in-degree 0)
+    for (const auto& p : Q) {
+        if (in_deg[p.r][p.c] == 0 && !visited[p.r][p.c]) {
+            int curr_r = p.r, curr_c = p.c;
+            int len = 0;
+            while (curr_r != -1 && !visited[curr_r][curr_c]) {
+                visited[curr_r][curr_c] = true;
+                path_buf[len++] = {curr_r, curr_c};
+                int nr = nxt_r[curr_r][curr_c];
+                int nc = nxt_c[curr_r][curr_c];
+                curr_r = nr;
+                curr_c = nc;
+            }
+            if (len % 2 != 0) return false;
+            // Add alternating nodes to Q1
+            for (int i = 0; i < len; i += 2) {
+                Q1.push_back(path_buf[i]);
+            }
+        }
+    }
+
+    // 2. Traverse all remaining cycles
+    for (const auto& p : Q) {
+        if (!visited[p.r][p.c]) {
+            int curr_r = p.r, curr_c = p.c;
+            int len = 0;
+            while (!visited[curr_r][curr_c]) {
+                visited[curr_r][curr_c] = true;
+                path_buf[len++] = {curr_r, curr_c};
+                int nr = nxt_r[curr_r][curr_c];
+                int nc = nxt_c[curr_r][curr_c];
+                curr_r = nr;
+                curr_c = nc;
+            }
+            if (len % 2 != 0) return false;
+            // Add alternating nodes to Q1
+            for (int i = 0; i < len; i += 2) {
+                Q1.push_back(path_buf[i]);
+            }
+        }
+    }
+
+    // Check if we've successfully picked exactly half of the points
+    return Q1.size() == Q.size() / 2;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    bool grid[20][20] = {false};
+    vector<Point> Q;
+    for (int i = 0; i < N; ++i) {
+        string row;
+        cin >> row;
+        for (int j = 0; j < N; ++j) {
+            if (row[j] == '1') {
+                grid[i][j] = true;
+                Q.push_back({i, j});
+            }
+        }
+    }
+
+    // If the number of points is odd, no equal division is possible.
+    if (Q.size() % 2 != 0) {
+        cout << "NO" << endl;
+        return 0;
+    }
+
+    if (Q.empty()) {
+        cout << "YES" << endl;
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) cout << '0';
+            cout << '\n';
+        }
+        return 0;
+    }
+
+    // Try all 4 rotations
+    for (int rot = 0; rot < 4; ++rot) {
+        // If p0 is in Q1, then f(p0) = q for some q in Q.
+        // If p0 is in Q2, then f(q) = p0 for some q in Q.
+        // This covers all possible translation vectors for any partition.
+        Point p0 = Q[0];
+        vector<pair<int, int>> candidates;
+        for (const auto& q : Q) {
+            // Case 1: p0 is in Q1
+            Point rp0 = rotate(rot, p0.r, p0.c);
+            candidates.push_back({q.r - rp0.r, q.c - rp0.c});
+
+            // Case 2: p0 is in Q2
+            Point rq = rotate(rot, q.r, q.c);
+            candidates.push_back({p0.r - rq.r, p0.c - rq.c});
+        }
+
+        // Sort and unique to avoid redundant checks
+        sort(candidates.begin(), candidates.end());
+        candidates.erase(unique(candidates.begin(), candidates.end()), candidates.end());
+
+        for (auto& cand : candidates) {
+            int dr = cand.first;
+            int dc = cand.second;
+            vector<Point> Q1;
+            if (check(rot, dr, dc, N, Q, grid, Q1)) {
+                cout << "YES" << endl;
+                // Output the result grid
+                bool result_grid[20][20] = {false};
+                for (auto& p : Q1) result_grid[p.r][p.c] = true;
+                for (int i = 0; i < N; ++i) {
+                    for (int j = 0; j < N; ++j) {
+                        cout << (result_grid[i][j] ? '1' : '0');
+                    }
+                    cout << '\n';
+                }
+                return 0;
+            }
+        }
+    }
+
+    cout << "NO" << endl;
+    return 0;
+}
+

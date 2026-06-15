@@ -1,0 +1,310 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+#include <set>
+
+using namespace std;
+
+const double EPS = 1e-9;
+const double PI = acos(-1.0);
+
+struct Point {
+    double x, y;
+    Point() : x(0), y(0) {}
+    Point(double x, double y) : x(x), y(y) {}
+    
+    bool operator==(const Point& p) const {
+        return fabs(x - p.x) < EPS && fabs(y - p.y) < EPS;
+    }
+    
+    bool operator<(const Point& p) const {
+        if (fabs(x - p.x) > EPS) return x < p.x;
+        return y < p.y - EPS;
+    }
+};
+
+double dist(const Point& a, const Point& b) {
+    double dx = a.x - b.x;
+    double dy = a.y - b.y;
+    return sqrt(dx * dx + dy * dy);
+}
+
+struct Circle {
+    Point center;
+    double r;
+    
+    Circle() {}
+    Circle(Point c, double rad) : center(c), r(rad) {}
+    
+    bool contains(const Point& p) const {
+        return fabs(dist(center, p) - r) < EPS;
+    }
+};
+
+// Find circle through 3 points
+Circle circleFrom3Points(const Point& A, const Point& B, const Point& C) {
+    double ax = A.x, ay = A.y;
+    double bx = B.x, by = B.y;
+    double cx = C.x, cy = C.y;
+    
+    double d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+    double ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
+    double uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
+    
+    Point center(ux, uy);
+    double r = dist(center, A);
+    
+    return Circle(center, r);
+}
+
+// Normalize angle to [0, 2*PI)
+double normalizeAngle(double angle) {
+    angle = fmod(angle, 2 * PI);
+    if (angle < 0) angle += 2 * PI;
+    return angle;
+}
+
+// Get angle of point relative to circle center
+double getAngle(const Circle& c, const Point& p) {
+    return normalizeAngle(atan2(p.y - c.center.y, p.x - c.center.x));
+}
+
+// Represent arc by angular range [start, end] in counterclockwise direction
+struct Arc {
+    Circle circle;
+    double startAngle, endAngle;
+    bool clockwise; // false = counterclockwise, true = clockwise
+    
+    Arc() {}
+    
+    Arc(const Point& A, const Point& B, const Point& C) {
+        circle = circleFrom3Points(A, B, C);
+        
+        double angleA = getAngle(circle, A);
+        double angleB = getAngle(circle, B);
+        double angleC = getAngle(circle, C);
+        
+        // Determine the arc direction
+        // Check if C is on the counterclockwise arc from A to B or clockwise
+        double diffCCW = normalizeAngle(angleB - angleA);
+        double diffCW = 2 * PI - diffCCW;
+        
+        double diffToC_CW = normalizeAngle(angleC - angleA);
+        double diffToC_CCW = normalizeAngle(angleA - angleC);
+        
+        // Check which direction contains angleC
+        bool ccwContainsC = (diffToC_CW <= diffCCW + EPS) || (fabs(diffToC_CW - diffCCW) < EPS);
+        bool cwContainsC = (diffToC_CCW <= diffCW + EPS) || (fabs(diffToC_CCW - diffCW) < EPS);
+        
+        // Actually, simpler: check if angleC is between angleA and angleB in CCW direction
+        double checkCCW = normalizeAngle(angleC - angleA);
+        double rangeCCW = normalizeAngle(angleB - angleA);
+        
+        if (rangeCCW > 0 && checkCCW >= 0 && checkCCW <= rangeCCW + EPS) {
+            // CCW from A to B contains C
+            startAngle = angleA;
+            endAngle = angleB;
+            clockwise = false;
+        } else {
+            // CW from A to B contains C (or CCW from B to A)
+            startAngle = angleB;
+            endAngle = angleA;
+            clockwise = true;
+        }
+    }
+};
+
+// Check if point p is on the arc
+bool pointOnArc(const Arc& arc, const Point& p) {
+    if (!arc.circle.contains(p)) return false;
+    
+    double angleP = getAngle(arc.circle, p);
+    
+    if (!arc.clockwise) {
+        // Counterclockwise from startAngle to endAngle
+        if (arc.startAngle <= arc.endAngle) {
+            return angleP >= arc.startAngle - EPS && angleP <= arc.endAngle + EPS;
+        } else {
+            // Wraps around 2*PI
+            return angleP >= arc.startAngle - EPS || angleP <= arc.endAngle + EPS;
+        }
+    } else {
+        // Clockwise from startAngle to endAngle
+        // Which is equivalent to CCW from endAngle to startAngle
+        if (arc.endAngle <= arc.startAngle) {
+            return angleP >= arc.endAngle - EPS && angleP <= arc.startAngle + EPS;
+        } else {
+            // Wraps around 2*PI
+            return angleP >= arc.endAngle - EPS || angleP <= arc.startAngle + EPS;
+        }
+    }
+}
+
+// Find intersection points of two circles
+vector<Point> circleIntersect(const Circle& c1, const Circle& c2) {
+    vector<Point> res;
+    
+    double d = dist(c1.center, c2.center);
+    
+    // No intersection or coincident circles
+    if (d < fabs(c1.r - c2.r) - EPS) {
+        // One circle inside another, no intersection
+        return res;
+    }
+    
+    if (d > c1.r + c2.r + EPS) {
+        // Circles too far apart
+        return res;
+    }
+    
+    // Check for coincident circles
+    if (d < EPS && fabs(c1.r - c2.r) < EPS) {
+        // Same circle - infinite intersections
+        return res; // We'll handle this separately
+    }
+    
+    // Calculate intersection points
+    double a = (c1.r * c1.r - c2.r * c2.r + d * d) / (2 * d);
+    double h = sqrt(max(0.0, c1.r * c1.r - a * a));
+    
+    // Point P2 - the point on line between centers at distance a from c1 center
+    Point p2;
+    p2.x = c1.center.x + a * (c2.center.x - c1.center.x) / d;
+    p2.y = c1.center.y + a * (c2.center.y - c1.center.y) / d;
+    
+    if (h < EPS) {
+        // One intersection point (tangent)
+        res.push_back(p2);
+    } else {
+        // Two intersection points
+        Point p1, p2_other;
+        
+        p1.x = p2.x + h * (c2.center.y - c1.center.y) / d;
+        p1.y = p2.y - h * (c2.center.x - c1.center.x) / d;
+        
+        p2_other.x = p2.x - h * (c2.center.y - c1.center.y) / d;
+        p2_other.y = p2.y + h * (c2.center.x - c1.center.x) / d;
+        
+        res.push_back(p1);
+        res.push_back(p2_other);
+    }
+    
+    return res;
+}
+
+// Check if two arcs are on the same circle and overlapping
+bool sameCircleWithOverlap(const Arc& a1, const Arc& a2) {
+    if (dist(a1.circle.center, a2.circle.center) > EPS) return false;
+    if (fabs(a1.circle.r - a2.circle.r) > EPS) return false;
+    
+    // Check if arcs overlap
+    // Convert to normalized angles for both arcs
+    // We'll check if there's any common point
+    // This is complex, but for simplicity, if circles are same and arcs overlap, return true
+    // We can check by sampling points
+    
+    // Simpler: check if start point of a1 is on a2 or vice versa
+    Point p1_start, p1_end, p2_start, p2_end;
+    
+    // Get points at start and end angles
+    auto getPointAtAngle = [](const Circle& c, double angle) {
+        return Point(c.center.x + c.r * cos(angle), c.center.y + c.r * sin(angle));
+    };
+    
+    p1_start = getPointAtAngle(a1.circle, a1.startAngle);
+    p1_end = getPointAtAngle(a1.circle, a1.endAngle);
+    p2_start = getPointAtAngle(a2.circle, a2.startAngle);
+    p2_end = getPointAtAngle(a2.circle, a2.endAngle);
+    
+    if (pointOnArc(a2, p1_start) || pointOnArc(a2, p1_end) || 
+        pointOnArc(a1, p2_start) || pointOnArc(a1, p2_end)) {
+        return true;
+    }
+    
+    // More robust check: check if any angle is in both arcs
+    auto angleInArc = [](double angle, const Arc& arc) {
+        if (!arc.clockwise) {
+            double s = arc.startAngle, e = arc.endAngle;
+            if (s <= e) {
+                return angle >= s - EPS && angle <= e + EPS;
+            } else {
+                return angle >= s - EPS || angle <= e + EPS;
+            }
+        } else {
+            double s = arc.startAngle, e = arc.endAngle;
+            if (e <= s) {
+                return angle >= e - EPS && angle <= s + EPS;
+            } else {
+                return angle >= e - EPS || angle <= s + EPS;
+            }
+        }
+    };
+    
+    // Check midpoint
+    double mid1 = (a1.startAngle + a1.endAngle) / 2;
+    if (a1.startAngle > a1.endAngle && !a1.clockwise) mid1 += PI;
+    if (a1.startAngle < a1.endAngle && a1.clockwise) mid1 += PI;
+    mid1 = normalizeAngle(mid1);
+    
+    if (angleInArc(mid1, a2)) return true;
+    
+    return false;
+}
+
+int main() {
+    int n;
+    cin >> n;
+    
+    vector<Arc> arcs;
+    for (int i = 0; i < n; i++) {
+        double x1, y1, x2, y2, x3, y3;
+        cin >> x1 >> y1 >> x2 >> y2 >> x3 >> y3;
+        Point A(x1, y1), B(x2, y2), C(x3, y3);
+        arcs.push_back(Arc(A, B, C));
+    }
+    
+    set<Point> intersectionPoints;
+    bool hasInfinite = false;
+    
+    // Check all pairs of arcs
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            // Check if same circle
+            if (dist(arcs[i].circle.center, arcs[j].circle.center) < EPS && 
+                fabs(arcs[i].circle.r - arcs[j].circle.r) < EPS) {
+                // Check if arcs overlap (infinite intersections)
+                if (sameCircleWithOverlap(arcs[i], arcs[j])) {
+                    hasInfinite = true;
+                    break;
+                }
+                continue;
+            }
+            
+            // Find circle intersections
+            vector<Point> circInter = circleIntersect(arcs[i].circle, arcs[j].circle);
+            
+            for (Point p : circInter) {
+                if (pointOnArc(arcs[i], p) && pointOnArc(arcs[j], p)) {
+                    intersectionPoints.insert(p);
+                }
+            }
+        }
+        if (hasInfinite) break;
+    }
+    
+    if (hasInfinite) {
+        cout << "Infinity" << endl;
+    } else {
+        vector<Point> points(intersectionPoints.begin(), intersectionPoints.end());
+        // Already sorted by set
+        
+        cout << points.size() << endl;
+        for (const Point& p : points) {
+            cout << fixed << setprecision(3) << p.x << " " << p.y << endl;
+        }
+    }
+    
+    return 0;
+}

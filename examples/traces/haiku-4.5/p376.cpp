@@ -1,0 +1,102 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int N, K;
+    cin >> N >> K;
+    
+    vector<long long> W(N), R(N), P(N);
+    for(int i = 0; i < N; i++){
+        cin >> W[i] >> R[i] >> P[i];
+    }
+    
+    vector<long long> A(K), B(N);
+    for(int i = 0; i < K; i++){
+        cin >> A[i];
+    }
+    for(int j = 0; j < N; j++){
+        cin >> B[j];
+    }
+    
+    // Calculate horse ridingness for each stage
+    auto calcRidingness = [&](int stage, int horse) -> long long {
+        long long a = A[stage];
+        long long b = B[horse];
+        return 3*a*a + 5*a*b + 2*b*b;
+    };
+    
+    // Track current time for each participant
+    vector<long long> currentTime(N);
+    for(int i = 0; i < N; i++){
+        currentTime[i] = 2000000000LL - W[i];
+    }
+    
+    // For each riding stage
+    for(int stage = 0; stage < K; stage++){
+        // Create list of (arrival_time, strength, participant_id)
+        vector<tuple<long long, long long, int>> arrivals;
+        for(int i = 0; i < N; i++){
+            arrivals.push_back({currentTime[i], P[i], i});
+        }
+        
+        // Sort by arrival time, then by strength (descending)
+        sort(arrivals.begin(), arrivals.end(), [](const auto& a, const auto& b){
+            if(get<0>(a) != get<0>(b)) return get<0>(a) < get<0>(b);
+            return get<1>(a) > get<1>(b);
+        });
+        
+        // Create available horses for this stage (all N horses available)
+        vector<pair<long long, int>> horses; // (ridingness, horse_id)
+        for(int j = 0; j < N; j++){
+            horses.push_back({calcRidingness(stage, j), j});
+        }
+        sort(horses.rbegin(), horses.rend()); // Sort by ridingness descending
+        
+        // Assign horses to participants in order of arrival
+        vector<long long> horseAssignment(N, -1);
+        set<int> usedHorses;
+        
+        for(auto [arrivalTime, strength, participantId] : arrivals){
+            // Find the best available horse
+            for(auto [ridingness, horseId] : horses){
+                if(usedHorses.find(horseId) == usedHorses.end()){
+                    horseAssignment[participantId] = horseId;
+                    usedHorses.insert(horseId);
+                    break;
+                }
+            }
+        }
+        
+        // Update times after riding this stage
+        for(int i = 0; i < N; i++){
+            int horseId = horseAssignment[i];
+            long long ridingness = calcRidingness(stage, horseId);
+            long long rideTime = 2000000000LL - R[i] - ridingness;
+            currentTime[i] += rideTime;
+        }
+    }
+    
+    // Create final ranking
+    vector<pair<long long, int>> results;
+    for(int i = 0; i < N; i++){
+        results.push_back({currentTime[i], i});
+    }
+    
+    // Sort by finish time, then by strength (descending) for ties
+    sort(results.begin(), results.end(), [&](const auto& a, const auto& b){
+        if(a.first != b.first) return a.first < b.first;
+        return P[a.second] > P[b.second];
+    });
+    
+    // Output
+    for(int i = 0; i < N; i++){
+        if(i > 0) cout << " ";
+        cout << results[i].second + 1;
+    }
+    cout << "\n";
+    
+    return 0;
+}

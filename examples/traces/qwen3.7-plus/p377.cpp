@@ -1,0 +1,70 @@
+#include <iostream>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+string power2(int k) {
+    string res = "1";
+    for(int i = 0; i < k; ++i) {
+        int carry = 0;
+        for(int j = (int)res.size() - 1; j >= 0; --j) {
+            int val = (res[j] - '0') * 2 + carry;
+            res[j] = (val % 10) + '0';
+            carry = val / 10;
+        }
+        if(carry) {
+            res = to_string(carry) + res;
+        }
+    }
+    return res;
+}
+
+string add(string a, string b) {
+    string res = "";
+    int carry = 0;
+    int i = (int)a.length() - 1;
+    int j = (int)b.length() - 1;
+    while (i >= 0 || j >= 0 || carry) {
+        int sum = carry;
+        if (i >= 0) { sum += a[i] - '0'; i--; }
+        if (j >= 0) { sum += b[j] - '0'; j--; }
+        res += to_string(sum % 10);
+        carry = sum / 10;
+    }
+    reverse(res.begin(), res.end());
+    return res;
+}
+
+string subtract_two(string a) {
+    int i = (int)a.length() - 1;
+    int borrow = 2;
+    while (i >= 0 && borrow > 0) {
+        int val = a[i] - '0' - borrow;
+        if (val < 0) {
+            val += 10;
+            borrow = 1;
+        } else {
+            borrow = 0;
+        }
+        a[i] = val + '0';
+        i--;
+    }
+    int start = 0;
+    while (start < (int)a.length() - 1 && a[start] == '0') {
+        start++;
+    }
+    return a.substr(start);
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    int n, m;
+    if (cin >> n >> m) {
+        string ans = add(power2(n), power2(m));
+        ans = subtract_two(ans);
+        cout << ans << "\n";
+    }
+    return 0;
+}

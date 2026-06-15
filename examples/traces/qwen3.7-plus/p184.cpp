@@ -1,0 +1,17 @@
+#include <iostream>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int P, M, C, K, R, V;
+    if (cin >> P >> M >> C >> K >> R >> V) {
+        int max_patties = min(P / K, min(M / R, C / V));
+        cout << max_patties << "\n";
+    }
+    
+    return 0;
+}

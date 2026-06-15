@@ -1,0 +1,174 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cctype>
+#include <sstream>
+
+using namespace std;
+
+// Function to check if a string is a valid word (only letters)
+bool isValidWord(const string& s) {
+    if (s.empty()) return false;
+    for (char c : s) {
+        if (!isalpha(c)) return false;
+    }
+    return true;
+}
+
+string formatText(const string& line) {
+    // First, let's tokenize the line by spaces and dashes
+    // But we need to be careful with consecutive dashes
+    
+    vector<string> tokens;
+    int i = 0;
+    int n = line.size();
+    
+    while (i < n) {
+        if (line[i] == ' ') {
+            i++;
+            continue;
+        }
+        
+        // Check for dashes
+        if (line[i] == '-') {
+            int dashCount = 0;
+            int j = i;
+            while (j < n && line[j] == '-') {
+                dashCount++;
+                j++;
+            }
+            
+            // Determine what kind of dash this is
+            if (dashCount == 1) {
+                // Single dash - could be hyphen or error
+                // We'll handle later in token processing
+                tokens.push_back("-");
+            } else if (dashCount == 2) {
+                // Double dash - should be " -- " (short dash)
+                // But we need spaces around it, so we'll represent it as a special token
+                tokens.push_back("--");
+            } else if (dashCount == 3) {
+                // Triple dash - should be " --- " (long dash)
+                tokens.push_back("---");
+            } else {
+                // More than 3 dashes - invalid
+                return "error";
+            }
+            i = j;
+        } else {
+            // Read a word
+            int j = i;
+            while (j < n && line[j] != ' ' && line[j] != '-') {
+                j++;
+            }
+            string word = line.substr(i, j - i);
+            if (!isValidWord(word)) {
+                return "error";
+            }
+            tokens.push_back(word);
+            i = j;
+        }
+    }
+    
+    // Now process tokens to format the text
+    // Rules:
+    // - Single '-' must be between two words (hyphen)
+    // - "--" must be surrounded by spaces (short dash: " -- ")
+    // - "---" must be surrounded by spaces (long dash: " --- ")
+    
+    vector<string> formattedTokens;
+    int m = tokens.size();
+    
+    for (int i = 0; i < m; i++) {
+        string token = tokens[i];
+        
+        if (token == "-") {
+            // Single dash - must have words before and after
+            if (formattedTokens.empty()) {
+                return "error";
+            }
+            if (i + 1 >= m || tokens[i+1][0] == '-' || !isValidWord(tokens[i+1])) {
+                return "error";
+            }
+            // Add hyphen between last word and next word
+            string prevWord = formattedTokens.back();
+            formattedTokens.pop_back();
+            formattedTokens.push_back(prevWord + "-" + tokens[i+1]);
+            i++; // Skip the next word since we processed it with hyphen
+        } else if (token == "--") {
+            // Double dash needs spaces around it
+            // Check if we have content around it
+            if (formattedTokens.empty()) {
+                // If there's no previous content, we might need a word before
+                // But the dash is at the start - this might be invalid unless there's content later
+                // Actually, according to rules, it needs spaces to left and right
+                // So if at beginning, it would be " -- " which is fine if there's content after
+                // But the problem says "a space to the right and to the left"
+                // So " -- " is the dash itself, but we need content around it in the text
+                // Actually, looking at example: " -- " has spaces on both sides
+                // So the dash itself is " -- ", meaning it's surrounded by spaces in the output
+                // But for the dash to be meaningful, there should be content before and after
+                // Let's check the problem statement: "two characters "-" should be used with a space to the right and to the left"
+                // So it's " -- " as a unit, meaning there must be content on both sides for it to be valid in context
+                // However, the problem says "If it is impossible to correctly format the text, write the only word 'error'"
+                // So if "--" is at the beginning or end with no content, it's invalid
+                if (i + 1 < m && tokens[i+1] == "---") {
+                    // We'll handle in next iteration, but for now just add placeholder
+                    formattedTokens.push_back(" -- ");
+                } else {
+                    return "error";
+                }
+            } else {
+                formattedTokens.push_back(" -- ");
+            }
+        } else if (token == "---") {
+            if (formattedTokens.empty()) {
+                return "error";
+            }
+            formattedTokens.push_back(" --- ");
+        } else {
+            // Regular word
+            formattedTokens.push_back(token);
+        }
+    }
+    
+    // Now build the result string
+    string result = "";
+    for (int i = 0; i < formattedTokens.size(); i++) {
+        if (i > 0) {
+            result += " ";
+        }
+        result += formattedTokens[i];
+    }
+    
+    return result;
+}
+
+int main() {
+    int N;
+    string line;
+    
+    getline(cin, line);
+    N = stoi(line);
+    
+    for (int i = 0; i < N; i++) {
+        getline(cin, line);
+        
+        // Remove surrounding quotes if present (the input is quoted text)
+        // According to examples, input lines are like: "This is sample -mample "
+        // So they have quotes at start and end
+        if (!line.empty() && line[0] == '"' && line[line.size()-1] == '"') {
+            line = line.substr(1, line.size() - 2);
+        }
+        
+        string formatted = formatText(line);
+        
+        if (formatted == "error") {
+            cout << "error" << endl;
+        } else {
+            cout << "\"" << formatted << "\"" << endl;
+        }
+    }
+    
+    return 0;
+}

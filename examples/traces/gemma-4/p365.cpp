@@ -1,0 +1,124 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * A ticket number is "dromedary" if its digits are in non-descending order 
+ * and then in non-ascending order. This is equivalent to saying the sequence
+ * of digits has a single peak (or a plateau of the same digit).
+ * A more robust definition is: there's no index i such that d_{i-1} > d_i < d_{i+1}.
+ * We use dynamic programming to count these sequences.
+ * 
+ * DP State:
+ * dp[i][j][state]
+ * i: current number of digits in the sequence (1 to S)
+ * j: the value of the last digit placed (0 to 9)
+ * state:
+ *   0: sequence is currently non-descending (d_1 <= d_2 <= ... <= d_i)
+ *   1: sequence has entered the non-ascending phase (there was a drop d_k > d_{k+1})
+ * 
+ * DP Transitions:
+ * From dp[i][j][0]:
+ *   - If d >= j: the next digit keeps the sequence in state 0.
+ *   - If d < j: the next digit moves the sequence to state 1.
+ * From dp[i][j][1]:
+ *   - If d <= j: the next digit keeps the sequence in state 1.
+ *   - If d > j: not allowed in state 1.
+ * 
+ * Since S can be up to 20, the result can potentially exceed the capacity of
+ * a 64-bit unsigned integer (2^64 approx 1.84e19). However, 
+ * a loose upper bound calculation suggests the answer fits in 64-bit 
+ * long long for S=20. Using __int128_t provides absolute safety.
+ */
+
+typedef __int128_t int128;
+
+// Helper function to print __int128_t values as they are not supported by standard cout.
+void printInt128(int128 n) {
+    if (n == 0) {
+        cout << "0" << endl;
+        return;
+    }
+    string s = "";
+    while (n > 0) {
+        s += (char)('0' + (n % 10));
+        n /= 10;
+    }
+    reverse(s.begin(), s.end());
+    cout << s << endl;
+}
+
+int main() {
+    // Speed up I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int S;
+    if (!(cin >> S)) return 0;
+
+    // Handle the case where S is 0, though the constraint says 1 <= S <= 20.
+    if (S <= 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    // dp[length][last_digit][state]
+    // Using 21 to accommodate up to S=20.
+    static int128 dp[21][10][2];
+
+    // Initialize dp table with 0
+    for (int i = 0; i <= S; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            dp[i][j][0] = 0;
+            dp[i][j][1] = 0;
+        }
+    }
+
+    // Base case: a sequence of length 1 is always in the non-descending state (0).
+    for (int j = 0; j < 10; ++j) {
+        dp[1][j][0] = 1;
+    }
+
+    // Dynamic programming transitions
+    for (int i = 1; i < S; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            // If we are currently in the non-descending phase (state 0)
+            if (dp[i][j][0] > 0) {
+                for (int d = 0; d < 10; ++d) {
+                    if (d >= j) {
+                        // Sequence remains non-descending
+                        dp[i + 1][d][0] += dp[i][j][0];
+                    } else {
+                        // Sequence transitions to non-ascending (since d < j)
+                        dp[i + 1][d][1] += dp[i][j][0];
+                    }
+                }
+            }
+            // If we are currently in the non-ascending phase (state 1)
+            if (dp[i][j][1] > 0) {
+                for (int d = 0; d < 10; ++d) {
+                    if (d <= j) {
+                        // Sequence remains non-ascending
+                        dp[i + 1][d][1] += dp[i][j][1];
+                    }
+                }
+            }
+        }
+    }
+
+    // Sum up all valid dromedary numbers of length S
+    int128 total = 0;
+    for (int j = 0; j < 10; ++j) {
+        total += dp[S][j][0];
+        total += dp[S][j][1];
+    }
+
+    printInt128(total);
+
+    return 0;
+}
+

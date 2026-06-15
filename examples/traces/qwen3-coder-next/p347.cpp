@@ -1,0 +1,31 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+int main() {
+    int n;
+    std::cin >> n;
+    std::vector<std::string> strings(n);
+    
+    for (int i = 0; i < n; ++i) {
+        std::cin >> strings[i];
+    }
+    
+    // Custom comparator for sorting: 
+    // For two strings a and b, we want a to come before b if a+b < b+a lexicographically
+    auto custom_compare = [](const std::string& a, const std::string& b) {
+        return a + b < b + a;
+    };
+    
+    std::sort(strings.begin(), strings.end(), custom_compare);
+    
+    std::string result;
+    for (const auto& s : strings) {
+        result += s;
+    }
+    
+    std::cout << result << std::endl;
+    
+    return 0;
+}

@@ -1,0 +1,167 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * Given an alphabet Sigma, a distance function d(c1, c2), and two strings lambda and mu.
+ * We want to find strings alpha' and beta' of equal length L such that lambda is a subsequence 
+ * of alpha', mu is a subsequence of beta', and the total dissimilarity sum(d(alpha'[i], beta'[i]))
+ * is minimized.
+ * 
+ * Let dp[i][j] be the minimum dissimilarity to cover the first i characters of lambda 
+ * and the first j characters of mu.
+ * 
+ * The transitions for dp[i][j] are:
+ * 1. Match lambda[i-1] and mu[j-1] at the same position: 
+ *    dp[i][j] = dp[i-1][j-1] + d(lambda[i-1], mu[j-1])
+ * 2. Match lambda[i-1] with some character c that is not used for the mu subsequence:
+ *    dp[i][j] = dp[i-1][j] + min_{c in Sigma} d(lambda[i-1], c)
+ * 3. Match mu[j-1] with some character c that is not used for the lambda subsequence:
+ *    dp[i][j] = dp[i][j-1] + min_{c in Sigma} d(c, mu[j-1])
+ * 
+ * Complexity:
+ * Time: O(n*m + |Sigma|^2), where n, m <= 2000 and |Sigma| <= 200.
+ * Space: O(n*m), which is about 35 MB for a 2000x2000 matrix of long longs and bytes.
+ */
+
+const long long INF = 1e18;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    string sigma;
+    if (!getline(cin, sigma)) return 0;
+    // Removing potential \r from Windows-style line endings
+    if (!sigma.empty() && sigma.back() == '\r') sigma.pop_back();
+
+    string lambda, mu;
+    if (!getline(cin, lambda)) lambda = "";
+    if (!lambda.empty() && lambda.back() == '\r') lambda.pop_back();
+    if (!getline(cin, mu)) mu = "";
+    if (!mu.empty() && mu.back() == '\r') mu.pop_back();
+
+    int sigma_len = sigma.length();
+    vector<int> char_to_idx(256, -1);
+    for (int i = 0; i < sigma_len; ++i) {
+        char_to_idx[(unsigned char)sigma[i]] = i;
+    }
+
+    vector<vector<long long>> dist(sigma_len, vector<long long>(sigma_len));
+    for (int i = 0; i < sigma_len; ++i) {
+        for (int j = 0; j < sigma_len; ++j) {
+            cin >> dist[i][j];
+        }
+    }
+
+    int n = lambda.length();
+    int m = mu.length();
+
+    vector<long long> min_d_lambda(n), min_d_mu(m);
+    vector<char> best_c_lambda(n), best_c_mu(m);
+
+    for (int i = 0; i < n; ++i) {
+        long long min_val = INF;
+        char best_c = ' ';
+        int idx = char_to_idx[(unsigned char)lambda[i]];
+        for (int k = 0; k < sigma_len; ++k) {
+            if (dist[idx][k] < min_val) {
+                min_val = dist[idx][k];
+                best_c = sigma[k];
+            }
+        }
+        min_d_lambda[i] = min_val;
+        best_c_lambda[i] = best_c;
+    }
+
+    for (int j = 0; j < m; ++j) {
+        long long min_val = INF;
+        char best_c = ' ';
+        int idx = char_to_idx[(unsigned char)mu[j]];
+        for (int k = 0; k < sigma_len; ++k) {
+            if (dist[k][idx] < min_val) {
+                min_val = dist[k][idx];
+                best_c = sigma[k];
+            }
+        }
+        min_d_mu[j] = min_val;
+        best_c_mu[j] = best_c;
+    }
+
+    // dp[i][j] stores min dissimilarity for lambda[0...i-1] and mu[0...j-1]
+    // Using vector of vectors might be slightly slow/memory intensive, but with n=2000 it's okay.
+    // Using a 1D vector for dp could save memory, but we need choice[i][j] anyway.
+    vector<vector<long long>> dp(n + 1, vector<long long>(m + 1, INF));
+    vector<vector<unsigned char>> choice(n + 1, vector<unsigned char>(m + 1, 0));
+
+    dp[0][0] = 0;
+    for (int i = 1; i <= n; ++i) {
+        dp[i][0] = dp[i - 1][0] + min_d_lambda[i - 1];
+        choice[i][0] = 2;
+    }
+    for (int j = 1; j <= m; ++j) {
+        dp[0][j] = dp[0][j - 1] + min_d_mu[j - 1];
+        choice[0][j] = 3;
+    }
+
+    for (int i = 1; i <= n; ++i) {
+        int l_idx = char_to_idx[(unsigned char)lambda[i - 1]];
+        for (int j = 1; j <= m; ++j) {
+            int m_idx = char_to_idx[(unsigned char)mu[j - 1]];
+            
+            // Choice 1: Match lambda[i-1] and mu[j-1]
+            dp[i][j] = dp[i - 1][j - 1] + dist[l_idx][m_idx];
+            choice[i][j] = 1;
+
+            // Choice 2: lambda[i-1] with some character c
+            long long v2 = dp[i - 1][j] + min_d_lambda[i - 1];
+            if (v2 < dp[i][j]) {
+                dp[i][j] = v2;
+                choice[i][j] = 2;
+            }
+
+            // Choice 3: mu[j-1] with some character c
+            long long v3 = dp[i][j - 1] + min_d_mu[j - 1];
+            if (v3 < dp[i][j]) {
+                dp[i][j] = v3;
+                choice[i][j] = 3;
+            }
+        }
+    }
+
+    cout << dp[n][m] << "\n";
+
+    string res_alpha = "", res_beta = "";
+    int ci = n, cj = m;
+    while (ci > 0 || cj > 0) {
+        if (ci > 0 && cj > 0 && choice[ci][cj] == 1) {
+            res_alpha += lambda[ci - 1];
+            res_beta += mu[cj - 1];
+            ci--; cj--;
+        } else if (ci > 0 && (cj == 0 || choice[ci][cj] == 2)) {
+            res_alpha += lambda[ci - 1];
+            res_beta += best_c_lambda[ci - 1];
+            ci--;
+        } else if (cj > 0 && (ci == 0 || choice[ci][cj] == 3)) {
+            res_alpha += best_c_mu[cj - 1];
+            res_beta += mu[cj - 1];
+            cj--;
+        } else {
+            // This part should not be reachable
+            break;
+        }
+    }
+
+    reverse(res_alpha.begin(), res_alpha.end());
+    reverse(res_beta.begin(), res_beta.end());
+
+    cout << res_alpha << "\n";
+    cout << res_beta << "\n";
+
+    return 0;
+}
+

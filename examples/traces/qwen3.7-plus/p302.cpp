@@ -1,0 +1,59 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cctype>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    string text = "";
+    char c;
+    while (cin.get(c)) {
+        if (c != '\n' && c != '\r') {
+            text += c;
+        }
+    }
+    
+    vector<int> state;
+    string res = "";
+    
+    for (size_t i = 0; i < text.length(); ++i) {
+        if (text[i] == '<') {
+            if (i + 3 < text.length() && text.substr(i, 4) == "<UP>") {
+                state.push_back(1);
+                i += 3;
+            } else if (i + 4 < text.length() && text.substr(i, 5) == "</UP>") {
+                if (!state.empty()) state.pop_back();
+                i += 4;
+            } else if (i + 5 < text.length() && text.substr(i, 6) == "<DOWN>") {
+                state.push_back(2);
+                i += 5;
+            } else if (i + 6 < text.length() && text.substr(i, 7) == "</DOWN>") {
+                if (!state.empty()) state.pop_back();
+                i += 6;
+            } else {
+                if (state.empty()) {
+                    res += text[i];
+                } else if (state.back() == 1) {
+                    res += (char)toupper((unsigned char)text[i]);
+                } else if (state.back() == 2) {
+                    res += (char)tolower((unsigned char)text[i]);
+                }
+            }
+        } else {
+            if (state.empty()) {
+                res += text[i];
+            } else if (state.back() == 1) {
+                res += (char)toupper((unsigned char)text[i]);
+            } else if (state.back() == 2) {
+                res += (char)tolower((unsigned char)text[i]);
+            }
+        }
+    }
+    
+    cout << res << "\n";
+    return 0;
+}

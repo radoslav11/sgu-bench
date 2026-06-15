@@ -1,0 +1,273 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem: Commuter Train
+ * Goal: Maximize f(S) = sum_{i=1 to M} min_{j=1 to N} |D_j + S - P_i|
+ * Subject to: 0 <= S <= L - D_N
+ * 
+ * f(S) is a piecewise linear function. The slope of f(S) only changes at points
+ * where the slope of g_i(S) = min_{j} |S - (P_i - D_j)| changes.
+ * Let Y_{i,j} = P_i - D_j. For each i, the values of Y_{i,j} are points where 
+ * the distance to the set {Y_{i,j}} changes its derivative.
+ * The sorted values of Y_{i,j} for a fixed i are:
+ * Y_{i,1} = P_i - D_N, Y_{i,2} = P_i - D_{N-1}, ..., Y_{i,N} = P_i - D_1.
+ * The slope of g_i(S) changes at S = Y_{i,j} and S = (Y_{i,j} + Y_{i,j+1})/2.
+ * 
+ * We can use a sweep-line approach:
+ * 1. Identify all slope-change points.
+ * 2. Calculate the initial f(0) and the slope just after S=0.
+ * 3. Sort the slope-change points and sweep from S=0 to S=L-D_N.
+ */
+
+struct Event {
+    double s;
+    double delta_s;
+    bool operator<(const Event& other) const {
+        return s < other.s;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    double L;
+    int M;
+    if (!(cin >> L >> M)) return 0;
+
+    vector<double> P(M);
+    for (int i = 0; i < M; ++i) {
+        cin >> P[i];
+    }
+
+    int N;
+    cin >> N;
+    vector<double> D(N);
+    D[0] = 0;
+    for (int i = 1; i < N; ++i) {
+        cin >> D[i];
+    }
+
+    double max_S_limit = L - D[N - 1];
+
+    vector<Event> events;
+    for (int i = 0; i < M; ++i) {
+        vector<double> Y(N);
+        for (int j = 0; j < N; ++j) {
+            Y[j] = P[i] - D[N - 1 - j];
+        }
+        // Y is now sorted: Y[0] < Y[1] < ... < Y[N-1]
+        
+        // Slope changes:
+        // S < Y[0]: slope -1
+        // S = Y[0]: delta_s = 2 (slope becomes 1)
+        // S = (Y[j] + Y[j+1])/2: delta_s = -2 (slope becomes -1)
+        // S = Y[j+1]: delta_s = 2 (slope becomes 1)
+        
+        for (int j = 0; j < N; ++j) {
+            if (Y[j] >= 0 && Y[j] <= max_S_limit) {
+                events.push_back({Y[j], 2.0});
+            }
+            if (j < N - 1) {
+                double mid = (Y[j] + Y[j + 1]) / 2.0;
+                if (mid >= 0 && mid <= max_S_limit) {
+                    events.push_back({mid, -2.0});
+                }
+                if (Y[j + 1] >= 0 && Y[j + 1] <= max_S_limit) {
+                    events.push_back({Y[j + 1], 2.0});
+                }
+            }
+        }
+        // Wait, the above logic for Y[j] is slightly redundant. Let's fix it.
+    }
+
+    // Let's re-collect event points properly
+    events.clear();
+    for (int i = 0; i < M; ++i) {
+        vector<double> Y(N);
+        for (int j = 0; j < N; ++j) {
+            Y[j] = P[i] - D[N - 1 - j];
+        }
+        // Y[0] < Y[1] < ... < Y[N-1]
+        for (int j = 0; j < N; ++j) {
+            if (Y[j] >= 0 && Y[j] <= max_S_limit) {
+                events.push_back({Y[j], 2.0});
+            }
+            if (j < N - 1) {
+                double mid = (Y[j] + Y[j + 1]) / 2.0;
+                if (mid >= 0 && mid <= max_S_limit) {
+                    events.push_back({mid, -2.0});
+                }
+            }
+        }
+        // Corrected slope change points:
+        // S < Y[0]: slope -1. At Y[0], delta_s = 2.
+        // S in (Y[j], (Y[j]+Y[j+1])/2): slope 1. At (Y[j]+Y[j+1])/2, delta_s = -2.
+        // S in ((Y[j]+Y[j+1])/2, Y[j+1]): slope -1. At Y[j+1], delta_s = 2.
+        // This is consistent.
+    }
+
+    // The events above were slightly double-counted. Let's fix the event collection.
+    events.clear();
+    for (int i = 0; i < M; ++i) {
+        vector<double> Y(N);
+        for (int j = 0; j < N; ++j) {
+            Y[j] = P[i] - D[N - 1 - j];
+        }
+        for (int j = 0; j < N; ++j) {
+            if (Y[j] >= 0 && Y[j] <= max_S_limit) {
+                events.push_back({Y[j], 2.0});
+            }
+            if (j < N - 1) {
+                double mid = (Y[j] + Y[j + 1]) / 2.0;
+                if (mid >= 0 && mid <= max_S_limit) {
+                    events.push_back({mid, -2.0});
+                }
+            }
+        }
+    }
+
+    sort(events.begin(), events.end());
+
+    // Calculate f(0)
+    double f0 = 0;
+    for (int i = 0; i < M; ++i) {
+        double min_dist = 1e18;
+        for (int j = 0; j < N; ++j) {
+            min_dist = min(min_dist, abs(D[j] - P[i]));
+        }
+        f0 += min_dist;
+    }
+
+    // Calculate initial slope just after S=0
+    double slope0 = 0;
+    for (int i = 0; i < M; ++i) {
+        vector<double> Y(N);
+        for (int j = 0; j < N; ++j) {
+            Y[j] = P[i] - D[N - 1 - j];
+        }
+        // Check the slope of g_i(S) just after S=0
+        // Find the closest Y[j] to 0
+        if (0 < Y[0]) {
+            slope0 -= 1.0;
+        } else if (0 > Y[N - 1]) {
+            slope0 += 1.0;
+        } else {
+            // 0 is between Y[j] and Y[j+1] or 0 is one of the Y[j]
+            int j = 0;
+            while (j < N - 1 && Y[j+1] <= 0) j++;
+            // Now Y[j] <= 0 and (j == N-1 or Y[j+1] > 0)
+            if (Y[j] == 0) {
+                slope0 += 1.0;
+            } else {
+                // Y[j] < 0 < Y[j+1]
+                double mid = (Y[j] + Y[j+1]) / 2.0;
+                if (0 < mid) slope0 += 1.0;
+                else slope0 -= 1.0;
+            }
+        }
+    }
+
+    // Handle events at S=0 by adjusting slope0
+    // If multiple events occur at the same S, we should process them.
+    // However, the sweep-line calculates the slope *between* event points.
+    // The slope0 we calculated is the slope *just after* S=0.
+    // If an event occurs at S=0, we must add its delta_s to slope0.
+    // Wait, the current slope0 calculation already handles it if we're careful.
+    // Let's re-calculate slope0 as the slope just after S=0.
+    // A better way:
+    slope0 = 0;
+    for (int i = 0; i < M; ++i) {
+        vector<double> Y(N);
+        for (int j = 0; j < N; ++j) Y[j] = P[i] - D[N - 1 - j];
+        
+        // To find the slope just after 0, we can see if 0 is in (Y[j], (Y[j]+Y[j+1])/2) etc.
+        // Let's pick a very small epsilon:
+        double eps = 1e-11;
+        double s_test = eps;
+        double min_dist_eps = 1e18;
+        // This is still a bit slow if we do it for each i.
+        // Let's use the Y[j] logic again.
+        int idx = -1;
+        for (int j = 0; j < N; ++j) {
+            if (Y[j] <= 0 && (j == N - 1 || Y[j + 1] > 0)) {
+                idx = j;
+                break;
+            }
+        }
+        if (idx == -1) { // 0 < Y[0]
+            slope0 -= 1.0;
+        } else if (idx == N - 1 && Y[idx] < 0) { // 0 > Y[N-1]
+            slope0 += 1.0;
+        } else { // Y[idx] <= 0
+            if (Y[idx] == 0) {
+                slope0 += 1.0;
+            } else if (idx < N - 1 && 0 < (Y[idx] + Y[idx + 1]) / 2.0) {
+                slope0 += 1.0;
+            } else {
+                slope0 -= 1.0;
+            }
+        }
+    }
+    // Now, we must account for all events that happen exactly at S=0.
+    for (const auto& e : events) {
+        if (e.s <= 0) {
+            // These events are already "in" the slope0.
+            // But our slope0 is the slope *just after* 0.
+            // If an event occurs at S=0, the slope0 should reflect it.
+            // The current slope0 calculation logic already accounts for the slope 
+            // just after 0 based on the positions of Y[j]. 
+        }
+    }
+    // Let's re-verify the logic: slope0 is the sum of (slope of g_i just after 0).
+    // The slope of g_i(S) just after 0:
+    // - if 0 < Y[0], slope is -1.
+    // - if Y[N-1] < 0, slope is 1.
+    // - if Y[j] <= 0 < Y[j+1]:
+    //   - if 0 < (Y[j]+Y[j+1])/2, slope is 1.
+    //   - else, slope is -1.
+    // - if Y[j] == 0, slope is 1.
+    // This is what my second slope0 calculation does.
+
+    double max_f = f0;
+    double best_S = 0;
+    double current_f = f0;
+    double current_slope = slope0;
+    double last_S = 0;
+
+    for (const auto& e : events) {
+        if (e.s > 0 && e.s <= max_S_limit) {
+            current_f += current_slope * (e.s - last_S);
+            if (current_f > max_f + 1e-11) {
+                max_f = current_f;
+                best_S = e.s;
+            } else if (abs(current_f - max_f) < 1e-11) {
+                // Any S is fine, but let's keep the first one.
+            }
+            current_slope += e.delta_s;
+            last_S = e.s;
+        } else if (e.s <= 0) {
+            // If there are events at exactly S=0, they change the slope
+            // for the interval starting at 0.
+            // BUT our current_slope is already the slope "just after" 0.
+            // So we don't need to do anything.
+        }
+    }
+    // Finally, check the end of the interval.
+    current_f += current_slope * (max_S_limit - last_S);
+    if (current_f > max_f + 1e-11) {
+        max_f = current_f;
+        best_S = max_S_limit;
+    }
+
+    cout << fixed << setprecision(10) << best_S << " " << max_f << endl;
+
+    return 0;
+}
+

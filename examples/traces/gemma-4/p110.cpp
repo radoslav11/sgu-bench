@@ -1,0 +1,132 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
+
+using namespace std;
+
+/**
+ * Problem: 110. Dungeon
+ * The task is to find the sequence of spheres a light ray reflects off in a 3D dungeon.
+ * The ray follows the law of reflection (angle of incidence = angle of reflection).
+ * Tangent hits also count as reflections.
+ * If more than 10 reflections, output the first 10 and then 'etc.'.
+ */
+
+typedef long double ld;
+
+// Structure to represent a 3D point/vector
+struct Point {
+    ld x, y, z;
+};
+
+// Structure to represent a sphere
+struct Sphere {
+    Point c;
+    ld r;
+    int id;
+};
+
+// Basic vector operations for 3D coordinates
+Point operator-(Point a, Point b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+Point operator+(Point a, Point b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
+Point operator*(Point a, ld k) { return {a.x * k, a.y * k, a.z * k}; }
+ld dot(Point a, Point b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+ld normSq(Point a) { return dot(a, a); }
+
+int main() {
+    // Faster I/O
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    // Reading sphere data
+    vector<Sphere> spheres(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> spheres[i].c.x >> spheres[i].c.y >> spheres[i].c.z >> spheres[i].r;
+        spheres[i].id = i + 1;
+    }
+
+    // Reading ray start point A and direction point B
+    Point A, B;
+    cin >> A.x >> A.y >> A.z >> B.x >> B.y >> B.z;
+
+    Point P = A;
+    Point v = B - A;
+
+    vector<int> reflections;
+    // Simulating the ray reflections up to a reasonable limit
+    for (int iter = 0; iter < 1000; ++iter) {
+        int best_sphere = -1;
+        ld min_t = -1.0;
+
+        // Find the nearest sphere the ray intersects
+        for (int i = 0; i < n; ++i) {
+            ld a = dot(v, v);
+            ld b = 2.0 * dot(v, P - spheres[i].c);
+            ld c = normSq(P - spheres[i].c) - spheres[i].r * spheres[i].r;
+            ld D = b * b - 4.0 * a * c;
+
+            // Handle tangent case where discriminant is slightly negative due to precision
+            if (D < 0) {
+                if (D > -1e-11) D = 0;
+                else continue;
+            }
+
+            ld sqrtD = sqrt(D);
+            ld t1 = (-b - sqrtD) / (2.0 * a);
+            ld t2 = (-b + sqrtD) / (2.0 * a);
+
+            // We look for the smallest positive t > epsilon to avoid self-intersection
+            // epsilon = 1e-9 chosen for numerical stability
+            if (t1 > 1e-9) {
+                if (min_t < 0 || t1 < min_t) {
+                    min_t = t1;
+                    best_sphere = i;
+                }
+            }
+            if (t2 > 1e-9) {
+                if (min_t < 0 || t2 < min_t) {
+                    min_t = t2;
+                    best_sphere = i;
+                }
+            }
+        }
+
+        // If no more spheres are intersected, the ray escapes
+        if (best_sphere == -1) break;
+
+        // Record the reflection
+        reflections.push_back(spheres[best_sphere].id);
+        
+        // Calculate intersection point X
+        Point X = P + v * min_t;
+        
+        // Calculate unit normal vector at the point of intersection
+        Point n_vec = (X - spheres[best_sphere].c) * (1.0 / spheres[best_sphere].r);
+        
+        // Reflect the direction vector: v_new = v - 2 * (v . n) * n
+        v = v - n_vec * (2.0 * dot(v, n_vec));
+        
+        // Update the starting position for the next segment
+        P = X;
+    }
+
+    // Output the sequence based on the number of reflections
+    if (reflections.size() > 10) {
+        for (int i = 0; i < 10; ++i) {
+            cout << reflections[i] << " ";
+        }
+        cout << "etc." << endl;
+    } else {
+        for (int i = 0; i < (int)reflections.size(); ++i) {
+            cout << reflections[i] << (i == (int)reflections.size() - 1 ? "" : " ");
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+

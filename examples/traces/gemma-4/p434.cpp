@@ -1,0 +1,108 @@
+#include <iostream>
+#include <vector>
+#include <numeric>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Chemists
+ * Given N tubes with Si liters, target Di liters.
+ * Pour any amount from one tube to another.
+ * Minimum number of pourings to reach Di for all i.
+ * 
+ * Solution:
+ * Let xi = Si - Di.
+ * Sum of all xi must be 0.
+ * We want to partition the non-zero xi into the maximum number of disjoint subsets,
+ * each summing to 0. Let this maximum number be k.
+ * The minimum number of pourings is M - k, where M is the number of non-zero xi.
+ * 
+ * Complexity:
+ * Time: O(M * 2^M), where M <= 21.
+ * Space: O(2^M).
+ */
+
+int main() {
+    // Speed up I/O for better performance within the tight time limit.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    vector<long long> S(N), D(N);
+    long long sumS = 0, sumD = 0;
+    for (int i = 0; i < N; ++i) {
+        cin >> S[i];
+        sumS += S[i];
+    }
+    for (int i = 0; i < N; ++i) {
+        cin >> D[i];
+        sumD += D[i];
+    }
+
+    // If the total amount of liquid is not the same, it's impossible 
+    // to satisfy the target amount for all tubes by pouring between them.
+    if (sumS != sumD) {
+        cout << -1 << endl;
+        return 0;
+    }
+
+    // Identify the tubes that don't already contain the target amount.
+    vector<int> x_prime;
+    for (int i = 0; i < N; ++i) {
+        long long diff = S[i] - D[i];
+        if (diff != 0) {
+            x_prime.push_back((int)diff);
+        }
+    }
+
+    int M = x_prime.size();
+    // If all tubes already have the required amount, no pourings are needed.
+    if (M == 0) {
+        cout << 0 << endl;
+        return 0;
+    }
+
+    int num_masks = 1 << M;
+    // dp[mask] stores the maximum number of disjoint zero-sum subsets that can be formed using elements in 'mask'.
+    // sum_mask[mask] stores the sum of the elements of x_prime represented by 'mask'.
+    // Both arrays are within memory limits for M up to 21.
+    vector<int> dp(num_masks, 0);
+    vector<int> sum_mask(num_masks, 0);
+
+    // Using dynamic programming with bitmasking to solve the partition problem.
+    for (int mask = 1; mask < num_masks; ++mask) {
+        // Get the index of the lowest set bit.
+        int i = __builtin_ctz(mask);
+        // Compute the sum of the current mask using the sum of a smaller mask.
+        sum_mask[mask] = sum_mask[mask ^ (1 << i)] + x_prime[i];
+
+        // We want the maximum number of zero-sum subsets that can be formed from a submask of 'mask'.
+        int max_dp = 0;
+        int temp_mask = mask;
+        while (temp_mask > 0) {
+            int j = __builtin_ctz(temp_mask);
+            // Check the DP value for the mask with one less element.
+            int val = dp[mask ^ (1 << j)];
+            if (val > max_dp) {
+                max_dp = val;
+            }
+            // Clear the lowest set bit to move to the next element in the mask.
+            temp_mask &= (temp_mask - 1);
+        }
+        
+        // If the elements in the current mask sum to 0, it can contribute 
+        // one more zero-sum subset than the best possible submask.
+        dp[mask] = max_dp + (sum_mask[mask] == 0 ? 1 : 0);
+    }
+
+    // The answer is the number of non-zero tubes minus the max number of zero-sum subsets.
+    // This is because every group of size m_j requires m_j - 1 pourings to satisfy requirements.
+    // Sum of (m_j - 1) over all j = Sum(m_j) - k = M - k.
+    cout << M - dp[num_masks - 1] << endl;
+
+    return 0;
+}
+

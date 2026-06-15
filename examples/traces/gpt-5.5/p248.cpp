@@ -1,0 +1,32 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N;
+    cin >> N;
+
+    vector<int> c(N);
+    for (int i = 0; i < N; ++i) cin >> c[i];
+
+    int V;
+    cin >> V;
+
+    const int INF = 1e9;
+    vector<int> dp(V + 1, INF);
+    dp[0] = 0;
+
+    for (int coin : c) {
+        for (int sum = coin; sum <= V; ++sum) {
+            if (dp[sum - coin] + 1 < dp[sum]) {
+                dp[sum] = dp[sum - coin] + 1;
+            }
+        }
+    }
+
+    cout << (dp[V] == INF ? -1 : dp[V]) << '\n';
+
+    return 0;
+}

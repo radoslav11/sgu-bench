@@ -1,0 +1,25 @@
+#include <bits/stdc++.h>
+using namespace std;
+int main(){
+    int n,m;
+    cin>>n>>m;
+    vector<vector<int>> h(n, vector<int>(m));
+    for(int i=0;i<n;i++){
+        string s; cin>>s;
+        for(int j=0;j<m;j++) h[i][j]=s[j]-'0';
+    }
+    long long area=0;
+    int dx[]={0,0,1,-1};
+    int dy[]={1,-1,0,0};
+    for(int i=0;i<n;i++)for(int j=0;j<m;j++){
+        if(h[i][j]>0){
+            area+=2; // top and bottom
+            for(int d=0;d<4;d++){
+                int ni=i+dx[d], nj=j+dy[d];
+                int nh = (ni>=0&&ni<n&&nj>=0&&nj<m)?h[ni][nj]:0;
+                if(h[i][j]>nh) area+=h[i][j]-nh;
+            }
+        }
+    }
+    cout<<area<<endl;
+}

@@ -1,0 +1,95 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+struct Solver {
+    int k;
+    int64 coeff[10];
+    int64 g;
+
+    void dfs(int pos, int usedMask, int64 cur) {
+        if (g == 1) return;
+
+        if (pos == k) {
+            g = std::gcd(g, cur);
+            return;
+        }
+
+        for (int d = 0; d <= 9; d++) {
+            if (usedMask & (1 << d)) continue;
+            if (pos == 0 && d == 0) continue; // leading character cannot be zero
+
+            dfs(pos + 1, usedMask | (1 << d), cur + coeff[pos] * d);
+            if (g == 1) return;
+        }
+    }
+
+    int64 compute(const string& s) {
+        map<char, int> id;
+        vector<int64> rawCoeff;
+
+        int len = (int)s.size();
+        vector<int64> pow10(len + 1, 1);
+        for (int i = 1; i <= len; i++) pow10[i] = pow10[i - 1] * 10;
+
+        for (int i = 0; i < len; i++) {
+            char c = s[i];
+            if (!id.count(c)) {
+                int newId = (int)id.size();
+                id[c] = newId;
+                rawCoeff.push_back(0);
+            }
+            rawCoeff[id[c]] += pow10[len - 1 - i];
+        }
+
+        int leadId = id[s[0]];
+
+        vector<int> order;
+        order.push_back(leadId);
+        for (int i = 0; i < (int)rawCoeff.size(); i++) {
+            if (i != leadId) order.push_back(i);
+        }
+
+        k = (int)order.size();
+        for (int i = 0; i < k; i++) {
+            coeff[i] = rawCoeff[order[i]];
+        }
+
+        g = 0;
+        dfs(0, 0, 0);
+        return g;
+    }
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    for (int tc = 1; tc <= T; tc++) {
+        string s;
+        cin >> s;
+
+        Solver solver;
+        int64 g = solver.compute(s);
+
+        vector<int64> small, large;
+        for (int64 d = 1; d * d <= g; d++) {
+            if (g % d == 0) {
+                small.push_back(d);
+                if (d != g / d) large.push_back(g / d);
+            }
+        }
+
+        cout << "Case " << tc << ":";
+        for (int64 d : small) cout << ' ' << d;
+        reverse(large.begin(), large.end());
+        for (int64 d : large) cout << ' ' << d;
+        cout << '\n';
+    }
+
+    return 0;
+}

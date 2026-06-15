@@ -1,0 +1,40 @@
+#include <iostream>
+#include <string>
+#include <vector>
+using namespace std;
+
+int main() {
+    string secret, guess;
+    cin >> secret >> guess;
+    
+    int bulls = 0;
+    int cows = 0;
+    
+    // Count bulls first: same digit at same position
+    for (int i = 0; i < 4; i++) {
+        if (secret[i] == guess[i]) {
+            bulls++;
+        }
+    }
+    
+    // Count total matches (bulls + cows) by counting frequency of each digit
+    vector<int> secretCount(10, 0);
+    vector<int> guessCount(10, 0);
+    
+    for (int i = 0; i < 4; i++) {
+        secretCount[secret[i] - '0']++;
+        guessCount[guess[i] - '0']++;
+    }
+    
+    int totalMatches = 0;
+    for (int i = 0; i < 10; i++) {
+        totalMatches += min(secretCount[i], guessCount[i]);
+    }
+    
+    // Cows = total matches - bulls
+    cows = totalMatches - bulls;
+    
+    cout << bulls << " " << cows << endl;
+    
+    return 0;
+}

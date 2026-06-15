@@ -1,0 +1,33 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    while (n--) {
+        string w;
+        cin >> w;
+        int len = (int)w.size();
+
+        if ((len >= 2 && w.substr(len - 2) == "ch") ||
+            w.back() == 'x' || w.back() == 's' || w.back() == 'o') {
+            w += "es";
+        } else if (len >= 2 && w.substr(len - 2) == "fe") {
+            w = w.substr(0, len - 2) + "ves";
+        } else if (w.back() == 'f') {
+            w = w.substr(0, len - 1) + "ves";
+        } else if (w.back() == 'y') {
+            w = w.substr(0, len - 1) + "ies";
+        } else {
+            w += "s";
+        }
+
+        cout << w << '\n';
+    }
+
+    return 0;
+}

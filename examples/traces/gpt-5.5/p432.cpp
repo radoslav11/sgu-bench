@@ -1,0 +1,125 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+string lowerStr(string s) {
+    for (char &c : s) c = (char)tolower((unsigned char)c);
+    return s;
+}
+
+bool isModal(const string &w) {
+    string x = lowerStr(w);
+    return x == "can" || x == "may" || x == "must" || x == "should";
+}
+
+bool isBe(const string &w) {
+    string x = lowerStr(w);
+    return x == "is" || x == "are";
+}
+
+bool isArticle(const string &w) {
+    string x = lowerStr(w);
+    return x == "a" || x == "the";
+}
+
+vector<string> splitWords(const string &s) {
+    vector<string> res;
+    string cur;
+    for (char c : s) {
+        if (c == ' ') {
+            if (!cur.empty()) {
+                res.push_back(cur);
+                cur.clear();
+            }
+        } else {
+            cur += c;
+        }
+    }
+    if (!cur.empty()) res.push_back(cur);
+    return res;
+}
+
+string buildSentence(const vector<string> &words, int pos, bool noType) {
+    vector<string> out;
+    for (int i = 0; i < (int)words.size(); ++i) {
+        out.push_back(words[i]);
+        if (i == pos) {
+            if (noType) {
+                out.push_back("no");
+                if (i + 1 < (int)words.size() && isArticle(words[i + 1])) {
+                    ++i;
+                }
+            } else {
+                out.push_back("not");
+            }
+        }
+    }
+
+    string res;
+    for (int i = 0; i < (int)out.size(); ++i) {
+        if (i) res += ' ';
+        res += out[i];
+    }
+    res += '.';
+    return res;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    string input, line;
+    while (getline(cin, line)) {
+        if (!input.empty()) input += ' ';
+        input += line;
+    }
+
+    string normalized;
+    bool lastSpace = false;
+    for (char c : input) {
+        if (isspace((unsigned char)c)) {
+            if (!lastSpace) {
+                normalized += ' ';
+                lastSpace = true;
+            }
+        } else {
+            normalized += c;
+            lastSpace = false;
+        }
+    }
+    while (!normalized.empty() && normalized.back() == ' ')
+        normalized.pop_back();
+
+    vector<string> sentences;
+    string cur;
+    for (char c : normalized) {
+        if (c == '.') {
+            sentences.push_back(cur);
+            cur.clear();
+        } else {
+            if (cur.empty() && c == ' ') continue;
+            cur += c;
+        }
+    }
+
+    vector<string> answers;
+
+    for (const string &sentence : sentences) {
+        vector<string> words = splitWords(sentence);
+
+        for (int i = 0; i < (int)words.size(); ++i) {
+            if (isModal(words[i])) {
+                answers.push_back(buildSentence(words, i, false));
+            }
+            if (isBe(words[i])) {
+                answers.push_back(buildSentence(words, i, true));
+            }
+        }
+    }
+
+    cout << answers.size() << '\n';
+    for (const string &ans : answers) {
+        cout << ans << '\n';
+    }
+
+    return 0;
+}

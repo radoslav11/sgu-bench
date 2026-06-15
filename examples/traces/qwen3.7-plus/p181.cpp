@@ -1,0 +1,37 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    long long A, alpha, beta, gamma, M, k;
+    if (!(cin >> A >> alpha >> beta >> gamma >> M >> k)) return 0;
+
+    long long curr = A;
+    vector<int> history;
+    history.push_back(curr);
+    
+    long long max_val = max(M, A + 1);
+    vector<int> first_seen(max_val, -1);
+    first_seen[curr] = 0;
+
+    for (long long i = 1; i <= k; i++) {
+        curr = (alpha * curr * curr + beta * curr + gamma) % M;
+        if (first_seen[curr] != -1) {
+            long long start = first_seen[curr];
+            long long len = i - start;
+            long long target_idx = start + (k - start) % len;
+            cout << history[target_idx] << "\n";
+            return 0;
+        }
+        first_seen[curr] = i;
+        history.push_back(curr);
+    }
+    
+    cout << curr << "\n";
+    return 0;
+}

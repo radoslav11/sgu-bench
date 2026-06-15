@@ -1,0 +1,158 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+using int64 = long long;
+
+int64 mod_pow(int64 a, int64 e, int64 mod) {
+    int64 r = 1 % mod;
+    while (e > 0) {
+        if (e & 1) r = r * a % mod;
+        a = a * a % mod;
+        e >>= 1;
+    }
+    return r;
+}
+
+int64 gcdll(int64 a, int64 b) {
+    while (b) {
+        int64 t = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+vector<int64> factorize(int64 n) {
+    vector<int64> f;
+    for (int64 p = 2; p * p <= n; ++p) {
+        if (n % p == 0) {
+            f.push_back(p);
+            while (n % p == 0) n /= p;
+        }
+    }
+    if (n > 1) f.push_back(n);
+    return f;
+}
+
+int64 primitive_root(int64 p) {
+    if (p == 2) return 1;
+    int64 phi = p - 1;
+    vector<int64> factors = factorize(phi);
+
+    for (int64 g = 2; ; ++g) {
+        bool ok = true;
+        for (int64 q : factors) {
+            if (mod_pow(g, phi / q, p) == 1) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) return g;
+    }
+}
+
+int64 mod_inv(int64 a, int64 mod) {
+    return mod_pow(a, mod - 2, mod);
+}
+
+int64 discrete_log(int64 g, int64 a, int64 p) {
+    int64 n = p - 1;
+    int64 m = (int64)ceil(sqrt((double)n));
+
+    unordered_map<int64, int64> baby;
+    baby.reserve(m * 2);
+
+    int64 cur = 1;
+    for (int64 j = 0; j < m; ++j) {
+        if (!baby.count(cur)) baby[cur] = j;
+        cur = cur * g % p;
+    }
+
+    int64 gm = mod_pow(g, m, p);
+    int64 inv_gm = mod_inv(gm, p);
+
+    cur = a;
+    for (int64 i = 0; i <= m; ++i) {
+        auto it = baby.find(cur);
+        if (it != baby.end()) {
+            int64 x = i * m + it->second;
+            if (x < n) return x;
+        }
+        cur = cur * inv_gm % p;
+    }
+
+    return -1;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int64 P, K, A;
+    cin >> P >> K >> A;
+
+    if (A == 0) {
+        cout << 1 << '\n' << 0 << '\n';
+        return 0;
+    }
+
+    if (P == 2) {
+        cout << 1 << '\n' << 1 << '\n';
+        return 0;
+    }
+
+    int64 n = P - 1;
+    int64 g = primitive_root(P);
+
+    int64 a = discrete_log(g, A, P);
+
+    int64 d = gcdll(K, n);
+
+    if (a % d != 0) {
+        cout << 0 << '\n' << '\n';
+        return 0;
+    }
+
+    int64 K2 = K / d;
+    int64 a2 = a / d;
+    int64 n2 = n / d;
+
+    int64 invK = mod_pow(K2 % n2, factorize(n2).empty() ? 0 : 0, n2);
+
+    // Extended Euclid inverse modulo n2
+    auto extgcd = [](int64 a, int64 b) {
+        int64 x0 = 1, y0 = 0, x1 = 0, y1 = 1;
+        while (b) {
+            int64 q = a / b;
+            int64 a2 = a - q * b; a = b; b = a2;
+            int64 x2 = x0 - q * x1; x0 = x1; x1 = x2;
+            int64 y2 = y0 - q * y1; y0 = y1; y1 = y2;
+        }
+        return pair<int64, int64>(x0, y0);
+    };
+
+    invK = extgcd(K2, n2).first;
+    invK %= n2;
+    if (invK < 0) invK += n2;
+
+    int64 y0 = (__int128)a2 * invK % n2;
+
+    vector<int64> roots;
+    roots.reserve(d);
+
+    for (int64 t = 0; t < d; ++t) {
+        int64 y = y0 + n2 * t;
+        roots.push_back(mod_pow(g, y, P));
+    }
+
+    sort(roots.begin(), roots.end());
+
+    cout << roots.size() << '\n';
+    for (size_t i = 0; i < roots.size(); ++i) {
+        if (i) cout << ' ';
+        cout << roots[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

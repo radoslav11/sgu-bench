@@ -1,0 +1,46 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int cnt[7];
+    for (int i = 0; i < 7; ++i) cin >> cnt[i];
+
+    string last;
+    cin >> last;
+
+    int value[7] = {1, 2, 3, 4, 5, 6, 7};
+
+    int reds = cnt[0];
+    int ans = 0;
+
+    if (reds > 0) {
+        if (last == "RED") {
+            ans += 7;
+        }
+        ans += reds * (1 + 7);
+        ans += 2 + 3 + 4 + 5 + 6 + 7;
+    } else {
+        int sumColours = 0;
+        int maxColour = 0;
+
+        for (int i = 1; i < 7; ++i) {
+            if (cnt[i]) {
+                sumColours += value[i];
+                maxColour = max(maxColour, value[i]);
+            }
+        }
+
+        ans = sumColours;
+
+        if (last == "RED") {
+            ans += maxColour;
+        }
+    }
+
+    cout << ans << '\n';
+
+    return 0;
+}

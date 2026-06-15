@@ -1,0 +1,27 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int N, M;
+    cin >> N >> M;
+
+    vector<long long> deg(N + 1, 0);
+
+    for (int i = 0; i < M; ++i) {
+        int u, v;
+        cin >> u >> v;
+        deg[u]++;
+        deg[v]++;
+    }
+
+    long long ans = 0;
+    for (int i = 1; i <= N; ++i) {
+        ans += deg[i] * deg[i];
+    }
+
+    cout << ans << '\n';
+    return 0;
+}

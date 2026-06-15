@@ -1,0 +1,44 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int n;
+    if (!(cin >> n)) return 0;
+    
+    vector<int> spf(n + 1, 0);
+    for (int i = 2; i <= n; ++i) {
+        if (spf[i] == 0) {
+            spf[i] = i;
+            if ((long long)i * i <= n) {
+                for (int j = i * i; j <= n; j += i) {
+                    if (spf[j] == 0) {
+                        spf[j] = i;
+                    }
+                }
+            }
+        }
+    }
+    
+    vector<int> cnt(n + 1, 0);
+    int max_color = 1;
+    for (int i = 2; i <= n; ++i) {
+        cnt[i] = cnt[i / spf[i]] + 1;
+        if (cnt[i] + 1 > max_color) {
+            max_color = cnt[i] + 1;
+        }
+    }
+    
+    cout << max_color << "\n";
+    for (int i = 1; i <= n; ++i) {
+        cout << cnt[i] + 1 << (i == n ? "" : " ");
+    }
+    cout << "\n";
+    
+    return 0;
+}

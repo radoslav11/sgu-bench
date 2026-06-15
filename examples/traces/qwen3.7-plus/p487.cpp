@@ -1,0 +1,99 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+struct Edge {
+    int to_town;
+    int from_gate;
+    int to_gate;
+    int id;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    if (!(cin >> N)) return 0;
+
+    int num_roads = 2 * N;
+    vector<vector<Edge>> adj(N + 1);
+    vector<bool> used(num_roads, false);
+
+    for (int i = 0; i < num_roads; ++i) {
+        int u, v;
+        cin >> u >> v;
+        int tu = (u - 1) / 4 + 1;
+        int tv = (v - 1) / 4 + 1;
+        adj[tu].push_back({tv, u, v, i});
+        adj[tv].push_back({tu, v, u, i});
+    }
+
+    vector<bool> visited_town(N + 1, false);
+    vector<int> q;
+    q.push_back(1);
+    visited_town[1] = true;
+    int head = 0;
+    int count = 1;
+    while (head < (int)q.size()) {
+        int u = q[head++];
+        for (const auto& e : adj[u]) {
+            if (!visited_town[e.to_town]) {
+                visited_town[e.to_town] = true;
+                q.push_back(e.to_town);
+                count++;
+            }
+        }
+    }
+
+    if (count != N) {
+        cout << "No\n";
+        return 0;
+    }
+
+    vector<Edge> circuit;
+    auto dfs = [&](auto& self, int u) -> void {
+        while (!adj[u].empty()) {
+            Edge e = adj[u].back();
+            adj[u].pop_back();
+            if (used[e.id]) continue;
+            used[e.id] = true;
+            self(self, e.to_town);
+            circuit.push_back(e);
+        }
+    };
+
+    dfs(dfs, 1);
+
+    if (circuit.size() != (size_t)num_roads) {
+        cout << "No\n";
+        return 0;
+    }
+
+    reverse(circuit.begin(), circuit.end());
+
+    vector<int> gates;
+    gates.reserve(4 * N);
+    for (const auto& e : circuit) {
+        gates.push_back(e.from_gate);
+        gates.push_back(e.to_gate);
+    }
+
+    int start_pos = -1;
+    for (int i = 0; i < (int)gates.size(); ++i) {
+        if (gates[i] == 1) {
+            start_pos = i;
+            break;
+        }
+    }
+
+    cout << "Yes\n";
+    for (int i = 0; i < (int)gates.size(); ++i) {
+        cout << gates[(start_pos + i) % gates.size()] << (i == (int)gates.size() - 1 ? "" : " ");
+    }
+    cout << "\n";
+
+    return 0;
+}

@@ -1,0 +1,43 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int T;
+    cin >> T;
+
+    cout.setf(ios::fixed);
+    cout << setprecision(10);
+
+    while (T--) {
+        int n1, m1, n2, m2;
+        cin >> n1 >> m1 >> n2 >> m2;
+
+        long double a1 = m1 + 1;
+        long double b1 = n1 - m1 + 1;
+        int a2 = m2 + 1;
+        long double b2 = n2 - m2 + 1;
+
+        long double logBeta1 = lgammal(a1) + lgammal(b1) - lgammal(a1 + b1);
+
+        long double ans = 0.0L;
+
+        for (int j = 0; j <= a2 - 1; ++j) {
+            long double logCoeff =
+                lgammal(b2 + j) - lgammal(j + 1) - lgammal(b2);
+
+            long double logBeta =
+                lgammal(a1 + j) + lgammal(b1 + b2)
+                - lgammal(a1 + j + b1 + b2);
+
+            long double logTerm = logCoeff + logBeta - logBeta1;
+            ans += expl(logTerm);
+        }
+
+        cout << (double)ans << '\n';
+    }
+
+    return 0;
+}

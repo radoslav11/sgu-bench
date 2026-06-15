@@ -1,0 +1,216 @@
+#include <iostream>
+#include <vector>
+#include <functional>
+
+using namespace std;
+
+struct Step {
+    int from_v;
+    int to_v;
+    int to_w;
+    vector<int> s_path;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    
+    int N, M;
+    if (!(cin >> N >> M)) return 0;
+    
+    vector<vector<int>> adj(N + 1);
+    vector<int> deg(N + 1, 0);
+    
+    for (int i = 0; i < M; ++i) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+        deg[u]++;
+        deg[v]++;
+    }
+    
+    vector<int> C_vertices;
+    for (int i = 1; i <= N; ++i) {
+        if (deg[i] > 2) {
+            C_vertices.push_back(i);
+        }
+    }
+    
+    if (C_vertices.empty()) {
+        vector<int> cycle;
+        int curr = 1;
+        vector<bool> vis(N + 1, false);
+        vis[1] = true;
+        cycle.push_back(1);
+        while (true) {
+            int next_node = -1;
+            for (int neighbor : adj[curr]) {
+                if (!vis[neighbor]) {
+                    next_node = neighbor;
+                    break;
+                }
+            }
+            if (next_node == -1) break;
+            vis[next_node] = true;
+            cycle.push_back(next_node);
+            curr = next_node;
+        }
+        for (int i = 0; i < N; ++i) {
+            cout << cycle[i] << (i == N - 1 ? "" : " ");
+        }
+        cout << "\n";
+        return 0;
+    }
+    
+    vector<int> clique_id(N + 1, -1);
+    vector<vector<int>> cliques;
+    
+    for (int v : C_vertices) {
+        if (clique_id[v] != -1) continue;
+        vector<int> K;
+        for (int neighbor : adj[v]) {
+            if (deg[neighbor] > 2) {
+                K.push_back(neighbor);
+            }
+        }
+        K.push_back(v);
+        
+        if (K.size() % 2 != 0) {
+            cout << -1 << "\n";
+            return 0;
+        }
+        
+        int cid = cliques.size();
+        for (int x : K) {
+            clique_id[x] = cid;
+        }
+        cliques.push_back(K);
+    }
+    
+    vector<int> path_end(N + 1, -1);
+    for (int v : C_vertices) {
+        int curr = -1;
+        for (int neighbor : adj[v]) {
+            if (deg[neighbor] == 2) {
+                curr = neighbor;
+                break;
+            }
+        }
+        if (curr == -1) continue;
+        
+        int prev = v;
+        while (deg[curr] == 2) {
+            int next = -1;
+            for (int neighbor : adj[curr]) {
+                if (neighbor != prev) {
+                    next = neighbor;
+                    break;
+                }
+            }
+            if (next == -1 || deg[next] > 2) {
+                path_end[v] = next;
+                break;
+            }
+            prev = curr;
+            curr = next;
+        }
+    }
+    
+    vector<int> visited(N + 1, 0);
+    vector<Step> sol;
+    int start_node = C_vertices[0];
+    visited[start_node] = 1;
+    
+    auto get_s_path = [&](int v) {
+        vector<int> res;
+        int curr = -1;
+        for (int neighbor : adj[v]) {
+            if (deg[neighbor] == 2) {
+                curr = neighbor;
+                break;
+            }
+        }
+        if (curr == -1) return res;
+        int prev = v;
+        while (deg[curr] == 2) {
+            res.push_back(curr);
+            int next = -1;
+            for (int neighbor : adj[curr]) {
+                if (neighbor != prev) {
+                    next = neighbor;
+                    break;
+                }
+            }
+            if (next == -1 || deg[next] > 2) break;
+            prev = curr;
+            curr = next;
+        }
+        return res;
+    };
+    
+    bool possible = false;
+    function<bool(int, int)> dfs = [&](int u, int count) {
+        if (count == (int)C_vertices.size() - 1) {
+            for (int v : cliques[clique_id[u]]) {
+                if (v != u && !visited[v]) {
+                    if (path_end[v] == start_node) {
+                        Step st;
+                        st.from_v = u;
+                        st.to_v = v;
+                        st.to_w = start_node;
+                        st.s_path = get_s_path(v);
+                        sol.push_back(st);
+                        possible = true;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        for (int v : cliques[clique_id[u]]) {
+            if (v != u && !visited[v]) {
+                int w = path_end[v];
+                if (w == start_node) continue;
+                if (w != -1 && !visited[w]) {
+                    visited[v] = 1;
+                    visited[w] = 1;
+                    
+                    Step st;
+                    st.from_v = u;
+                    st.to_v = v;
+                    st.to_w = w;
+                    st.s_path = get_s_path(v);
+                    sol.push_back(st);
+                    
+                    if (dfs(w, count + 2)) return true;
+                    
+                    sol.pop_back();
+                    visited[v] = 0;
+                    visited[w] = 0;
+                }
+            }
+        }
+        return false;
+    };
+    
+    if (dfs(start_node, 1) && possible) {
+        vector<int> ans;
+        ans.push_back(start_node);
+        for (const auto& st : sol) {
+            ans.push_back(st.to_v);
+            for (int x : st.s_path) {
+                ans.push_back(x);
+            }
+        }
+        for (int i = 0; i < N; ++i) {
+            cout << ans[i] << (i == N - 1 ? "" : " ");
+        }
+        cout << "\n";
+    } else {
+        cout << -1 << "\n";
+    }
+    
+    return 0;
+}

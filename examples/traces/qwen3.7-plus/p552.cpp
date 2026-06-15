@@ -1,0 +1,108 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <algorithm>
+
+using namespace std;
+
+struct QueryKey {
+    uint32_t props[4];
+    uint8_t len;
+    
+    bool operator==(const QueryKey& other) const {
+        if (len != other.len) return false;
+        for (int i = 0; i < len; ++i) {
+            if (props[i] != other.props[i]) return false;
+        }
+        return true;
+    }
+};
+
+struct QueryKeyHash {
+    size_t operator()(const QueryKey& k) const {
+        size_t h = k.len;
+        for (int i = 0; i < k.len; ++i) {
+            h ^= k.props[i] + 0x9e3779b9 + (h << 6) + (h >> 2);
+        }
+        return h;
+    }
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    unordered_map<string, uint32_t> prop_to_id;
+    prop_to_id.reserve(250000);
+    uint32_t next_id = 1;
+
+    auto get_id = [&](const string& prop) {
+        auto it = prop_to_id.find(prop);
+        if (it != prop_to_id.end()) {
+            return it->second;
+        }
+        prop_to_id[prop] = next_id;
+        return next_id++;
+    };
+
+    unordered_map<QueryKey, int, QueryKeyHash> count_map;
+    count_map.reserve(1000000);
+
+    for (int i = 0; i < n; ++i) {
+        int k;
+        cin >> k;
+        uint32_t props[4];
+        for (int j = 0; j < k; ++j) {
+            string s;
+            cin >> s;
+            props[j] = get_id(s);
+        }
+        sort(props, props + k);
+
+        int num_subsets = 1 << k;
+        for (int mask = 0; mask < num_subsets; ++mask) {
+            QueryKey key;
+            key.len = 0;
+            for (int j = 0; j < k; ++j) {
+                if ((mask >> j) & 1) {
+                    key.props[key.len++] = props[j];
+                }
+            }
+            count_map[key]++;
+        }
+    }
+
+    int m;
+    if (!(cin >> m)) return 0;
+
+    for (int i = 0; i < m; ++i) {
+        int l;
+        cin >> l;
+        uint32_t props[4];
+        for (int j = 0; j < l; ++j) {
+            string s;
+            cin >> s;
+            props[j] = get_id(s);
+        }
+        sort(props, props + l);
+
+        QueryKey key;
+        key.len = l;
+        for (int j = 0; j < l; ++j) {
+            key.props[j] = props[j];
+        }
+
+        auto it = count_map.find(key);
+        if (it != count_map.end()) {
+            cout << it->second << "\n";
+        } else {
+            cout << 0 << "\n";
+        }
+    }
+
+    return 0;
+}

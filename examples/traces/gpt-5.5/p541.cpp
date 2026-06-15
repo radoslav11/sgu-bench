@@ -1,0 +1,329 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+const int INF = 1e9;
+const int NEG = -1e9;
+
+struct Edge {
+    int u, v;
+};
+
+struct Chain {
+    vector<int> path; // shared ... shared
+    int a, b;         // indices of shared endpoints in compressed graph
+    int len;          // number of edges
+};
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    cin >> n >> m;
+
+    vector<Edge> edges(m);
+    vector<vector<pair<int,int>>> g(n + 1);
+
+    for (int i = 0; i < m; ++i) {
+        int a, b;
+        cin >> a >> b;
+        edges[i] = {a, b};
+        g[a].push_back({b, i});
+        g[b].push_back({a, i});
+    }
+
+    vector<int> shared;
+    vector<int> sid(n + 1, -1);
+
+    for (int v = 1; v <= n; ++v) {
+        if ((int)g[v].size() == 4) {
+            sid[v] = (int)shared.size();
+            shared.push_back(v);
+        }
+    }
+
+    int k = (int)shared.size();
+
+    vector<char> usedEdge(m, 0);
+    vector<Chain> chains;
+    vector<vector<pair<int,int>>> cg(k); // compressed graph: neighbor shared index, chain id
+
+    for (int sidx = 0; sidx < k; ++sidx) {
+        int start = shared[sidx];
+
+        for (auto [to, eid] : g[start]) {
+            if (usedEdge[eid]) continue;
+
+            vector<int> path;
+            path.push_back(start);
+
+            int prev = start;
+            int cur = to;
+            int ce = eid;
+            usedEdge[ce] = 1;
+
+            while (sid[cur] == -1) {
+                path.push_back(cur);
+
+                int nxt = -1, ne = -1;
+                for (auto [x, id] : g[cur]) {
+                    if (x != prev) {
+                        nxt = x;
+                        ne = id;
+                        break;
+                    }
+                }
+
+                prev = cur;
+                cur = nxt;
+                ce = ne;
+                usedEdge[ce] = 1;
+            }
+
+            path.push_back(cur);
+
+            int a = sidx;
+            int b = sid[cur];
+
+            Chain ch;
+            ch.path = path;
+            ch.a = a;
+            ch.b = b;
+            ch.len = (int)path.size() - 1;
+
+            int id = (int)chains.size();
+            chains.push_back(ch);
+
+            cg[a].push_back({b, id});
+            cg[b].push_back({a, id});
+        }
+    }
+
+    // Build simple cycle order of shared vertices.
+    vector<vector<int>> uniq(k);
+    for (int i = 0; i < k; ++i) {
+        vector<int> tmp;
+        for (auto [to, cid] : cg[i]) tmp.push_back(to);
+        sort(tmp.begin(), tmp.end());
+        tmp.erase(unique(tmp.begin(), tmp.end()), tmp.end());
+        uniq[i] = tmp;
+    }
+
+    vector<int> order;
+    order.reserve(k);
+
+    int cur = 0, prev = -1;
+    for (int step = 0; step < k; ++step) {
+        order.push_back(cur);
+        int nxt = -1;
+        for (int x : uniq[cur]) {
+            if (x != prev) {
+                nxt = x;
+                break;
+            }
+        }
+        prev = cur;
+        cur = nxt;
+    }
+
+    vector<int> pos(k);
+    for (int i = 0; i < k; ++i) pos[order[i]] = i;
+
+    vector<vector<int>> edgeChains(k);
+
+    for (int cid = 0; cid < (int)chains.size(); ++cid) {
+        int a = chains[cid].a;
+        int b = chains[cid].b;
+        int pa = pos[a];
+        int pb = pos[b];
+
+        int idx;
+        if ((pa + 1) % k == pb) idx = pa;
+        else if ((pb + 1) % k == pa) idx = pb;
+        else idx = min(pa, pb);
+
+        edgeChains[idx].push_back(cid);
+    }
+
+    auto vertexReward = [](int st) {
+        return st == 0 ? 0 : 1;
+    };
+
+    auto chainPenalty = [&](int len, int s1, int s2) {
+        if (s1 == 0 || s2 == 0) return 0;
+
+        int c1 = s1 - 1;
+        int c2 = s2 - 1;
+
+        if ((c1 ^ c2) == (len & 1)) return 0;
+
+        if (len == 1) return INF;
+        return 1;
+    };
+
+    auto edgePenalty = [&](int idx, int s1, int s2) {
+        int res = 0;
+        for (int cid : edgeChains[idx]) {
+            int p = chainPenalty(chains[cid].len, s1, s2);
+            if (p >= INF) return INF;
+            res += p;
+        }
+        return res;
+    };
+
+    int bestVal = NEG, bestStart = 0, bestEnd = 0;
+
+    for (int st0 = 0; st0 < 3; ++st0) {
+        vector<array<int,3>> dp(k);
+        for (int i = 0; i < k; ++i) dp[i] = {NEG, NEG, NEG};
+
+        dp[0][st0] = vertexReward(st0);
+
+        for (int i = 1; i < k; ++i) {
+            for (int ps = 0; ps < 3; ++ps) {
+                if (dp[i - 1][ps] <= NEG / 2) continue;
+
+                for (int cs = 0; cs < 3; ++cs) {
+                    int pen = edgePenalty(i - 1, ps, cs);
+                    if (pen >= INF) continue;
+
+                    dp[i][cs] = max(dp[i][cs], dp[i - 1][ps] + vertexReward(cs) - pen);
+                }
+            }
+        }
+
+        for (int last = 0; last < 3; ++last) {
+            int pen = edgePenalty(k - 1, last, st0);
+            if (pen >= INF) continue;
+
+            int val = dp[k - 1][last] - pen;
+            if (val > bestVal) {
+                bestVal = val;
+                bestStart = st0;
+                bestEnd = last;
+            }
+        }
+    }
+
+    vector<array<int,3>> dp(k);
+    vector<array<int,3>> par(k);
+
+    for (int i = 0; i < k; ++i) {
+        dp[i] = {NEG, NEG, NEG};
+        par[i] = {-1, -1, -1};
+    }
+
+    dp[0][bestStart] = vertexReward(bestStart);
+
+    for (int i = 1; i < k; ++i) {
+        for (int ps = 0; ps < 3; ++ps) {
+            if (dp[i - 1][ps] <= NEG / 2) continue;
+
+            for (int cs = 0; cs < 3; ++cs) {
+                int pen = edgePenalty(i - 1, ps, cs);
+                if (pen >= INF) continue;
+
+                int val = dp[i - 1][ps] + vertexReward(cs) - pen;
+                if (val > dp[i][cs]) {
+                    dp[i][cs] = val;
+                    par[i][cs] = ps;
+                }
+            }
+        }
+    }
+
+    vector<int> compressedState(k, 0);
+    compressedState[k - 1] = bestEnd;
+
+    for (int i = k - 1; i >= 1; --i) {
+        compressedState[i - 1] = par[i][compressedState[i]];
+    }
+
+    vector<int> color(n + 1, -1); // -1 uncolored, 0 company1, 1 company2
+
+    for (int i = 0; i < k; ++i) {
+        int v = shared[order[i]];
+        int st = compressedState[i];
+        if (st == 1) color[v] = 0;
+        else if (st == 2) color[v] = 1;
+    }
+
+    auto solvePath = [&](const Chain &ch) {
+        const vector<int> &p = ch.path;
+        int L = (int)p.size() - 1;
+
+        vector<array<int,3>> d(L + 1);
+        vector<array<int,3>> pr(L + 1);
+
+        for (int i = 0; i <= L; ++i) {
+            d[i] = {NEG, NEG, NEG};
+            pr[i] = {-1, -1, -1};
+        }
+
+        int startColor = color[p[0]];
+        int startState = (startColor == -1 ? 0 : startColor + 1);
+        d[0][startState] = 0;
+
+        for (int i = 1; i <= L; ++i) {
+            bool endpoint = (i == L);
+            int fixedState = -1;
+
+            if (endpoint) {
+                int c = color[p[i]];
+                fixedState = (c == -1 ? 0 : c + 1);
+            }
+
+            for (int ps = 0; ps < 3; ++ps) {
+                if (d[i - 1][ps] <= NEG / 2) continue;
+
+                for (int cs = 0; cs < 3; ++cs) {
+                    if (endpoint && cs != fixedState) continue;
+
+                    if (ps != 0 && cs != 0 && ps == cs) continue;
+
+                    int add = 0;
+                    if (!endpoint && cs != 0) add = 1;
+
+                    int val = d[i - 1][ps] + add;
+                    if (val > d[i][cs]) {
+                        d[i][cs] = val;
+                        pr[i][cs] = ps;
+                    }
+                }
+            }
+        }
+
+        int endState = (color[p[L]] == -1 ? 0 : color[p[L]] + 1);
+        vector<int> st(L + 1);
+        st[L] = endState;
+
+        for (int i = L; i >= 1; --i) {
+            st[i - 1] = pr[i][st[i]];
+        }
+
+        for (int i = 1; i < L; ++i) {
+            if (st[i] == 0) color[p[i]] = -1;
+            else color[p[i]] = st[i] - 1;
+        }
+    };
+
+    for (const Chain &ch : chains) {
+        solvePath(ch);
+    }
+
+    vector<int> c1, c2;
+    for (int v = 1; v <= n; ++v) {
+        if (color[v] == 0) c1.push_back(v);
+        else if (color[v] == 1) c2.push_back(v);
+    }
+
+    cout << c1.size();
+    for (int v : c1) cout << ' ' << v;
+    cout << '\n';
+
+    cout << c2.size();
+    for (int v : c2) cout << ' ' << v;
+    cout << '\n';
+
+    return 0;
+}

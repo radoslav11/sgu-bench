@@ -1,0 +1,92 @@
+#include <iostream>
+#include <vector>
+
+/**
+ * Problem Summary:
+ * Find the count of numbers in a given sequence of N integers such that 
+ * after raising them to the M-th power, they are divisible by K.
+ * 
+ * Mathematical Analysis:
+ * Let K be factorized into primes as K = p1^a1 * p2^a2 * ... * pr^ar.
+ * A number x^M is divisible by K if and only if for each prime factor pi of K,
+ * the power of pi in the prime factorization of x^M is at least ai.
+ * Let the power of pi in the factorization of x be bi.
+ * Then the power of pi in x^M is (M * bi).
+ * The condition is M * bi >= ai for all i in {1, ..., r}.
+ * This is equivalent to bi >= ceil(ai / M).
+ * 
+ * Let L be the smallest integer satisfying this condition:
+ * L = p1^ceil(a1/M) * p2^ceil(a2/M) * ... * pr^ceil(ar/M).
+ * x^M is divisible by K if and only if x is divisible by L.
+ * 
+ * Implementation Details:
+ * 1. Prime factorization of K to find its prime factors and their exponents.
+ * 2. Compute L based on the formula above.
+ * 3. Count how many numbers in the sequence are multiples of L.
+ * 
+ * Constraints:
+ * N, M, K < 10001. Each x in the sequence <= 10001.
+ * Time limit: 0.25s (Tight).
+ * Memory limit: 4096 KB.
+ */
+
+using namespace std;
+
+int main() {
+    // Faster I/O to meet the tight time limit of 0.25s.
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N, M, K;
+    if (!(cin >> N >> M >> K)) return 0;
+
+    // Prime factorization of K
+    vector<pair<int, int>> factors;
+    int tempK = K;
+    for (int i = 2; i * i <= tempK; ++i) {
+        if (tempK % i == 0) {
+            int count = 0;
+            while (tempK % i == 0) {
+                count++;
+                tempK /= i;
+            }
+            factors.push_back({i, count});
+        }
+    }
+    if (tempK > 1) {
+        factors.push_back({tempK, 1});
+    }
+
+    // Calculate L = product of pi^ceil(ai/M)
+    // Since M >= 1 and ai >= 1, ceil(ai/M) is at least 1.
+    // L will always be <= K, so L <= 10000.
+    long long L = 1;
+    for (auto& p : factors) {
+        int p_val = p.first;
+        int a_i = p.second;
+        // Integer division equivalent to ceil(a_i / M)
+        int needed = (a_i + M - 1) / M;
+        for (int j = 0; j < needed; ++j) {
+            L *= p_val;
+        }
+    }
+
+    // Corner case for K = 1: L will be 1, every x % 1 == 0.
+    // The prime factorization part handles K = 1 correctly by leaving factors empty.
+
+    // Count the number of elements in the sequence divisible by L
+    int count = 0;
+    for (int i = 0; i < N; ++i) {
+        int x;
+        if (!(cin >> x)) break;
+        // Any x divisible by L will satisfy x^M % K == 0
+        if (x % L == 0) {
+            count++;
+        }
+    }
+
+    cout << count << endl;
+
+    return 0;
+}
+

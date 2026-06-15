@@ -1,0 +1,90 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+/**
+ * Problem: Printed PR
+ * Goal: Minimize the maximum delivery time.
+ * The time when the i-th leaflet in a printed sequence is delivered is:
+ * (Time spent printing leaflets 1 through i) + (Delivery time of leaflet i).
+ * Let Ti be the printing time and Li be the delivery time for the i-th leaflet.
+ * For a sequence of leaflets p1, p2, ..., pN, the delivery time for leaflet pi is:
+ * Di = (T_p1 + T_p2 + ... + T_pi) + L_pi.
+ * We want to minimize max(D1, D2, ..., DN).
+ *
+ * Using the exchange argument (standard for scheduling problems):
+ * Consider two adjacent leaflets in the sequence, i and j.
+ * Let S be the total printing time before these two leaflets.
+ * In the order (i, j), the delivery times are:
+ * Di = S + Ti + Li
+ * Dj = S + Ti + Tj + Lj
+ * In the order (j, i), the delivery times are:
+ * Dj' = S + Tj + Lj
+ * Di' = S + Tj + Ti + Li
+ *
+ * We prefer order (i, j) if max(Di, Dj) < max(Dj', Di').
+ * Subtracting S from both sides:
+ * max(Ti + Li, Ti + Tj + Lj) < max(Tj + Lj, Tj + Ti + Li)
+ *
+ * This comparison defines the optimal order. Since the comparison function
+ * is based on local pairwise optimality, and it's a known property for this
+ * type of problem (Minimizing Maximum Lateness), sorting the leaflets
+ * with this comparison will yield the optimal sequence.
+ */
+
+struct Leaflet {
+    int t, l;
+};
+
+// Comparison function based on the exchange argument derived above.
+bool compareLeaflets(const Leaflet& a, const Leaflet& b) {
+    int m1 = max(a.t + a.l, a.t + b.t + b.l);
+    int m2 = max(b.t + b.l, b.t + a.t + a.l);
+    if (m1 != m2) {
+        return m1 < m2;
+    }
+    // Tie-breaking is not strictly necessary for correctness in this case,
+    // but we provide a consistent ordering.
+    return a.t < b.t;
+}
+
+int main() {
+    // Optimizing standard I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    vector<Leaflet> leaflets(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> leaflets[i].t;
+    }
+    for (int i = 0; i < n; ++i) {
+        cin >> leaflets[i].l;
+    }
+
+    // Sort leaflets to minimize the maximum delivery time.
+    sort(leaflets.begin(), leaflets.end(), compareLeaflets);
+
+    int currentTime = 0;
+    int maxTime = 0;
+    for (int i = 0; i < n; ++i) {
+        // Update the current time as leaflets are printed sequentially.
+        currentTime += leaflets[i].t;
+        // The leaflet is delivered as soon as printing is complete.
+        // We track the maximum delivery time across all leaflets.
+        int deliveryTime = currentTime + leaflets[i].l;
+        if (deliveryTime > maxTime) {
+            maxTime = deliveryTime;
+        }
+    }
+
+    // Output the minimal required time to finish all deliveries.
+    cout << maxTime << endl;
+
+    return 0;
+}
+

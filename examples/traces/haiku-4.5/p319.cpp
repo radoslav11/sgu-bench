@@ -1,0 +1,106 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int N;
+    long long W, H;
+    cin >> N >> W >> H;
+    
+    vector<long long> xs, ys;
+    vector<array<long long, 4>> frames(N);
+    
+    xs.push_back(0);
+    xs.push_back(W);
+    ys.push_back(0);
+    ys.push_back(H);
+    
+    for(int i = 0; i < N; i++){
+        long long x1, y1, x2, y2;
+        cin >> x1 >> y1 >> x2 >> y2;
+        frames[i] = {min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2)};
+        xs.push_back(frames[i][0]);
+        xs.push_back(frames[i][2]);
+        ys.push_back(frames[i][1]);
+        ys.push_back(frames[i][3]);
+    }
+    
+    sort(xs.begin(), xs.end());
+    sort(ys.begin(), ys.end());
+    xs.erase(unique(xs.begin(), xs.end()), xs.end());
+    ys.erase(unique(ys.begin(), ys.end()), ys.end());
+    
+    int xn = xs.size();
+    int yn = ys.size();
+    
+    // visited[i][j] represents cell (i,j) - cell between xs[i] and xs[i+1], ys[j] and ys[j+1]
+    vector<vector<bool>> visited(xn-1, vector<bool>(yn-1, false));
+    vector<vector<bool>> isWhite(xn-1, vector<bool>(yn-1));
+    
+    // Determine if each cell is white (not inside any frame)
+    for(int i = 0; i < xn-1; i++){
+        for(int j = 0; j < yn-1; j++){
+            long long mx = (xs[i] + xs[i+1]) / 2;
+            long long my = (ys[j] + ys[j+1]) / 2;
+            
+            bool inFrame = false;
+            for(auto& f : frames){
+                if(mx > f[0] && mx < f[2] && my > f[1] && my < f[3]){
+                    inFrame = true;
+                    break;
+                }
+            }
+            isWhite[i][j] = !inFrame;
+        }
+    }
+    
+    vector<long long> areas;
+    
+    // Flood fill to find connected white regions
+    for(int i = 0; i < xn-1; i++){
+        for(int j = 0; j < yn-1; j++){
+            if(isWhite[i][j] && !visited[i][j]){
+                // BFS to find connected component
+                queue<pair<int,int>> q;
+                q.push({i, j});
+                visited[i][j] = true;
+                long long area = 0;
+                
+                while(!q.empty()){
+                    auto [ci, cj] = q.front();
+                    q.pop();
+                    
+                    long long cellWidth = xs[ci+1] - xs[ci];
+                    long long cellHeight = ys[cj+1] - ys[cj];
+                    area += cellWidth * cellHeight;
+                    
+                    // Check 4 neighbors
+                    int di[] = {-1, 1, 0, 0};
+                    int dj[] = {0, 0, -1, 1};
+                    
+                    for(int d = 0; d < 4; d++){
+                        int ni = ci + di[d];
+                        int nj = cj + dj[d];
+                        if(ni >= 0 && ni < xn-1 && nj >= 0 && nj < yn-1 && 
+                           isWhite[ni][nj] && !visited[ni][nj]){
+                            visited[ni][nj] = true;
+                            q.push({ni, nj});
+                        }
+                    }
+                }
+                
+                areas.push_back(area);
+            }
+        }
+    }
+    
+    sort(areas.begin(), areas.end());
+    
+    for(long long area : areas){
+        cout << area << "\n";
+    }
+    
+    return 0;
+}

@@ -1,0 +1,166 @@
+#include <iostream>
+#include <vector>
+#include <numeric>
+
+using namespace std;
+
+/**
+ * Problem: Funny Strings (Euclid strings)
+ * A string S1, S2, ..., SN is 'funny' if S1+1, S2, ..., SN-1 is a cyclic rotation of S.
+ * 
+ * Analysis:
+ * Let S be a string of size N and k = K % N.
+ * For GCD(N, K) = 1, a funny string can be constructed using a single rotation d.
+ * If d is coprime to N, the orbit 0 -> d -> 2d -> ... -> (N-1)d (mod N) covers all indices.
+ * In the orbit (a_0, a_1, ..., a_{N-1}), where a_m = (m * d) % N:
+ *   a_0 = 0
+ *   a_j = (d-1) % N (this occurs at index j = (1 - d_inv) % N)
+ *   a_k = (N-1) % N (this occurs at index k = (N-1) * d_inv % N)
+ *   
+ * A construction based on the orbit works if:
+ *   S_{a_0} = S_0
+ *   S_{a_1} = S_{a_2} = ... = S_{a_j} = S_0 + 1
+ *   S_{a_{j+1}} = ... = S_{a_{N-1}} = S_0
+ * 
+ * This requires S_{N-1} = S_0 + 1 and S_{d-1} = S_0.
+ * The sum is N * S_0 + j = K, where j is the count of elements equal to S_0 + 1.
+ * For this to hold with j being the number of steps to reach N-1 in the orbit,
+ * we need j = K % N.
+ * 
+ * If K % N == N - 1, the d=1 case (rotation by 1) works directly with S_0 = (K - (N-1)) / N.
+ * Otherwise, we search for a d coprime to N such that the index j where a_j = (d-1) mod N
+ * satisfies j > (K % N).
+ */
+
+// Function to compute GCD
+long long gcd(long long a, long long b) {
+    while (b) {
+        a %= b;
+        swap(a, b);
+    }
+    return a;
+}
+
+// Extended Euclidean Algorithm to find modular inverse
+long long extended_gcd(long long a, long long b, long long &x, long long &y) {
+    if (a == 0) {
+        x = 0; y = 1;
+        return b;
+    }
+    long long x1, y1;
+    long long d = extended_gcd(b % a, a, x1, y1);
+    x = y1 - (b / a) * x1;
+    y = x1;
+    return d;
+}
+
+// Function to compute modular inverse
+long long modInverse(long long a, long long m) {
+    long long x, y;
+    long long g = extended_gcd(a, m, x, y);
+    if (g != 1) return -1;
+    return (x % m + m) % m;
+}
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int N;
+    long long K;
+    if (!(cin >> N >> K)) return 0;
+
+    int k = K % N;
+    int d = -1;
+
+    if (k == N - 1) {
+        d = 1;
+    } else {
+        for (int test_d = 1; test_d < N; ++test_d) {
+            if (gcd(test_d, N) == 1) {
+                long long inv_d = modInverse(test_d, N);
+                // The index j in the orbit where a_j = (d-1) mod N
+                // a_j = (j * d) % N = (d - 1) % N
+                // j * d = d - 1 (mod N)  =>  j = (d - 1) * d_inv (mod N)
+                // Since d_inv is modular inverse of d, d_inv * d = 1
+                // So j = 1 - d_inv (mod N)
+                int j = (int)((1 - inv_d + N) % N);
+                if (j > k) {
+                    d = test_d;
+                    break;
+                }
+            }
+        }
+    }
+
+    // If d is found, reconstruct the sequence
+    if (d != -1) {
+        long long s0 = (K - k) / N;
+        vector<long long> S(N, 0);
+        vector<int> orbit(N);
+        for (int i = 0; i < N; ++i) {
+            orbit[i] = (int)((1LL * i * d) % N);
+        }
+
+        // According to construction:
+        // a_0 is S_0.
+        // a_1 to a_k are S_0 + 1.
+        // a_{k+1} to a_{N-1} are S_0.
+        // We need to ensure this sequence satisfies the "funny" properties.
+        // In our case, a_k will be N-1, ensuring S_{N-1} = S_0 + 1.
+        // The index j where a_j = (d-1) mod N is > k, ensuring S_{d-1} = S_0.
+        
+        // Re-calculating the orbit index of N-1:
+        // a_idx_N_minus_1 = (idx * d) % N = N-1
+        // idx = (N-1) * d_inv % N
+        long long inv_d = modInverse(d, N);
+        int idx_N_minus_1 = (int)((1LL * (N - 1) * inv_d) % N);
+        // Note that our k is defined such that S_0 + k(S_0+1) + (N-1-k)S_0 = K.
+        // This means the first k elements in the orbit (after a_0) are S_0+1.
+        // So we actually use the index idx_N_minus_1 as the pivot for the sum.
+        // Let's re-set k based on the index of N-1.
+        k = idx_N_minus_1; 
+
+        // Wait, let's use the specific k derived from K % N.
+        // Let k_val = K % N. The sum is N*s0 + k_val = K.
+        // This means there are k_val elements in the orbit that are s0 + 1.
+        // These elements must be a_1, a_2, ..., a_{k_val}.
+        // For this to be a funny string, the orbit must have S_{N-1} = S_0 + 1
+        // and S_{d-1} = S_0.
+        // This is guaranteed if index_of(N-1) is k_val and index_of(d-1) is > k_val.
+        // Let's find the index of N-1.
+        int idx_N_minus_1_real = (int)((1LL * (N - 1) * inv_d) % N);
+        
+        // Let's re-adjust k to be the index of N-1.
+        // The sum N*S_0 + k_val = K. So k_val elements are S_0+1.
+        // If we set S_{a_1}, ..., S_{a_{k_val}} to S_0+1, then S_{a_{k_val}} = S_{N-1}.
+        // This makes S_{N-1} = S_0 + 1.
+        // Then S_{N-1} - 1 = S_0. 
+        // We need S_{d-1} = S_0. So index_of(d-1) must be > k_val.
+        
+        k = (int)((1LL * (N - 1) * inv_d) % N);
+        // Wait, K % N is the number of S_0+1 elements. 
+        // In the orbit, if S_{a_1}, ..., S_{a_k} are S_0+1, then k elements are S_0+1.
+        // The sum is S_{a_0} + k(S_0+1) + (N-1-k)S_0 = S_0 + kS_0 + k + NS_0 - S_0 - kS_0 = NS_0 + k.
+        // So we need k = K % N.
+        k = (int)(K % N);
+        
+        // Re-calculate s0 and assign values to S
+        s0 = (K - k) / N;
+        S[orbit[0]] = s0;
+        for (int i = 1; i <= k; ++i) {
+            S[orbit[i]] = s0 + 1;
+        }
+        for (int i = k + 1; i < N; ++i) {
+            S[orbit[i]] = s0;
+        }
+
+        for (int i = 0; i < N; ++i) {
+            cout << S[i] << (i == N - 1 ? "" : " ");
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+

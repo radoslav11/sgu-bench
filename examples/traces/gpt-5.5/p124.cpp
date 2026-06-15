@@ -1,0 +1,62 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Segment {
+    int x1, y1, x2, y2;
+};
+
+bool onSegment(int x, int y, const Segment& s) {
+    int minX = min(s.x1, s.x2), maxX = max(s.x1, s.x2);
+    int minY = min(s.y1, s.y2), maxY = max(s.y1, s.y2);
+
+    if (s.x1 == s.x2) {
+        return x == s.x1 && y >= minY && y <= maxY;
+    } else {
+        return y == s.y1 && x >= minX && x <= maxX;
+    }
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int K;
+    cin >> K;
+
+    vector<Segment> segs(K);
+    for (int i = 0; i < K; ++i) {
+        cin >> segs[i].x1 >> segs[i].y1 >> segs[i].x2 >> segs[i].y2;
+    }
+
+    int X0, Y0;
+    cin >> X0 >> Y0;
+
+    for (const auto& s : segs) {
+        if (onSegment(X0, Y0, s)) {
+            cout << "BORDER\n";
+            return 0;
+        }
+    }
+
+    int crossings = 0;
+
+    for (const auto& s : segs) {
+        if (s.x1 == s.x2) {
+            int x = s.x1;
+            int yMin = min(s.y1, s.y2);
+            int yMax = max(s.y1, s.y2);
+
+            if (x > X0 && Y0 >= yMin && Y0 < yMax) {
+                ++crossings;
+            }
+        }
+    }
+
+    if (crossings % 2 == 1) {
+        cout << "INSIDE\n";
+    } else {
+        cout << "OUTSIDE\n";
+    }
+
+    return 0;
+}

@@ -1,0 +1,99 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int N, P;
+bool removed[41][41];
+int match[41][41];
+bool visited[41][41];
+
+// Direction vectors: right, up
+int dx[] = {1, 0};
+int dy[] = {0, 1};
+
+bool dfs(int x, int y) {
+    for(int dir = 0; dir < 2; dir++) {
+        int nx = x + dx[dir];
+        int ny = y + dy[dir];
+        
+        if(nx > N || ny > N || removed[nx][ny]) continue;
+        
+        if(visited[nx][ny]) continue;
+        visited[nx][ny] = true;
+        
+        if(match[nx][ny] == 0 || dfs(match[nx][ny] / 1000, match[nx][ny] % 1000)) {
+            match[nx][ny] = x * 1000 + y;
+            match[x][y] = nx * 1000 + ny;
+            return true;
+        }
+    }
+    return false;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    cin >> N >> P;
+    
+    for(int i = 0; i < P; i++) {
+        int x, y;
+        cin >> x >> y;
+        removed[x][y] = true;
+    }
+    
+    // Try to match all white squares (where (x+y) is even)
+    for(int x = 1; x <= N; x++) {
+        for(int y = 1; y <= N; y++) {
+            if(!removed[x][y] && (x + y) % 2 == 0) {
+                memset(visited, false, sizeof(visited));
+                visited[x][y] = true;
+                dfs(x, y);
+            }
+        }
+    }
+    
+    // Check if all non-removed squares are matched
+    for(int x = 1; x <= N; x++) {
+        for(int y = 1; y <= N; y++) {
+            if(!removed[x][y] && match[x][y] == 0) {
+                cout << "No\n";
+                return 0;
+            }
+        }
+    }
+    
+    cout << "Yes\n";
+    
+    vector<pair<int,int>> horizontal, vertical;
+    
+    // Collect matched pairs
+    for(int x = 1; x <= N; x++) {
+        for(int y = 1; y <= N; y++) {
+            if(!removed[x][y] && match[x][y] != 0) {
+                int mx = match[x][y] / 1000;
+                int my = match[x][y] % 1000;
+                
+                // Only record if this is the "first" square of the pair
+                if(x < mx || (x == mx && y < my)) {
+                    if(x == mx) { // horizontal
+                        horizontal.push_back({min(y,my), x});
+                    } else { // vertical
+                        vertical.push_back({x, min(y,my)});
+                    }
+                }
+            }
+        }
+    }
+    
+    cout << horizontal.size() << "\n";
+    for(auto p : horizontal) {
+        cout << p.first << " " << p.second << "\n";
+    }
+    
+    cout << vertical.size() << "\n";
+    for(auto p : vertical) {
+        cout << p.first << " " << p.second << "\n";
+    }
+    
+    return 0;
+}

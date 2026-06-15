@@ -1,0 +1,94 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <map>
+#include <algorithm>
+
+using namespace std;
+
+struct MaskCount {
+    int mask;
+    int count;
+};
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n, m;
+    if (!(cin >> n >> m)) return 0;
+
+    vector<string> grid(n);
+    for (int i = 0; i < n; ++i) {
+        cin >> grid[i];
+    }
+
+    int orig_n = n, orig_m = m;
+    if (orig_n > orig_m) {
+        swap(n, m);
+        vector<string> t_grid(n, string(m, '.'));
+        for (int i = 0; i < orig_n; ++i) {
+            for (int j = 0; j < orig_m; ++j) {
+                t_grid[j][i] = grid[i][j];
+            }
+        }
+        grid = t_grid;
+    }
+
+    map<int, int> mask_counts;
+    for (int j = 0; j < m; ++j) {
+        int current_mask = 0;
+        for (int i = 0; i < n; ++i) {
+            if (grid[i][j] == '*') {
+                current_mask |= (1 << i);
+            }
+        }
+        mask_counts[current_mask]++;
+    }
+
+    vector<MaskCount> masks;
+    for (auto const& kv : mask_counts) {
+        masks.push_back({kv.first, kv.second});
+    }
+
+    for (int p = 0; p <= n; ++p) {
+        if (p == 0) {
+            int c_count = 0;
+            for (const auto& mc : masks) {
+                if (mc.mask != 0) {
+                    c_count += mc.count;
+                }
+            }
+            if (c_count == 0) {
+                cout << 0 << "\n";
+                return 0;
+            }
+        } else {
+            int U = (1 << p) - 1;
+            while (U < (1 << n)) {
+                int c_count = 0;
+                int rem = ((1 << n) - 1) ^ U;
+                bool possible = true;
+                for (const auto& mc : masks) {
+                    if (mc.mask & rem) {
+                        c_count += mc.count;
+                        if (c_count > p) {
+                            possible = false;
+                            break;
+                        }
+                    }
+                }
+                if (possible) {
+                    cout << p << "\n";
+                    return 0;
+                }
+                
+                int c = U & -U;
+                int r = U + c;
+                U = (((r ^ U) >> 2) / c) | r;
+            }
+        }
+    }
+
+    return 0;
+}

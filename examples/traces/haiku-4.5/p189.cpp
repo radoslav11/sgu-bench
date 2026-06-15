@@ -1,0 +1,168 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+map<string, string> vars;
+
+string trim(const string& s) {
+    int start = 0, end = s.length() - 1;
+    while(start <= end && isspace(s[start])) start++;
+    while(end >= start && isspace(s[end])) end--;
+    return s.substr(start, end - start + 1);
+}
+
+string getSubstr(const string& str, int offset, int count = -1) {
+    int len = str.length();
+    
+    // Convert offset
+    if(offset < 0) {
+        offset = len + offset;
+    }
+    
+    // Handle count
+    int endPos;
+    if(count == -1) {
+        endPos = len;
+    } else if(count < 0) {
+        endPos = len + count;
+    } else {
+        endPos = offset + count;
+    }
+    
+    if(offset < 0) offset = 0;
+    if(endPos > len) endPos = len;
+    
+    return str.substr(offset, endPos - offset);
+}
+
+void setSubstr(string& str, int offset, int count, const string& newStr) {
+    int len = str.length();
+    
+    if(offset < 0) {
+        offset = len + offset;
+    }
+    
+    int endPos;
+    if(count == -1) {
+        endPos = len;
+    } else if(count < 0) {
+        endPos = len + count;
+    } else {
+        endPos = offset + count;
+    }
+    
+    if(offset < 0) offset = 0;
+    if(endPos > len) endPos = len;
+    
+    str = str.substr(0, offset) + newStr + str.substr(endPos);
+}
+
+pair<int, int> parseSubstrParams(const string& s, int& pos) {
+    int offset = 0, count = -1;
+    // Parse offset
+    sscanf(s.c_str() + pos, "%d", &offset);
+    while(pos < s.length() && s[pos] != ',' && s[pos] != ')') pos++;
+    
+    if(pos < s.length() && s[pos] == ',') {
+        pos++;
+        sscanf(s.c_str() + pos, "%d", &count);
+        while(pos < s.length() && s[pos] != ')') pos++;
+    }
+    
+    return {offset, count};
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
+    
+    int N, M;
+    cin >> N >> M;
+    cin.ignore();
+    
+    // Parse initializations
+    for(int i = 0; i < N; i++) {
+        string line;
+        getline(cin, line);
+        int eq = line.find('=');
+        if(eq != string::npos) {
+            string name = trim(line.substr(0, eq));
+            int q1 = line.find('"', eq);
+            int q2 = line.rfind('"');
+            if(q1 != string::npos && q2 != string::npos && q1 < q2) {
+                vars[name] = line.substr(q1 + 1, q2 - q1 - 1);
+            }
+        }
+    }
+    
+    // Execute commands
+    for(int i = 0; i < M; i++) {
+        string line;
+        getline(cin, line);
+        
+        if(line.find("print(") != string::npos) {
+            int start = line.find("print(") + 6;
+            int end = line.rfind(")");
+            string content = trim(line.substr(start, end - start));
+            
+            if(content.find("substr") != string::npos) {
+                int substPos = content.find("substr(");
+                int comma = content.find(',', substPos);
+                int varEnd = comma;
+                if(comma == string::npos) varEnd = content.find(')', substPos);
+                
+                string varName = trim(content.substr(substPos + 7, varEnd - substPos - 7));
+                int pos = varEnd + 1;
+                auto [offset, count] = parseSubstrParams(content, pos);
+                cout << getSubstr(vars[varName], offset, count) << "\n";
+            } else {
+                cout << vars[content] << "\n";
+            }
+        } else if(line.find("substr(") != string::npos && line.find("=") != string::npos) {
+            int eqPos = line.find('=');
+            string lhs = trim(line.substr(0, eqPos));
+            string rhs = trim(line.substr(eqPos + 1));
+            rhs = rhs.substr(0, rhs.length() - 1); // remove ;
+            
+            int substrStart = lhs.find("substr(");
+            int comma = lhs.find(',', substrStart);
+            int varEnd = comma;
+            string varName = trim(lhs.substr(substrStart + 7, varEnd - substrStart - 7));
+            
+            int pos = varEnd + 1;
+            auto [offset, count] = parseSubstrParams(lhs, pos);
+            
+            if(rhs.find("substr(") != string::npos) {
+                int substPos = rhs.find("substr(");
+                int c2 = rhs.find(',', substPos);
+                int v2End = c2;
+                if(c2 == string::npos) v2End = rhs.find(')', substPos);
+                string var2Name = trim(rhs.substr(substPos + 7, v2End - substPos - 7));
+                int p2 = v2End + 1;
+                auto [o2, c2_val] = parseSubstrParams(rhs, p2);
+                setSubstr(vars[varName], offset, count, getSubstr(vars[var2Name], o2, c2_val));
+            } else {
+                setSubstr(vars[varName], offset, count, vars[rhs]);
+            }
+        } else {
+            int eqPos = line.find('=');
+            string lhs = trim(line.substr(0, eqPos));
+            string rhs = trim(line.substr(eqPos + 1));
+            rhs = rhs.substr(0, rhs.length() - 1);
+            
+            if(rhs.find("substr(") != string::npos) {
+                int substPos = rhs.find("substr(");
+                int comma = rhs.find(',', substPos);
+                int varEnd = comma;
+                if(comma == string::npos) varEnd = rhs.find(')', substPos);
+                string varName = trim(rhs.substr(substPos + 7, varEnd - substPos - 7));
+                int pos = varEnd + 1;
+                auto [offset, count] = parseSubstrParams(rhs, pos);
+                vars[lhs] = getSubstr(vars[varName], offset, count);
+            } else {
+                vars[lhs] = vars[rhs];
+            }
+        }
+    }
+    
+    return 0;
+}

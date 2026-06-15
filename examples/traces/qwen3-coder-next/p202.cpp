@@ -1,0 +1,313 @@
+#include <iostream>
+#include <vector>
+#include <stack>
+#include <cmath>
+#include <algorithm>
+#include <iomanip>
+#include <cstring>
+#include <climits>
+#include <map>
+#include <set>
+#include <queue>
+#include <cassert>
+
+using namespace std;
+
+// Global variables to store the moves and simulate the pegs
+vector<string> moves;
+vector<stack<int>> pegs;
+
+// Recursive function to solve the Tower of Hanoi with M pegs
+// This uses the Frame-Stewart algorithm: choose k (0 <= k < n) to minimize moves
+// The recurrence: T(n, m) = min_{1<=k<n} [2*T(k, m) + T(n-k, m-1)]
+// But we also need to reconstruct the moves, so we store the optimal k for each (n, m)
+
+// We'll precompute the minimal number of moves using DP and also record the optimal k
+// dp[n][m] = minimal moves to move n disks with m pegs
+// choice[n][m] = optimal k (number of top disks to move aside)
+long long dp[65][66];
+int choice[65][66];
+
+void precompute() {
+    // Base cases
+    for (int m = 1; m <= 65; ++m) {
+        dp[0][m] = 0;
+        dp[1][m] = 1;
+    }
+    for (int n = 1; n <= 64; ++n) {
+        dp[n][1] = (n == 0 ? 0 : LLONG_MAX); // impossible with 1 peg (except 0 disks)
+        if (n >= 2) dp[n][2] = LLONG_MAX;
+    }
+    dp[0][1] = 0;
+
+    // For m >= 3, compute dp[n][m] for n from 2 to 64
+    for (int m = 3; m <= 65; ++m) {
+        for (int n = 2; n <= 64; ++n) {
+            dp[n][m] = LLONG_MAX;
+            // Try all possible k: move k smallest disks to an intermediate peg (using m pegs),
+            // then move the remaining n-k disks to the target peg (using m-1 pegs, since one peg is occupied),
+            // then move the k disks from intermediate to target (using m pegs)
+            for (int k = 1; k < n; ++k) {
+                if (dp[k][m] == LLONG_MAX || dp[n - k][m - 1] == LLONG_MAX) continue;
+                long long moves = 2 * dp[k][m] + dp[n - k][m - 1];
+                if (moves < dp[n][m]) {
+                    dp[n][m] = moves;
+                    choice[n][m] = k;
+                }
+            }
+            // Special case: with m >= n+1, we can move each disk directly: n moves
+            // But Frame-Stewart should cover this when k=1, n-k = n-1, then recursively...
+            // Actually, for m > n, optimal is n moves (like 3-peg special case when n <= 3)
+            // However, Frame-Stewart with k = n-1 gives: 2*dp[n-1][m] + dp[1][m-1] = 2*(n-1) + 1 = 2n-1 (worse)
+            // So we need to handle the case when m > n: minimal moves is 2*n - 1? No, actually it's n moves if m >= n+1?
+            // Let me check: with 4 pegs and 3 disks: optimal is 5 moves? Actually known: for 4 pegs:
+            // n=1:1, n=2:3, n=3:5, n=4:9, n=5:13 (sample)
+            // So for n=3, m=4: 5 moves, which is 2*dp[1][4] + dp[2][3] = 2*1 + 3 = 5. 
+            // dp[2][3] = 3 (classic 3-peg for 2 disks)
+            // So our DP should be correct.
+
+            // However, for m > n, there's a better strategy: move each disk individually? 
+            // Actually, no: the constraint is you cannot put a larger disk on a smaller one.
+            // But if you have many pegs, you can place each disk on a separate peg.
+            // So to move n disks from source to destination with m >= n+1 pegs:
+            //   - Move n-1 disks to n-1 distinct pegs (n-1 moves)
+            //   - Move largest disk to destination (1 move)
+            //   - Move the n-1 disks to destination (n-1 moves)
+            //   Total: 2*(n-1) + 1 = 2n - 1 moves.
+            // But wait, the classic 3-peg solution is 2^n - 1, which for n=3 is 7, but with 4 pegs it's 5.
+            // So the minimal moves is not linear. The Frame-Stewart conjecture is that the optimal is achieved by the recurrence above.
+
+            // According to known results, for m=4:
+            // n=1:1, n=2:3, n=3:5, n=4:9, n=5:13, n=6:17, n=7:25, ...
+            // Our DP should match: 
+            // dp[2][4] = min over k=1: 2*dp[1][4] + dp[1][3] = 2*1 + 1 = 3.
+            // dp[3][4] = min over k=1: 2*1 + dp[2][3]=2+3=5; k=2: 2*dp[2][4]+dp[1][3]=2*3+1=7 -> choose 5.
+            // dp[4][4] = k=1: 2*1 + dp[3][3]=2+7=9; k=2: 2*3 + dp[2][3]=6+3=9; k=3: 2*5 +1=11 -> choose 9.
+            // dp[5][4] = k=1: 2*1 + dp[4][3]=2+15=17; k=2: 2*3 + dp[3][3]=6+7=13; k=3: 2*5 + dp[2][3]=10+3=13; k=4: 2*9+1=19 -> choose 13.
+            // So yes, matches sample.
+
+            // Therefore, we don't need special case; the recurrence should work.
+        }
+    }
+}
+
+// Function to generate the moves for moving n disks from source to dest with m pegs available
+// pegs: list of stacks representing current state
+// source, dest: current source and destination peg indices (0-indexed)
+// The available pegs are from 0 to m-1, but we consider a subset of m pegs: actually the function should know which m pegs are available.
+// However, the problem: the pegs are numbered 1..M, and we have exactly M pegs.
+// We'll write a recursive function that uses:
+//   - current n: number of disks to move (largest disk id = start_id + n - 1, smallest = start_id)
+//   - source, dest: current source and destination peg indices (0-indexed)
+//   - m: number of pegs available (including source and dest)
+//   - We need to know which pegs are available. But since we have exactly m pegs and we are using m pegs for this subproblem, 
+//     the intermediate pegs are the remaining ones in the set of m pegs.
+// However, the recursive call will be: 
+//   Step 1: move k smallest disks from source to an intermediate peg (using all m pegs)
+//   Step 2: move n-k largest disks from source to dest (using m-1 pegs, because one intermediate peg is occupied by the k disks)
+//   Step 3: move k smallest disks from intermediate to dest (using all m pegs)
+
+// We'll pass the list of available pegs as a vector? But that would be expensive. Instead, we can pass the set of available pegs by their global index.
+// However, the problem size is small (N<=64, M<=65), so we can do recursion with a list of available pegs.
+
+// Alternative: since the Frame-Stewart uses a fixed choice of k for (n, m), we can store the choice and then simulate.
+
+// Let's define a recursive function that uses:
+//   n: number of disks to move (the disks are numbered from 1 to n, but actually in the global setup, the disks have fixed radii)
+// But the problem: the disks are fixed by radius: 1 (smallest) to N (largest). We cannot reindex arbitrarily.
+
+// Better approach: 
+//   We'll simulate the entire process by maintaining the current state of the pegs (as global stacks).
+//   The recursive function will be:
+//      void hanoi(int n, int source, int dest, int m, vector<int>& available_peg_indices)
+//   But the available_peg_indices: we have exactly m pegs available, so we can pass the list of available peg indices (size m).
+
+// Steps:
+//   1. If n == 0, return.
+//   2. If n == 1, move the top disk from source to dest, record the move.
+//   3. Else:
+//        k = choice[n][m]
+//        Let available_peg_indices be a list of m peg indices that are available (including source and dest).
+//        Choose an intermediate peg: any peg in available_peg_indices except source and dest. 
+//        But note: in the recurrence, for step 2 we use m-1 pegs, so we need to exclude the intermediate peg from the available set for step 2.
+
+//        Step 1: move k smallest disks from source to intermediate_peg (using all m pegs available)
+//        Step 2: move n-k largest disks from source to dest (using m-1 pegs: available_peg_indices without intermediate_peg)
+//        Step 3: move k smallest disks from intermediate_peg to dest (using all m pegs)
+
+// However, the disks: the k smallest disks are the top k disks on the source peg. But in our global state, the source peg has the disks in decreasing order from bottom to top? 
+// Actually, the source peg stack: the top is the smallest disk. So the top k disks are the disks with radii: the k smallest.
+
+// But note: the disks are numbered 1 (smallest) to N (largest). So the top disk is the smallest.
+
+// How to identify the disks? We don't need to know their radii in the recursion if we are just moving the top k disks. 
+// However, when outputting, we need to say "move disc-radius", so we need to know which disk is on top.
+
+// Since we are maintaining the stacks globally, when we move a disk we can record the top disk.
+
+// Plan:
+//   We maintain global vector<stack<int>> pegs (size M+1, indexed 1..M, but in recursion we use 0-indexed internally? Let's use 1-indexed for pegs in the global state).
+//   But the recursive function will use 0-indexed for convenience? Or 1-indexed.
+
+// Let's do 1-indexed for pegs as in the problem.
+
+// Steps for the recursive function (with global state):
+//   We'll write a function that takes:
+//        n: number of disks to move (the top n disks on the source peg, which are the n smallest among the disks currently on the source)
+//        source: source peg (1-indexed)
+//        dest: destination peg (1-indexed)
+//        m: number of pegs available for this subproblem (including source and dest)
+//        available: a vector of available peg indices (1-indexed) of size m.
+
+//   However, the available vector: we can generate it from the global state? Actually, the available pegs for a subproblem are all pegs that are not occupied by disks larger than the current set? 
+//   But note: in the Frame-Stewart, the available pegs for the subproblem are all the pegs that are not used by larger disks. Since we are moving a contiguous set of the smallest disks on a peg, the larger disks are below and not moved, so the available pegs for the subproblem are all M pegs? 
+//   Actually, no: the larger disks are fixed on the source peg (below the n disks), so we can use all M pegs for moving the n smallest disks? 
+//   But wait: the larger disks are on the source peg, so they don't block the movement of the smaller ones? 
+//   However, when moving the smaller disks, we can use any peg that doesn't have a smaller disk on top. But the larger disks are not on top of any peg (except the source), so they don't block.
+
+//   Therefore, for the entire problem, we have M pegs available. And in recursive calls, when we move a subset of disks, we still have M pegs available? 
+//   But the recurrence for Frame-Stewart: when moving n-k disks, we use m-1 pegs because one peg is occupied by the k disks (which are smaller and must be moved later). 
+//   So the available pegs for the n-k disks are all pegs except the one that has the k disks.
+
+//   So the recursive function needs to know which pegs are currently free (not holding any of the k disks that are being held aside). 
+
+//   Given the small constraints, we can pass the list of available pegs for the current subproblem.
+
+// Implementation:
+//   We'll have a recursive function that:
+//        - Given n, source, dest, m, and a list of available pegs (size m), 
+//        - Uses the precomputed choice[n][m] to get k.
+//        - Then: 
+//             available_copy = available_peg list
+//             // choose an intermediate peg: any peg in available_copy that is not source and not dest.
+//             int intermediate = -1;
+//             for (int p : available_peg_list) {
+//                 if (p != source && p != dest) {
+//                     intermediate = p;
+//                     break;
+//                 }
+//             }
+//             // But there should be m-2 intermediate pegs, we can choose any.
+
+//        Step 1: 
+//             new_available1 = available_peg_list (all m pegs)
+//             recursively move k disks from source to intermediate (using new_available1, so m pegs)
+//        Step 2:
+//             new_available2 = available_peg_list without intermediate (so m-1 pegs)
+//             recursively move n-k disks from source to dest (using new_available2)
+//        Step 3:
+//             new_available3 = available_peg_list (all m pegs)
+//             recursively move k disks from intermediate to dest (using new_available3)
+
+//   Base case: n=1
+//        Move the top disk from source to dest.
+//        But we need to output the move with the disk radius and whether it's atop another disk.
+
+//   How to get the disk radius? 
+//        The top disk of the source peg: pegs[source].top()
+//        When moving, we pop from source and push to dest.
+
+//   However, note: the recursive calls might not be moving the top disk of the entire stack, but the top n disks of the source peg. 
+//   But the top n disks are contiguous and the top disk is the smallest of these n.
+
+//   So in the base case (n=1), we move the top disk of the source peg.
+
+// Steps for the recursive function:
+
+void generate_moves(int n, int source, int dest, int m, vector<int> available, 
+                   vector<stack<int>>& pegs, vector<string>& moves) {
+    if (n == 0) return;
+    if (n == 1) {
+        // Move top disk from source to dest
+        int disk = pegs[source].top();
+        pegs[source].pop();
+        if (pegs[dest].empty()) {
+            moves.push_back("move " + to_string(disk) + " from " + to_string(source) + " to " + to_string(dest));
+        } else {
+            moves.push_back("move " + to_string(disk) + " from " + to_string(source) + " to " + to_string(dest) + " atop " + to_string(pegs[dest].top()));
+        }
+        pegs[dest].push(disk);
+        return;
+    }
+
+    int k = choice[n][m];
+    // Find an intermediate peg: any peg in available that is not source and not dest.
+    int intermediate = -1;
+    for (int peg : available) {
+        if (peg != source && peg != dest) {
+            intermediate = peg;
+            break;
+        }
+    }
+    if (intermediate == -1) {
+        // This should not happen because m>=2 and n>=2, so we need at least 3 pegs? 
+        // But m could be 2? However, for m=2, we can only move 1 disk at a time? 
+        // Actually, with 2 pegs, we cannot move more than 1 disk. So our DP for m=2 and n>=2 is impossible (we set to LLONG_MAX), 
+        // and the input M>=4, so we don't have to worry.
+        return;
+    }
+
+    // Step 1: move k smallest disks from source to intermediate (using all m pegs)
+    generate_moves(k, source, intermediate, m, available, pegs, moves);
+
+    // Step 2: move n-k largest disks from source to dest (using m-1 pegs: available without intermediate)
+    vector<int> available2;
+    for (int peg : available) {
+        if (peg != intermediate) {
+            available2.push_back(peg);
+        }
+    }
+    generate_moves(n - k, source, dest, m - 1, available2, pegs, moves);
+
+    // Step 3: move k smallest disks from intermediate to dest (using all m pegs)
+    generate_moves(k, intermediate, dest, m, available, pegs, moves);
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(0);
+
+    int N, M;
+    cin >> N >> M;
+
+    // Precompute dp and choice
+    precompute();
+
+    // Check: dp[N][M] must be computed and not LLONG_MAX (since N>=1, M>=4, it should be possible)
+    long long total_moves = dp[N][M];
+    // However, note: for M >= N+1, the minimal moves is 2*N - 1? 
+    // But our DP: for example, N=1, M=4: dp[1][4]=1 -> 2*1-1=1, ok.
+    // N=2, M=4: dp[2][4]=3 -> 2*2-1=3, ok.
+    // N=3, M=4: 5, but 2*3-1=5, ok.
+    // N=4, M=4: 9, but 2*4-1=7 -> so not always 2N-1. 
+    // Actually, the linear strategy (using one peg per disk) gives 2N-1 only when we can use N+1 pegs? 
+    // But with 4 pegs and 4 disks, we can't do 7 moves? 
+    // Known: the minimal moves for 4 pegs and 4 disks is 9.
+
+    // So we trust the DP.
+
+    // Initialize pegs: 1-indexed, so pegs[1] has all disks (1 to N), others empty.
+    // We'll make pegs of size M+1 (index 0 unused, 1..M used)
+    pegs.resize(M + 1);
+    for (int i = N; i >= 1; --i) {
+        pegs[1].push(i);
+    }
+
+    // Prepare the available pegs: all pegs from 1 to M
+    vector<int> available;
+    for (int i = 1; i <= M; ++i) {
+        available.push_back(i);
+    }
+
+    // Generate moves
+    moves.clear();
+    generate_moves(N, 1, M, M, available, pegs, moves);
+
+    // Output
+    cout << moves.size() << "\n";
+    for (const string& move_str : moves) {
+        cout << move_str << "\n";
+    }
+
+    return 0;
+}

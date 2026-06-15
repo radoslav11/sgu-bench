@@ -1,0 +1,69 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    cin >> n;
+
+    vector<char> type(n + 1);
+    vector<int> val(n + 1);
+    vector<int> gold(n + 1, 0);
+    vector<bool> chosen(n + 1, false);
+
+    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> pq;
+
+    int killed = 0;
+    long long totalGold = 0;
+    int finalBeauty = -1;
+
+    for (int i = 2; i <= n; i++) {
+        cin >> type[i] >> val[i];
+
+        if (type[i] == 'd') {
+            gold[i] = val[i];
+            chosen[i] = true;
+            killed++;
+            totalGold += val[i];
+            pq.push({val[i], i});
+        } else {
+            if (i == n) {
+                finalBeauty = val[i];
+            } else {
+                int limit = val[i] - 1;
+                while (killed > limit) {
+                    auto [g, idx] = pq.top();
+                    pq.pop();
+
+                    if (!chosen[idx]) continue;
+
+                    chosen[idx] = false;
+                    killed--;
+                    totalGold -= g;
+                }
+            }
+        }
+    }
+
+    if (killed < finalBeauty) {
+        cout << -1 << '\n';
+        return 0;
+    }
+
+    vector<int> answer;
+    for (int i = 2; i <= n; i++) {
+        if (chosen[i]) answer.push_back(i);
+    }
+
+    cout << totalGold << '\n';
+    cout << answer.size() << '\n';
+    for (int i = 0; i < (int)answer.size(); i++) {
+        if (i) cout << ' ';
+        cout << answer[i];
+    }
+    cout << '\n';
+
+    return 0;
+}

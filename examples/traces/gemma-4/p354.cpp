@@ -1,0 +1,122 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+/**
+ * Problem Analysis:
+ * We are given two matrices, 'top' and 'left'.
+ * top[i][j] = number of elements in column j above (i, j) that are > A[i][j].
+ * left[i][j] = number of elements in row i to the left of (i, j) that are > A[i][j].
+ * We need to find an n x n matrix A containing numbers 1 to n^2.
+ * 
+ * Observation:
+ * If we place numbers from n^2 down to 1, all elements already placed in the matrix 
+ * are larger than the current number we are placing.
+ * Thus, at the moment we place a number x at (i, j), the number of elements 
+ * already in column j above (i, j) must be exactly top[i][j], and the number 
+ * of elements already in row i to the left of (i, j) must be exactly left[i][j].
+ * 
+ * We can treat this as a topological sort-like problem.
+ * 1. Identify all (i, j) such that top[i][j] == 0 and left[i][j] == 0.
+ * 2. Use a queue to process these cells, assigning values from n^2 down to 1.
+ * 3. When a cell (i, j) is processed, increment the 'already placed' counts for 
+ *    cells below it in the same column and to its right in the same row.
+ * 4. If a cell's requirements (top and left) are met, add it to the queue.
+ * 
+ * Time complexity: O(n^3), which for n=600 is ~2.16e8 operations.
+ * This is tight for 0.5s, but with a small constant factor and optimized loops, it should pass.
+ */
+
+// Static arrays for memory management and speed.
+int top_mat[600][600];
+int left_mat[600][600];
+int A[600][600];
+int C[600][600]; // Current count of filled cells in column j above row i
+int R[600][600]; // Current count of filled cells in row i to the left of column j
+bool filled[600][600];
+bool inQueue[600][600];
+
+int main() {
+    // Faster I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    int n;
+    if (!(cin >> n)) return 0;
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cin >> top_mat[i][j];
+        }
+    }
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            cin >> left_mat[i][j];
+        }
+    }
+
+    queue<pair<int, int>> q;
+
+    // Initialize queue with cells that have no larger elements above or to the left.
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (top_mat[i][j] == 0 && left_mat[i][j] == 0) {
+                q.push({i, j});
+                inQueue[i][j] = true;
+            }
+        }
+    }
+
+    int count = 0;
+    int current_val = n * n;
+
+    while (!q.empty()) {
+        pair<int, int> curr = q.front();
+        q.pop();
+        int i = curr.first;
+        int j = curr.second;
+
+        // The current cell being processed is assigned the largest available value.
+        A[i][j] = current_val--;
+        filled[i][j] = true;
+        count++;
+
+        // Update column counts for cells below (i, j)
+        for (int r = i + 1; r < n; ++r) {
+            C[r][j]++;
+            // If both top and left conditions are met for cell (r, j), add to queue.
+            if (!filled[r][j] && !inQueue[r][j] && C[r][j] == top_mat[r][j] && R[r][j] == left_mat[r][j]) {
+                inQueue[r][j] = true;
+                q.push({r, j});
+            }
+        }
+
+        // Update row counts for cells to the right of (i, j)
+        for (int c = j + 1; c < n; ++c) {
+            R[i][c]++;
+            // If both top and left conditions are met for cell (i, c), add to queue.
+            if (!filled[i][c] && !inQueue[i][c] && R[i][c] == left_mat[i][c] && C[i][c] == top_mat[i][c]) {
+                inQueue[i][c] = true;
+                q.push({i, c});
+            }
+        }
+    }
+
+    // If all n^2 cells were filled, we found a valid matrix.
+    if (count == n * n) {
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                cout << A[i][j] << (j == n - 1 ? "" : " ");
+            }
+            cout << "\n";
+        }
+    } else {
+        // No valid matrix found.
+        cout << 0 << endl;
+    }
+
+    return 0;
+}
+

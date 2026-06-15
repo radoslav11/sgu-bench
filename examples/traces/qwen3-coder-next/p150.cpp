@@ -1,0 +1,1086 @@
+#include <iostream>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+using namespace std;
+
+// Function to compute greatest common divisor
+long long gcd(long long a, long long b) {
+    a = abs(a);
+    b = abs(b);
+    while (b != 0) {
+        long long t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+int main() {
+    long long x1, y1, x2, y2, n;
+    cin >> x1 >> y1 >> x2 >> y2 >> n;
+
+    // Compute the total number of cells visited
+    long long dx = abs(x2 - x1);
+    long long dy = abs(y2 - y1);
+    
+    // Number of cells = gcd(dx, dy) + 1? Actually, the number of grid cells crossed by line segment from (x1,y1) to (x2,y2)
+    // is: gcd(dx, dy) + 1? But note: the problem counts cells passed, and the standard formula for number of grid cells 
+    // crossed by a line segment from (x1,y1) to (x2,y2) is: gcd(dx, dy) + 1 only if we include both endpoints and the line 
+    // is axis-aligned? Actually, the general formula for the number of lattice points on the line segment is gcd(dx, dy) + 1.
+    // But the problem is about cells (unit squares) that the beetle passes through.
+    
+    // There is a known formula: number of unit squares crossed by a line segment from (x1,y1) to (x2,y2) is:
+    // dx + dy - gcd(dx, dy)
+    // This is because: when moving from one cell to another, we cross either a vertical or horizontal line, 
+    // but when we cross both at the same time (i.e., at a lattice point), we overcount by gcd(dx,dy)-1? 
+    // Actually, the standard formula is: dx + dy - gcd(dx, dy)
+    
+    // However, note: the problem states that the beetle travels from (x1,y1) to (x2,y2). The coordinates are given as 
+    // points on the border of cells. The beetle's path is a straight line from (x1,y1) to (x2,y2).
+    
+    // But the problem says: "All cells that he passed are numbered in order of passing"
+    
+    // Let me reconsider: 
+    // The beetle starts at (x1,y1) and ends at (x2,y2). The path is a straight line.
+    // The number of unit squares that the line segment crosses is: dx + dy - gcd(dx, dy)
+    // But note: the sample: (2,3) to (4,-1). dx = 2, dy = 4, gcd(2,4)=2, so 2+4-2 = 4. 
+    // Then n=3 is valid (since 3<=4). So total cells = 4.
+    
+    long long total = dx + dy - gcd(dx, dy);
+    if (n > total) {
+        cout << "no solution" << endl;
+        return 0;
+    }
+
+    // Now, we need to find the n-th cell (1-indexed) that the beetle passes through.
+
+    // How to compute the cells? 
+    // We can use the idea of stepping through the grid by simulating the movement in the direction of the line.
+    // However, note: n can be up to 10^5 and coordinates up to 10^6, so we cannot simulate step-by-step (dx+dy can be up to 2e6, which is acceptable? 
+    // but worst-case dx=10^6, dy=10^6, then dx+dy-gcd ~ 2e6, and n up to 10^5, so we might only need to simulate up to 10^5 steps? 
+    // However, worst-case dx=10^6, dy=1, then total = 10^6+1-1 = 10^6, and n=10^5 is acceptable to simulate? 
+    // But 10^5 steps is acceptable in 0.25 seconds? Probably, but let's try to do better.
+
+    // Alternatively, we can use the formula for the k-th intersection with a grid line.
+
+    // Known approach: 
+    // The line from (x1,y1) to (x2,y2) can be parameterized. We can use the method of "grid crossing" by computing the next grid line crossed.
+
+    // Steps:
+    // Let's assume we are moving from (x1,y1) to (x2,y2). We can normalize the direction.
+    // Let vx = x2 - x1, vy = y2 - y1.
+    // The line: (x, y) = (x1, y1) + t * (vx, vy), for t in [0,1].
+
+    // The grid lines are at integer x and integer y.
+    // The beetle starts in a cell. The cell that contains the starting point? But note: the starting point is on the border of cells.
+    // The problem states: "borders and corners of cells are not considered to be parts of cells", so the starting point is not in any cell? 
+    // However, the beetle must start in a cell? Actually, the problem says: "Early in the morning beetle travels from his house at point (x1,y1)" — 
+    // and the house is at (x1,y1). But the note says borders are not part of cells. So how is the beetle starting?
+
+    // Clarification from known similar problems (like CodeForces "Beetle" problems): 
+    // The beetle moves from (x1,y1) to (x2,y2) and the cells it passes through are those that the interior of the segment intersects.
+    // However, the problem states: "All cells that he passed are numbered in order of passing", and the sample input: 2 3 4 -1 3 -> output 3 0.
+
+    // Let me check the sample:
+    // Start: (2,3), End: (4,-1). The vector is (2, -4). 
+    // The line equation: from (2,3) to (4,-1): slope = (-1-3)/(4-2) = -4/2 = -2.
+    // So y - 3 = -2(x - 2) -> y = -2x + 7.
+
+    // Which cells does it cross?
+    // We can plot:
+    // At x=2: y=3 -> point (2,3) is on the corner of cells? 
+    // The beetle starts at (2,3). Then moves to (4,-1). 
+    // The cells it passes through (with bottom-left corner (i,j) meaning the cell [i, i+1) x [j, j+1)):
+    // 
+    // The path goes through:
+    // - From (2,3): it leaves the cell that has (2,3) as top-right corner? Actually, (2,3) is a lattice point.
+    // 
+    // How the beetle moves: 
+    // It starts at (2,3). Since the line goes downward to the right, it will first enter the cell to the right and down? 
+    // But the problem says: "borders ... are not considered to be parts of cells", so the beetle is not in any cell at the start? 
+    // However, the problem says "the beetle travels from his house", so we assume the house is in a cell? 
+    // But the problem says: "All coordinates are not greater than 10^6 by its absolute values", and the house is at (x1,y1) — which may be integer? 
+    // The sample input has integers: 2,3,4,-1.
+    //
+    // Known similar problem: "Mr. Beetle" problems often assume that the beetle is moving along the line and the cells it passes through 
+    // are those that the open segment (x1,y1) to (x2,y2) intersects? But then the starting cell is the one that contains the first point after (x1,y1) 
+    // in the direction of movement.
+    //
+    // Actually, the problem statement: "All cells that he passed are numbered in order of passing" — meaning the cells that the beetle actually 
+    // stepped on (i.e., the interior of the cell was traversed). 
+    //
+    // How to determine the cells? 
+    // We can use the following method: 
+    // The number of cells crossed by the line segment from (x1,y1) to (x2,y2) is: dx + dy - gcd(dx, dy)
+    // and the cells can be enumerated by stepping through the grid lines.
+    //
+    // There is an algorithm: 
+    // Let current cell be (floor(x1), floor(y1))? But wait, the point (x1,y1) is on the border. 
+    // Actually, the beetle starts at (x1,y1) and then immediately enters a cell. 
+    // The first cell: 
+    //   If moving in the direction (dx, dy), then the first cell is determined by the quadrant.
+    //
+    // However, a known solution for this problem (from known submissions) is:
+    //   total = dx + dy - g, where g = gcd(dx, dy)
+    //   Then, we want the n-th cell (1-indexed).
+    //
+    // How to compute the cell for the k-th step? 
+    // We can use the following idea: 
+    // The line crosses grid lines. Each time it crosses a vertical grid line (x = integer) or horizontal grid line (y = integer), 
+    // it enters a new cell. The total number of grid lines crossed is (dx + dy - g) - 1? Actually, the number of cells is the number of steps + 1? 
+    // But the formula dx+dy-g is the total cells.
+    //
+    // Actually, the number of cells = 1 + (number of grid lines crossed). 
+    // And the number of grid lines crossed = dx + dy - g.
+    // So the number of cells is dx+dy-g+1? That contradicts the known formula.
+    //
+    // Let me check with a simple example: from (0,0) to (1,1). 
+    // dx=1, dy=1, gcd=1, so dx+dy-g = 1. 
+    // But the line from (0,0) to (1,1) crosses one cell? Actually, it goes through two cells? 
+    // No: the segment from (0,0) to (1,1) goes through the cell [0,1) x [0,1) only? 
+    // But wait: (0,0) is a corner. The segment from (0,0) to (1,1) stays in the cell (0,0) to (1,1) but the interior of the segment 
+    // is in the cell (0,0) (if we consider the cell with bottom-left (0,0) as [0,1) x [0,1)). 
+    // However, the segment starts at the corner and ends at the corner, and the interior is entirely in the cell (0,0). 
+    // So only one cell? Then the formula dx+dy-g = 1+1-1 = 1 is correct.
+    //
+    // Another example: (0,0) to (2,1). 
+    // dx=2, dy=1, gcd=1, so total cells = 2+1-1 = 2.
+    // The line: y = (1/2)x.
+    // From (0,0) to (2,1): 
+    //   - From (0,0) to (1, 0.5): in cell (0,0)
+    //   - From (1,0.5) to (2,1): in cell (1,0) [because at x=1, y=0.5 is in [0,1) for y, and x from 1 to 2 -> cell (1,0)]
+    // So two cells: (0,0) and (1,0). 
+    // But wait, when x=1, the line crosses the vertical grid line x=1, so it leaves cell (0,0) and enters cell (1,0). 
+    // So the cells are: 
+    //   cell1: [0,1) x [0,1) -> bottom-left (0,0)
+    //   cell2: [1,2) x [0,1) -> bottom-left (1,0)
+    // So total 2 cells.
+    //
+    // Now, the sample: (2,3) to (4,-1). 
+    // dx = 2, dy = 4 (but note: dy = -4 in direction, but absolute for count is 4). 
+    // gcd(2,4)=2, so total cells = 2+4-2 = 4.
+    // n=3: we want the 3rd cell.
+    //
+    // Let's trace:
+    // The line: from (2,3) to (4,-1): vector (2,-4) -> reduced direction (1,-2).
+    // The grid lines crossed:
+    //   Vertical lines: x=3 (since from x=2 to x=4, we cross x=3)
+    //   Horizontal lines: y=2, y=1, y=0, y=-1? But we only go from y=3 to y=-1, so we cross y=2, y=1, y=0, and y=-1? 
+    //   However, the endpoint is (4,-1) which is on the border, so we don't cross y=-1? 
+    //   Actually, we cross horizontal lines at y=2, y=1, y=0 (and then we hit y=-1 at the end, but the endpoint is not counted as a crossing that enters a new cell?).
+    //
+    // How many crossings? 
+    //   Vertical: 1 (x=3)
+    //   Horizontal: 3 (y=2,1,0) -> because from y=3 to y=-1, we cross 4 horizontal lines? But the formula says dx+dy-g = 2+4-2=4, and the number of cells = 4.
+    //   So the number of grid lines crossed = 3 (because cells = 1 + crossings).
+    //
+    // Now, the order of crossings:
+    //   The line: x = 2 + t, y = 3 - 2t, for t in [0,2].
+    //   Vertical crossings: at x = 3 -> t=1 -> y = 3-2=1.
+    //   Horizontal crossings: 
+    //        y=2: 3-2t=2 -> t=0.5 -> x=2.5
+    //        y=1: t=1 -> x=3 (same as vertical crossing at (3,1))
+    //        y=0: 3-2t=0 -> t=1.5 -> x=3.5
+    //   So the crossings in order of t:
+    //        t=0.5: horizontal (y=2) -> enters new cell: from cell (2,2) [since (2.5,2.5) is in [2,3)x[2,3)? Wait, let me define cells properly.
+    //
+    // How to define the cell that contains a point (x,y) (not on border)? 
+    //   The cell with bottom-left corner (i,j) is the set [i, i+1) x [j, j+1).
+    //   So the point (x,y) is in cell (floor(x), floor(y)) if x and y are not integers? But if on border, it's ambiguous.
+    //
+    // The beetle's path: 
+    //   Start at (2,3): which is a corner. Immediately after start, for a small epsilon>0, the beetle is at (2+eps, 3-2*eps). 
+    //   For small eps, 2+eps is in [2,3) and 3-2*eps is in [2,3) if eps<0.5? Actually, 3-2*eps > 2 when eps<0.5, so y in (2,3). 
+    //   So the first cell: floor(2+eps)=2, floor(3-2*eps)=2 -> cell (2,2).
+    //   Then at t=0.5: (2.5, 2) -> but at y=2, which is the border between y in [2,3) and [1,2). So when y becomes <2, it enters the next cell: (2,1).
+    //   Then at t=1: (3,1) -> border between x: [2,3) and [3,4), and y: [1,2) and [0,1). So it crosses both. 
+    //        Which cell does it enter? The direction is to the right and down, so it should enter (3,0) or (3,1)? 
+    //        Actually, just after (3,1): x>3 -> so x in [3,4), and y<1 -> so y in [0,1) -> cell (3,0).
+    //   Then at t=1.5: (3.5,0) -> border between y=0 and y=-1, so enters (3,-1)? But wait, the endpoint is (4,-1). 
+    //        After (3.5,0): y becomes negative, so y in [-1,0) -> cell (3,-1). 
+    //        Then at (4,-1) we stop.
+    //
+    // So the cells in order:
+    //   cell1: (2,2)  -> n=1
+    //   cell2: (2,1)  -> n=2
+    //   cell3: (3,0)  -> n=3  -> matches sample output: 3 0
+    //   cell4: (3,-1) -> n=4
+    //
+    // So the 3rd cell has bottom-left corner (3,0).
+    //
+    // Therefore, we need to compute the n-th cell in the sequence.
+
+    // Approach:
+    // We can simulate the movement by stepping through the grid lines. 
+    // We know the direction: 
+    //   Let vx = x2 - x1, vy = y2 - y1.
+    //   We reduce the direction vector by g = gcd(|vx|,|vy|) to get the step in terms of minimal integer steps? 
+    //   Actually, the line will cross g+1 lattice points? (including endpoints) -> but the number of cells is dx+dy-g, and the number of lattice points on the segment (including endpoints) is g+1.
+    //
+    // However, we don't need to simulate all cells if n is small (up to 10^5). 
+    // Since n <= 10^5, we can simulate up to n steps (which is <= 10^5). 
+    //
+    // How to simulate:
+    //   We are currently at a point (x, y) on the line. We want to find the next grid line crossed: either the next vertical grid line (x = floor(x)+1 if moving right, or floor(x) if moving left) 
+    //   or the next horizontal grid line.
+    //
+    //   But note: we are moving from (x1,y1) to (x2,y2). We can assume without loss of generality that we move in the positive x and positive y direction by symmetry? 
+    //   Actually, we can normalize the direction to be non-negative in both components by flipping coordinates.
+    //
+    //   Steps:
+    //     Let x = x1, y = y1.
+    //     We are not in a cell at the start, so we need to determine the first cell. 
+    //     Instead, we can start from the first cell after leaving (x1,y1).
+    //
+    //   Alternatively, we can use the following method (known from solutions to this problem):
+    //     total = dx + dy - g
+    //     if n > total: "no solution"
+    //     else:
+    //         Let g = gcd(dx, dy)
+    //         Let step_x = (x2 - x1) / g, step_y = (y2 - y1) / g
+    //         Then the beetle will be at lattice points at parameters t = k/g for k=0,1,...,g (but we don't need the lattice points for cells).
+    //
+    //   Another known solution: 
+    //     The k-th cell (1-indexed) can be computed by:
+    //         We consider the movement as a sequence of steps. The beetle moves in a grid, and the path is characterized by the sequence of horizontal and vertical moves.
+    //         The total number of horizontal moves: dx, vertical moves: dy, but with g common steps where both happen at the same time (the lattice points in between).
+    //         So the sequence of moves: we have dx horizontal moves and dy vertical moves, and the common moves (the gcd) are the times when both happen simultaneously.
+    //         Therefore, the entire path can be broken into g segments, each of (dx/g) horizontal and (dy/g) vertical moves, without simultaneous moves.
+    //
+    //     For one segment (from one lattice point to the next), the number of cells is: (dx/g) + (dy/g) - 1? 
+    //         Actually, for a segment from (a,b) to (a+dx/g, b+dy/g), the number of cells is (dx/g + dy/g - 1) because gcd(dx/g, dy/g)=1.
+    //         Then total cells = g * (dx/g + dy/g - 1) + 1? 
+    //         But wait: the entire path has g+1 lattice points (including start and end). The segments between lattice points: g segments.
+    //         Each segment has (dx/g + dy/g - 1) cells? Then total cells = g * (dx/g + dy/g - 1) + 1? 
+    //         But: g * (dx/g + dy/g - 1) + 1 = dx + dy - g + 1, which is one more than the known formula.
+    //
+    //     Actually, the known formula is: dx + dy - gcd(dx,dy) = total cells.
+    //     And: dx + dy - g = g*(dx/g + dy/g) - g = g*(dx/g + dy/g - 1) -> so total cells = g * (dx/g + dy/g - 1) + 1? 
+    //         But wait: for the entire path, the number of cells is 1 + (number of grid lines crossed) = 1 + (dx + dy - g) ??? -> no, the number of grid lines crossed is dx+dy-g? 
+    //         Actually, the number of grid lines crossed is dx + dy - g, and the number of cells is dx+dy-g+1? 
+    //         But the sample: dx=2, dy=4, g=2 -> 2+4-2+1 = 5, but expected total cells=4.
+    //
+    //     Correction: the number of grid lines crossed is (dx + dy - g) and the number of cells is (dx + dy - g) + 1? 
+    //         However, the formula we used earlier: dx+dy-g = 4 for the sample, and that was the total cells. 
+    //         So the formula is: total cells = dx + dy - g.
+    //
+    //     How? 
+    //         When moving from (x1,y1) to (x2,y2), the number of vertical lines crossed = dx (if dx>0, then we cross dx vertical lines? but actually we cross |dx| vertical lines? 
+    //         But wait: from x=2 to x=4, we cross x=3 -> 1 vertical line = dx - 1? 
+    //         Actually, the number of vertical grid lines crossed is |dx|, but only if we count the lines strictly between? 
+    //         The standard formula: 
+    //             number of vertical lines crossed = |dx| 
+    //             number of horizontal lines crossed = |dy|
+    //             but when we cross a lattice point (both at the same time), we count only one crossing instead of two, so total crossings = |dx| + |dy| - g.
+    //         And the number of cells = 1 + (number of crossings) = 1 + |dx| + |dy| - g.
+    //         But then for the sample: 1+2+4-2 = 5, but expected 4.
+    //
+    //     I think the confusion is: 
+    //         The formula dx+dy-g is the number of cells? 
+    //         Let me check with (0,0) to (1,0): 
+    //             dx=1, dy=0, g=1, so 1+0-1=0 -> but the beetle moves through 1 cell? 
+    //         Actually, from (0,0) to (1,0): the line is along the border. The problem says "borders ... are not considered to be parts of cells", so the beetle doesn't enter any cell? 
+    //         But the problem states: "All cells that he passed" — if he moves along the border, he doesn't pass through any cell? 
+    //         However, the problem says: "the axes of Cartesian coordinate system are lying on the border of cells", so the border is the grid line. 
+    //         And the beetle moves along the border, so it doesn't enter any cell? 
+    //         But the problem says: "1<=n<=10^5", and the input constraints, so we assume the beetle moves in a way that it does pass through cells? 
+    //         However, the problem sample has a non-axis-aligned move.
+    //
+    //     After checking known resources: 
+    //         The problem "Mr. Beetle II" from Saratov contest: known solution uses 
+    //             total = abs(x2-x1) + abs(y2-y1) - gcd(abs(x2-x1), abs(y2-y1))
+    //         and then if n > total -> no solution.
+    //
+    //     And the sample: 2,3,4,-1 -> dx=2, dy=4, gcd=2, total=2+4-2=4.
+    //
+    //     So we stick to total = dx + dy - g (with dx=|x2-x1|, dy=|y2-y1|).
+    //
+    //     Now, how to compute the n-th cell?
+    //         We can simulate the path by keeping track of:
+    //             current position (x, y) — but we don't need the exact real position, we need the current cell (i, j) and the next crossing.
+    //
+    //     Steps for simulation (with n up to 10^5, so we do at most n steps, which is acceptable):
+    //         Let g = gcd(dx, dy)
+    //         Let vx = (x2 - x1) / g, vy = (y2 - y1) / g   [but note: we use the actual signs to know direction]
+    //         However, we can work with absolute steps and handle signs separately.
+    //
+    //         Instead, we can normalize the movement to the first octant and then adjust the coordinates at the end.
+    //         But a simpler way: 
+    //             We know the entire path is a straight line. The sequence of cells can be computed by:
+    //                 Let i = 0, j = 0 (in a relative coordinate system where we start at (0,0) and move to (dx, dy)), but then we have to map back.
+    //
+    //         Known solution from accepted codes for this problem (from past contests):
+    //             total = abs(x2-x1) + abs(y2-y1) - gcd;
+    //             if (n > total) -> no solution.
+    //             else:
+    //                 long long step = total / g;   // ? 
+    //                 Actually, the path is divided into g segments (each of length g in the reduced vector). 
+    //                 Each segment has (dx_reduced + dy_reduced - 1) cells? 
+    //                 But dx_reduced = dx/g, dy_reduced = dy/g, and the number of cells per segment = dx_reduced + dy_reduced - 1.
+    //                 Then total cells = g * (dx_reduced + dy_reduced - 1) + 1? -> but that doesn't match.
+    //
+    //         Alternatively, we can use the following method (from known geometry):
+    //             The k-th cell (1-indexed) is the cell that contains the point at distance k * (segment_length) from the start, but we don't need that.
+    //
+    //         Another idea: 
+    //             The cells are determined by the integer parts of the coordinates along the line. 
+    //             The line: 
+    //                 x = x1 + t * (x2-x1)
+    //                 y = y1 + t * (y2-y1), for t in [0,1].
+    //             The cell at step k (the k-th cell) corresponds to the interval of t where the cell is constant.
+    //             The boundaries of the cells are when x or y is integer.
+    //
+    //         We can precompute the sequence of t values where a grid line is crossed. 
+    //         The t values for vertical lines: 
+    //             For x: the next integer above min(x1,x2) and below max(x1,x2). 
+    //             Specifically, if x1 < x2, then the vertical grid lines at x = floor(x1)+1, floor(x1)+2, ..., ceil(x2)-1.
+    //         But we want the n-th cell, so we want the n-th interval.
+    //
+    //         Since n is at most 10^5, we can iterate for n steps (each step we compute the next grid line).
+    //
+    //         Steps for one cell step:
+    //             We are currently in a cell (cur_i, cur_j). 
+    //             We want to leave this cell by crossing either a vertical or horizontal grid line.
+    //             The next vertical grid line: 
+    //                 If moving right: x_next = cur_i + 1
+    //                 If moving left: x_next = cur_i
+    //             Similarly, next horizontal grid line:
+    //                 If moving up: y_next = cur_j + 1
+    //                 If moving down: y_next = cur_j
+    //
+    //             Then compute the t for crossing x_next and y_next, and take the smaller t.
+    //
+    //         But we don't want to do floating point because of precision (coordinates up to 10^6, and n up to 10^5, so we need exact fractions).
+    //
+    //         We can use integer arithmetic: 
+    //             The line: (x - x1) * (y2-y1) = (y - y1) * (x2-x1)
+    //             Let dx = x2 - x1, dy = y2 - y1.
+    //             We are at a point (x, y) on the line. But we don't store the exact point, we store the current cell and the current "offset" in the cell.
+    //
+    //         Alternatively, we can avoid simulation by using the formula:
+    //             The k-th cell (1-indexed) has bottom-left corner:
+    //                 i = x1 + floor( (k-1) * dx / total_cells )? 
+    //             But that is not linear in the grid.
+    //
+    //     Insight: 
+    //         The problem is equivalent to the "digital differential analyzer" (DDA) algorithm for drawing a line.
+    //         We can simulate the DDA for n steps (n up to 10^5) without floating point by using Bresenham-like integer arithmetic.
+    //
+    //         However, note: the DDA is for drawing, but we need the exact sequence of cells.
+    //
+    //     Known accepted solution for this problem (from past submissions) in C++:
+    //         #include <iostream>
+    //         #include <cmath>
+    //         #include <algorithm>
+    //         using namespace std;
+    //         long long gcd(long long a, long long b) { return b ? gcd(b, a%b) : a; }
+    //         int main() {
+    //             long long x1,y1,x2,y2,n;
+    //             cin >> x1>>y1>>x2>>y2>>n;
+    //             long long dx = abs(x2-x1), dy = abs(y2-y1);
+    //             long long g = gcd(dx,dy);
+    //             long long total = dx + dy - g;
+    //             if (n > total) {
+    //                 cout << "no solution" << endl;
+    //                 return 0;
+    //             }
+    //             long long step_x = (x2-x1)/g;
+    //             long long step_y = (y2-y1)/g;
+    //             // Now, the path has g segments, each of (step_x, step_y) in reduced form.
+    //             // In each segment, the number of cells is (dx/g + dy/g - 1) ??? 
+    //             // Actually, the entire path: we break at the lattice points. There are g+1 lattice points (including start and end).
+    //             // Between two consecutive lattice points, the line moves (step_x, step_y) and since gcd(step_x,step_y)=1, 
+    //             // the number of cells in between is step_x + step_y - 1.
+    //             // So total cells = g * (step_x + step_y - 1) + 1? 
+    //             // But: g*(step_x+step_y-1)+1 = g*( (dx+dy)/g - 1 ) + 1 = dx+dy - g + 1, which is not dx+dy-g.
+    //             // So that doesn't match.
+    //
+    //     Let me recast: 
+    //         The number of cells = dx + dy - g.
+    //         And the number of lattice points on the segment (excluding one endpoint?) is g-1? 
+    //         Actually, the number of lattice points on the open segment (excluding endpoints) is g-1, and including endpoints is g+1.
+    //         The segments between lattice points: g segments.
+    //         In each segment (from one lattice point to the next), the line moves (dx/g, dy/g) and since gcd(dx/g,dy/g)=1, 
+    //         the number of cells in that segment is (dx/g) + (dy/g) - 1.
+    //         Therefore, total cells = g * ( (dx/g + dy/g) - 1 ) + 1? 
+    //         But wait, the first cell starts at the first lattice point and goes to the next, but the first cell is not counted in the first segment? 
+    //         Actually, the entire path from (x1,y1) to (x2,y2) starts at a lattice point and ends at a lattice point. 
+    //         The cells are the ones that the open segment (x1,y1) to (x2,y2) passes through. 
+    //         The number of cells = (number of grid lines crossed) = dx + dy - g.
+    //         And also = g * ( (dx/g + dy/g) - 1 )? 
+    //             = g * ( (dx+dy)/g - 1 ) = dx+dy - g. 
+    //         Yes! So the number of cells per segment is (dx/g + dy/g - 1), and there are g segments, so total = g * (dx/g + dy/g - 1) = dx+dy - g.
+    //
+    //         Therefore, the entire path is divided into g segments. 
+    //         The k-th cell (1-indexed) falls in the segment: 
+    //             segment_index = (k-1) / (dx/g + dy/g - 1)   [0-indexed segment]
+    //             offset_in_segment = (k-1) % (dx/g + dy/g - 1)
+    //
+    //         Now, how to compute the cell for a given segment and offset?
+    //         In one segment, from lattice point (x0,y0) to (x0+step_x, y0+step_y), the cells are:
+    //             The first cell: (x0, y0) is a lattice point, so the first cell after leaving (x0,y0) is determined by the direction.
+    //             We can simulate the segment with a simple loop for up to (step_x+step_y) steps, but step_x and step_y can be up to 10^6? 
+    //             However, note: the total number of cells is dx+dy-g, and n<=10^5, so we only need to compute up to n cells. 
+    //             But if we break into g segments, and g can be up to 10^6 (if dx and dy are large and coprime, then g=1, so one segment of dx+dy-1 cells, which can be 2e6, and n=10^5 is acceptable to simulate for one segment? 
+    //             However, worst-case g=1, dx=10^6, dy=10^6, then total cells = 2e6-1, and we only need the n-th (n=10^5) so we can simulate 10^5 steps.
+    //
+    //         So we can simulate the entire path for n steps (n<=10^5) by:
+    //             current_cell_x, current_cell_y: the current cell's bottom-left corner.
+    //             We start at the first cell: 
+    //                 How to get the first cell? 
+    //                 We are at (x1,y1). The next cell we enter is:
+    //                     If dx>0 and dy>0: then the cell is (floor(x1), floor(y1)) but wait, if (x1,y1) is integer, then we are at a corner.
+    //                     Actually, we leave (x1,y1) in the direction (dx,dy). 
+    //                     The first cell: 
+    //                         x_start = x1 + epsilon * sign(dx)  -> so the cell x = floor(x1 + epsilon * sign(dx)) 
+    //                         = (dx>0 ? floor(x1)+1 : floor(x1)) ? 
+    //                     But if x1 is integer, then floor(x1 + epsilon) = x1 (if dx>0) because x1 is integer and we add a positive epsilon -> then floor(x1+epsilon)=x1.
+    //                     However, the cell that contains (x1+epsilon, y1+epsilon*dy/dx) for small epsilon: 
+    //                         x in [x1, x1+1) -> cell x = x1
+    //                         y: if dy>0, then y in [y1, y1+1) -> cell y = y1, so cell (x1, y1).
+    //                     But wait: the sample: (2,3) to (4,-1): dx=2>0, dy=-4<0.
+    //                         After start: x = 2+eps, y=3-2*eps.
+    //                         So x in [2,3) -> cell x=2, y in [2,3) (because 3-2*eps > 2 for small eps) -> cell y=2.
+    //                         So cell (2,2).
+    //                 How to compute: 
+    //                     cell_x = (dx>0 ? (long long)floor(x1) : (long long)ceil(x1)-1);
+    //                     but if dx>0, then the first cell's x-coordinate = floor(x1) if x1 is not integer? but x1 is integer in the sample.
+    //                 Actually, since the input coordinates are integers, x1 and y1 are integers.
+    //                 So: 
+    //                     if dx > 0, then the first cell's x = x1
+    //                     if dx < 0, then the first cell's x = x1 - 1
+    //                     if dx == 0, then x = x1 (but then dx=0, so we move vertically, and the cell's x is x1, but note: if dx=0, then the beetle moves vertically, so the x-coordinate of the cell is x1, but wait: 
+    //                         the cell that contains (x1, y1+epsilon) for small epsilon: 
+    //                             x in [x1, x1+1) -> cell x = x1.
+    //                     Similarly, for y: 
+    //                         if dy > 0, then first cell's y = y1
+    //                         if dy < 0, then first cell's y = y1 - 1
+    //
+    //                 However, in the sample: 
+    //                     dx=2>0 -> x = 2
+    //                     dy=-4<0 -> y = 3-1 = 2 -> so cell (2,2) -> correct.
+    //
+    //             Steps:
+    //                 Let x = (dx > 0 ? x1 : (dx < 0 ? x1 - 1 : x1));
+    //                 Let y = (dy > 0 ? y1 : (dy < 0 ? y1 - 1 : y1));
+    //
+    //                 But note: if dx==0, then we move vertically: 
+    //                     if dy>0: then the first cell is (x1, y1)
+    //                     if dy<0: then the first cell is (x1, y1-1)
+    //                 Similarly, if dy==0: 
+    //                     if dx>0: (x1, y1) -> but wait, if moving horizontally to the right, then from (x1,y1) (integer) we go to (x1+epsilon, y1) -> so cell (x1, y1) if we consider the cell [x1, x1+1) x [y1, y1+1) and y1 is integer? 
+    //                     However, the point (x1+epsilon, y1) is on the border between y1 and y1-1? 
+    //                     But if dy=0, then y is constant = y1, which is integer. So the beetle moves along the horizontal grid line. 
+    //                     Then the problem states: borders are not part of cells, so the beetle doesn't enter any cell? 
+    //                     But the problem says: "All coordinates are not greater than 10^6 by its absolute values", and the input can be such that dy=0.
+    //                     However, the problem also says: "If such cell doesn't exist then write 'no solution'", and total = dx+0 - dx = 0, so if dx>0 then total=0, so n>=1 would be "no solution".
+    //                     So we are safe: if dx>0 and dy=0, then total = dx - dx = 0, so n>=1 -> no solution.
+    //                 Therefore, in practice, if the move is axis-aligned, then total = |dx|+|dy| - gcd = |dx|+0 - |dx| = 0, so no cells.
+    //                 But wait: gcd(dx,0)=dx, so total = dx + 0 - dx = 0.
+    //                 So for axis-aligned moves, there are no cells? 
+    //                 However, the problem says: the beetle travels from (x1,y1) to (x2,y2). If it moves horizontally, it stays on the border, so it doesn't enter any cell. 
+    //                 So the problem likely assumes non-axis-aligned moves, but the input might have axis-aligned, and then total=0, so for n>=1 we output "no solution".
+    //
+    //             Now, for non-axis-aligned moves (so total>0), we start at cell (x, y) as computed.
+    //
+    //             Then, for the next cells, we simulate:
+    //                 We know the direction vector (dx, dy) and the current cell (cur_x, cur_y).
+    //                 The next grid line to cross:
+    //                     Right: if moving right, next vertical grid line at x = cur_x + 1
+    //                     Left: next vertical grid line at x = cur_x
+    //                     Up: next horizontal grid line at y = cur_y + 1
+    //                     Down: next horizontal grid line at y = cur_y
+    //
+    //                 But we are moving in a straight line. We can compute the next t for vertical and horizontal.
+    //
+    //             However, since n is only up to 10^5, we can simulate step by step for n-1 steps (starting from the first cell, we want to get the n-th cell).
+    //                 For i from 1 to n-1:
+    //                     Compute the next crossing.
+    //
+    //             How to compute the next crossing without floating point? 
+    //                 The line: (x - x1) * dy = (y - y1) * dx.
+    //                 We are at a point on the line, but we want to know when we hit the next vertical or horizontal grid line.
+    //
+    //             Instead, we can use the following method (known as the "grid crossing" algorithm):
+    //                 Let current cell = (cur_x, cur_y)
+    //                 The current cell is [cur_x, cur_x+1) x [cur_y, cur_y+1)
+    //                 We are entering the cell from the bottom-left (or other side), but we don't track the entry side.
+    //                 Instead, we can compute the next vertical grid line: 
+    //                     If dx > 0: next vertical = cur_x + 1
+    //                     If dx < 0: next vertical = cur_x
+    //                 Similarly, next horizontal = 
+    //                     If dy > 0: next horizontal = cur_y + 1
+    //                     If dy < 0: next horizontal = cur_y
+    //
+    //                 Now, find the point on the line segment within the current cell that is closest to the next grid line.
+    //                 But we don't need the exact point, we only need to know which grid line is hit first.
+    //
+    //                 The time to hit the next vertical grid line: 
+    //                     t_v = (next_vertical - x1) * (double)1 / dx   -> but we avoid double.
+    //                 Instead, use fractions:
+    //                     The line: (x - x1) / dx = (y - y1) / dy = t.
+    //                     For vertical grid line at x = vx:
+    //                         t_v = (vx - x1) / dx   [but this is fractional]
+    //                     For horizontal grid line at y = vy:
+    //                         t_h = (vy - y1) / dy
+    //
+    //                 We want to compare t_v and t_h.
+    //                 Compare: (vx - x1) * dy  vs (vy - y1) * dx
+    //
+    //                 However, note: dx and dy might be negative. We can use absolute values? 
+    //                 Alternatively, we can work with the current cell and the direction.
+    //
+    //             Simpler: 
+    //                 We know the current cell, and we know the direction (sx = sign of dx, sy = sign of dy).
+    //                 The next vertical grid line is at x = cur_x + (sx>0 ? 1 : 0)  [but if sx>0, then next vertical is cur_x+1; if sx<0, then next vertical is cur_x (which is the left border)].
+    //                 Actually, the next vertical grid line in the direction of movement: 
+    //                     if sx > 0: next_x = cur_x + 1
+    //                     if sx < 0: next_x = cur_x
+    //                 Similarly, next_y = 
+    //                     if sy > 0: next_y = cur_y + 1
+    //                     if sy < 0: next_y = cur_y
+    //
+    //                 Now, the current position is at the bottom-left corner of the current cell? No, we are somewhere in the cell.
+    //                 But we don't know the exact position, but we can compute the "time" to the next grid line using the current cell's boundaries.
+    //
+    //                 However, we can use the following: 
+    //                     The next event is the minimum of the two times.
+    //                     Time to next vertical: (next_x - x) / vx, but we don't have x.
+    //
+    //             Alternative approach (efficient and exact with integers):
+    //                 Let’s assume we are moving from (x1,y1) to (x2,y2). We can scale the problem so that we work in a coordinate system where the movement is in the first quadrant.
+    //                 Steps:
+    //                     Let sx = (x2 >= x1) ? 1 : -1;
+    //                     Let sy = (y2 >= y1) ? 1 : -1;
+    //                     Let dx = abs(x2-x1), dy = abs(y2-y1);
+    //                     g = gcd(dx,dy);
+    //                     dx /= g; 
+    //                     dy /= g;   // now dx,dy are coprime.
+    //
+    //                 But wait, we don't want to lose the gcd for the total count? 
+    //                 total = g * (dx + dy - 1)  [because dx_reduced = dx/g, dy_reduced = dy/g, and total = g * (dx_reduced + dy_reduced - 1) = dx+dy-g]
+    //
+    //                 Now, the entire path has g segments. In each segment, the beetle moves (dx_reduced, dy_reduced) and the cells in one segment can be enumerated by a simple loop.
+    //                 Since n <= 10^5, we can iterate over segments and within a segment iterate until we reach the n-th cell.
+    //
+    //                 How to enumerate the cells in one segment (from lattice point (a,b) to (a+dx_reduced, b+dy_reduced))?
+    //                     The cells in this segment: 
+    //                         Start at (a, b) -> but the first cell after (a,b) is (a, b) if we are moving right and up? 
+    //                         Actually, as before: 
+    //                             if moving right and up: first cell = (a, b)
+    //                             if moving right and down: first cell = (a, b-1)
+    //                             if moving left and up: first cell = (a-1, b)
+    //                             if moving left and down: first cell = (a-1, b-1)
+    //                     But we have normalized to positive dx_reduced and dy_reduced in reduced form, but the actual movement might be in any quadrant.
+    //
+    //                 Instead, let's define the movement in terms of the reduced steps and the signs.
+    //
+    //                 We can do:
+    //                     Let cur_x = x1, cur_y = y1.
+    //                     We will simulate the entire path in g segments, but for the first n cells, we only need to simulate n steps.
+    //                     For each step (cell), we do:
+    //                         cells.push_back( (cur_x, cur_y) )   // but we only need the n-th, so we don't store
+    //                         Then, determine the next grid line:
+    //                             next_x = (dx_total > 0) ? cur_x + 1 : cur_x;
+    //                             next_y = (dy_total > 0) ? cur_y + 1 : cur_y;
+    //                         But we have to consider the current cell and the direction.
+    //
+    //                 Given the complexity, and since n is only up to 10^5, we can simulate cell by cell using integer arithmetic for the next crossing.
+    //
+    //                 Method for one step:
+    //                     We are in cell (cur_x, cur_y). 
+    //                     We know the line: (x - x1) * dy_total = (y - y1) * dx_total.
+    //                     We want to find the next vertical or horizontal grid line that we hit.
+    //                     The vertical grid lines are at integers x.
+    //                     The horizontal grid lines are at integers y.
+    //
+    //                     The next vertical grid line in the direction of movement:
+    //                         if dx_total > 0: next_v = cur_x + 1
+    //                         else: next_v = cur_x
+    //                     The next horizontal grid line:
+    //                         if dy_total > 0: next_h = cur_y + 1
+    //                         else: next_h = cur_y
+    //
+    //                     Now, find the smallest t>0 such that either:
+    //                         x1 + t * dx_total = next_v   OR   y1 + t * dy_total = next_h.
+    //                     => t_v = (next_v - x1) / dx_total
+    //                     => t_h = (next_h - y1) / dy_total
+    //
+    //                     Compare t_v and t_h: 
+    //                         t_v < t_h  => hit vertical first
+    //                         t_v > t_h  => hit horizontal first
+    //                         t_v == t_h => hit a lattice point (corner), then we change both x and y.
+    //
+    //                     But to avoid floating point, compare: 
+    //                         (next_v - x1) * dy_total  vs (next_h - y1) * dx_total
+    //
+    //                     However, note: dx_total and dy_total can be negative. We can use absolute values? 
+    //                     Instead, we can use:
+    //                         long long t_v_num = (next_v - x1) * dy_total;
+    //                         long long t_h_num = (next_h - y1) * dx_total;
+    //                     But this might overflow? dx_total, dy_total up to 2e6, and next_v-x1 up to 1e6, so product up to 2e12, which fits in long long (since 2e12 < 9e18).
+    //
+    //                     However, the problem says absolute values up to 10^6, so:
+    //                         dx_total = x2-x1, up to 2e6 in absolute value.
+    //                         next_v - x1: up to 1e6 in absolute value.
+    //                         So product: 2e6 * 2e6 = 4e12, which fits in long long (which is 64-bit, up to 9e18).
+    //
+    //                     Steps for one cell transition:
+    //                         next_v = (dx_total > 0) ? cur_x+1 : cur_x;
+    //                         next_h = (dy_total > 0) ? cur_y+1 : cur_y;
+    //                         long long val_v = (next_v - x1) * dy_total;
+    //                         long long val_h = (next_h - y1) * dx_total;
+    //                         if (val_v < val_h) {
+    //                             // hit vertical first
+    //                             cur_x = next_v;
+    //                             // cur_y remains the same
+    //                         } else if (val_v > val_h) {
+    //                             cur_y = next_h;
+    //                         } else {
+    //                             // hit corner: both
+    //                             cur_x = next_v;
+    //                             cur_y = next_h;
+    //                         }
+    //
+    //                     But wait: is this correct for the cell change?
+    //                         When we hit a vertical grid line, we move to the cell to the right (if dx>0) or left (if dx<0), so cur_x becomes next_v.
+    //                         Similarly for horizontal.
+    //                     However, in the case of hitting a corner, we move diagonally to the next cell, so both change.
+    //
+    //                     Let's test with sample: 
+    //                         x1=2, y1=3, x2=4, y2=-1 -> dx_total=2, dy_total=-4.
+    //                         First cell: 
+    //                             cur_x = ? We determined: 
+    //                                 for dx>0: next_v = cur_x+1, for dy<0: next_h = cur_y.
+    //                             But we need the starting cell: 
+    //                                 cur_x = 2, cur_y = 2 (as computed).
+    //                         Now, next_v = 2+1 = 3, next_h = 2 (because dy<0, so next_h = cur_y = 2).
+    //                         val_v = (3-2) * (-4) = 1 * (-4) = -4
+    //                         val_h = (2-3) * 2 = (-1)*2 = -2
+    //                         Compare: -4 < -2 -> so val_v < val_h -> hit vertical first? 
+    //                         But in reality, we hit the horizontal grid line y=2 first (at x=2.5).
+    //                         Why? because at y=2, x = 2 + (3-2)*(2/4) = 2+0.5 = 2.5, and at x=3, y=3-2*(1) = 1, which is later.
+    //                         So we should have hit horizontal first.
+    //
+    //                     The issue: the comparison should be done with positive denominators? 
+    //                         We want to compare (next_v - x1) / dx_total and (next_h - y1) / dy_total.
+    //                         But dx_total and dy_total have signs.
+    //                         Instead, we can use:
+    //                             t_v = (next_v - x1) / (double)dx_total;
+    //                         but we want to avoid double.
+    //
+    //                     Better: 
+    //                         The time to next vertical: t_v = (next_v - x1) / dx_total, but since dx_total>0, and next_v>x1, it's positive.
+    //                         For horizontal: t_h = (next_h - y1) / dy_total, but dy_total<0, and next_h < y1 (because next_h = cur_y = 2, and y1=3, so next_h - y1 = -1), so t_h = (-1)/(-4)=0.25.
+    //                         We want to compare t_v and t_h as positive numbers.
+    //                         So: 
+    //                             t_v = (3-2) / 2 = 0.5
+    //                             t_h = (2-3) / (-4) = (-1)/(-4)=0.25
+    //                         So t_h < t_v.
+    //
+    //                     How to compare without floating point and without sign issues?
+    //                         We can use: 
+    //                             t_v = (next_v - x1) * sign(dx_total) / |dx_total| -> but we want the actual time, which is positive.
+    //                         Instead, compare: 
+    //                             (next_v - x1) * |dy_total|  and (next_h - y1) * |dx_total| 
+    //                         but wait, the time t_v = (next_v - x1) / dx_total, and if dx_total>0, then it's positive, if dx_total<0, then (next_v-x1) is negative, so t_v is positive.
+    //                         Actually, t_v = (next_v - x1) / dx_total, and this is positive.
+    //                         Similarly, t_h = (next_h - y1) / dy_total is positive.
+    //                         So to compare t_v and t_h: 
+    //                             (next_v - x1) * dy_total  vs (next_h - y1) * dx_total 
+    //                         but note: dy_total is negative, dx_total is positive.
+    //                         In the example: 
+    //                             (3-2) * (-4) = -4
+    //                             (2-3) * 2 = -2
+    //                         and -4 < -2, but t_v = 0.5, t_h=0.25, and 0.5>0.25, so we want to know that t_v > t_h.
+    //                         So if (next_v - x1) * dy_total > (next_h - y1) * dx_total, then t_v > t_h.
+    //                         But in the example: -4 < -2, and t_v > t_h.
+    //                         So the inequality flips because dy_total is negative.
+    //
+    //                     Alternatively, we can use absolute values for the denominators by taking the absolute movement.
+    //                         Let adx = abs(dx_total), ady = abs(dy_total).
+    //                         next_v: if dx_total>0, next_v = cur_x+1; if dx_total<0, next_v = cur_x.
+    //                         next_h: if dy_total>0, next_h = cur_y+1; if dy_total<0, next_h = cur_y.
+    //                         The distance to next vertical in terms of the reduced step: 
+    //                             For vertical: the horizontal distance to next_v is (next_v - x1) if dx_total>0, or (x1 - next_v) if dx_total<0 -> but we want the actual distance in the direction of movement.
+    //                         Actually, the time to next vertical is: 
+    //                             d_v = (next_v - x1) / dx_total   [this is a positive number]
+    //                         But to avoid negative, we can do:
+    //                             d_v = abs(next_v - x1) / adx;
+    //                         However, next_v - x1 might be negative, but in absolute value it's the distance.
+    //                         So: 
+    //                             d_v = abs(next_v - x1) * ady;
+    //                             d_h = abs(next_h - y1) * adx;
+    //                         and then compare d_v and d_h.
+    //                         Why? because d_v / (adx * ady) = time, so comparing d_v and d_h is the same as comparing the times.
+    //
+    //                     In the example:
+    //                         next_v = 3, x1=2, so abs(3-2)=1, ady=4, so d_v=1*4=4.
+    //                         next_h = 2, y1=3, so abs(2-3)=1, adx=2, so d_h=1*2=2.
+    //                         d_v=4 > d_h=2, so time to horizontal is smaller.
+    //
+    //                     So algorithm for one step:
+    //                         long long adx = abs(x2-x1), ady = abs(y2-y1);
+    //                         long long next_v, next_h;
+    //                         if (x2 >= x1) {
+    //                             next_v = cur_x + 1;
+    //                         } else {
+    //                             next_v = cur_x;
+    //                         }
+    //                         if (y2 >= y1) {
+    //                             next_h = cur_y + 1;
+    //                         } else {
+    //                             next_h = cur_y;
+    //                         }
+    //                         long long dv = abs(next_v - x1) * ady;
+    //                         long long dh = abs(next_h - y1) * adx;
+    //                         if (dv < dh) {
+    //                             // vertical first
+    //                             cur_x = next_v;
+    //                         } else if (dv > dh) {
+    //                             // horizontal first
+    //                             cur_y = next_h;
+    //                         } else {
+    //                             // corner
+    //                             cur_x = next_v;
+    //                             cur_y = next_h;
+    //                         }
+    //
+    //                     Let's test the first step in the sample:
+    //                         cur_x=2, cur_y=2.
+    //                         next_v = 3 (since x2>=x1), next_h = 2 (since y2<y1).
+    //                         dv = |3-2| * 4 = 4
+    //                         dh = |2-3| * 2 = 2
+    //                         dv > dh -> so we do cur_y = next_h = 2? -> but next_h is 2, and cur_y is 2, so it remains 2? 
+    //                         But we should move to cell (2,1) -> so cur_y should become 1.
+    //
+    //                     Ah, I see: next_h for horizontal when moving down should be the next horizontal grid line below, which is y=2 (since we are in cell y=2, the bottom border is y=2, and the next cell down has y in [1,2), so the grid line is y=2, and when we cross y=2 downward, we enter the cell with cur_y = 2-1 = 1.
+    //                     But in our representation, the current cell is [cur_x, cur_x+1) x [cur_y, cur_y+1), so the cell below has bottom-left y = cur_y - 1.
+    //                     Therefore, when we cross a horizontal grid line downward, we set cur_y = cur_y - 1.
+    //                     Similarly, if we cross upward, cur_y = cur_y + 1.
+    //                     But in the algorithm above, we set next_h = cur_y (for downward move), and then when we cross, we set cur_y = next_h? 
+    //                     That would be cur_y = 2, but we want cur_y = 1.
+    //
+    //                     Correction: 
+    //                         The next cell after crossing a horizontal grid line downward: 
+    //                             if we were in cell (i,j) and we cross the horizontal grid line y=j downward, then we enter cell (i, j-1).
+    //                         So the new cur_y should be j-1.
+    //                         How do we compute j-1? 
+    //                             j = cur_y, and next_h = j (the grid line at y=j), and after crossing, the new cell's y = j-1.
+    //                         So when we cross horizontal grid line at y=j, we set cur_y = j-1.
+    //                         But j = next_h, so cur_y = next_h - 1.
+    //
+    //                     Similarly, for vertical grid line at x=i, if moving right, we set cur_x = i (which is cur_x+1), and that is correct.
+    //                         But if moving left, and we cross x=i (which is the current cell's left border), then the new cell's x = i-1, and next_v = i (the grid line), so new cur_x = next_v - 1.
+    //
+    //                     So:
+    //                         If dx_total > 0: 
+    //                             next_v = cur_x + 1, and when we cross it, new cur_x = next_v (which is cur_x+1) -> correct.
+    //                         If dx_total < 0:
+    //                             next_v = cur_x, and when we cross it, new cur_x = next_v - 1.
+    //                         If dy_total > 0:
+    //                             next_h = cur_y + 1, and new cur_y = next_h.
+    //                         If dy_total < 0:
+    //                             next_h = cur_y, and new cur_y = next_h - 1.
+    //
+    //                     Therefore, after computing next_v and next_h, we can do:
+    //                         long long new_x = cur_x, new_y = cur_y;
+    //                         if (dv <= dh) { // if tie, do both
+    //                             if (x2 >= x1) {
+    //                                 new_x = next_v;
+    //                             } else {
+    //                                 new_x = next_v - 1;
+    //                             }
+    //                         }
+    //                         if (dh <= dv) {
+    //                             if (y2 >= y1) {
+    //                                 new_y = next_h;
+    //                             } else {
+    //                                 new_y = next_h - 1;
+    //                             }
+    //                         }
+    //                         cur_x = new_x;
+    //                         cur_y = new_y;
+    //
+    //                     Let's test first step:
+    //                         cur_x=2, cur_y=2.
+    //                         next_v = 3 (since x2>=x1), next_h = 2 (since y2<y1).
+    //                         dv = 4, dh = 2 -> dh < dv.
+    //                         So only the horizontal condition is triggered: 
+    //                             y2<y1 -> so new_y = next_h - 1 = 2-1 = 1.
+    //                         Then cur_x remains 2, cur_y becomes 1.
+    //                         So cell (2,1) -> correct for the second cell.
+    //
+    //                     Second step:
+    //                         cur_x=2, cur_y=1.
+    //                         next_v = 3, next_h = 1 (because dy<0, so next_h = cur_y = 1).
+    //                         dv = |3-2| * 4 = 4
+    //                         dh = |1-3| * 2 = 2*2=4
+    //                         dv==dh -> so both conditions.
+    //                         For x: x2>=x1 -> new_x = 3.
+    //                         For y: y2<y1 -> new_y = 1-1 = 0.
+    //                         So cell (3,0) -> which is the third cell -> correct.
+    //
+    //                     Third step:
+    //                         cur_x=3, cur_y=0.
+    //                         next_v = 4, next_h = 0.
+    //                         dv = |4-2| * 4 = 8
+    //                         dh = |0-3| * 2 = 6
+    //                         dh < dv, so only horizontal: new_y = 0-1 = -1.
+    //                         So cell (3,-1).
+    //
+    //                     So it works.
+    //
+    //                 Steps for the algorithm:
+    //                     Read x1,y1,x2,y2,n.
+    //                     dx_total = x2 - x1, dy_total = y2 - y1.
+    //                     adx = abs(dx_total), ady = abs(dy_total).
+    //                     g = gcd(adx, ady);
+    //                     total = adx + ady - g;
+    //                     if (n > total) {
+    //                         cout << "no solution" << endl;
+    //                         return 0;
+    //                     }
+    //
+    //                     // Determine the first cell
+    //                     long long cur_x, cur_y;
+    //                     if (dx_total > 0) {
+    //                         cur_x = x1;
+    //                     } else if (dx_total < 0) {
+    //                         cur_x = x1 - 1;
+    //                     } else {
+    //                         // dx_total==0, then no horizontal movement, but then total=0, so we wouldn't get here if n>=1.
+    //                         cur_x = x1;
+    //                     }
+    //                     if (dy_total > 0) {
+    //                         cur_y = y1;
+    //                     } else if (dy_total < 0) {
+    //                         cur_y = y1 - 1;
+    //                     } else {
+    //                         cur_y = y1;
+    //                     }
+    //
+    //                     // But if the move is axis-aligned, total=0, so we already returned "no solution", so we assume total>0.
+    //
+    //                     // If n==1, output (cur_x, cur_y)
+    //                     if (n == 1) {
+    //                         cout << cur_x << " " << cur_y << endl;
+    //                         return 0;
+    //                     }
+    //
+    //                     // For i from 2 to n:
+    //                     for (long long i = 2; i <= n; i++) {
+    //                         long long next_v, next_h;
+    //                         if (dx_total > 0) {
+    //                             next_v = cur_x + 1;
+    //                         } else {
+    //                             next_v = cur_x;
+    //                         }
+    //                         if (dy_total > 0) {
+    //                             next_h = cur_y + 1;
+    //                         } else {
+    //                             next_h = cur_y;
+    //                         }
+    //
+    //                         long long dv = abs(next_v - x1) * ady;
+    //                         long long dh = abs(next_h - y1) * adx;
+    //
+    //                         long long new_x = cur_x, new_y = cur_y;
+    //                         if (dv <= dh) {
+    //                             if (dx_total > 0) {
+    //                                 new_x = next_v;
+    //                             } else {
+    //                                 new_x = next_v - 1;
+    //                             }
+    //                         }
+    //                         if (dh <= dv) {
+    //                             if (dy_total > 0) {
+    //                                 new_y = next_h;
+    //                             } else {
+    //                                 new_y = next_h - 1;
+    //                             }
+    //                         }
+    //                         cur_x = new_x;
+    //                         cur_y = new_y;
+    //                     }
+    //                     cout << cur_x << " " << cur_y << endl;
+    //
+    //                 However, note: the gcd computation for adx and ady: 
+    //                     We need g = gcd(adx, ady) for total, but the loop doesn't use g, so it's fine.
+    //
+    //                 But worst-case n=10^5, and the loop runs 10^5 times, which is acceptable in C++ (0.25 seconds).
+    //
+    //                 Let me test with the sample: n=3 -> we do 2 iterations (for i=2 and i=3).
+    //
+    //                 However, note: the problem says the coordinates can be negative, but our abs and comparisons should handle it.
+    //
+    //                 But what if dx_total=0 or dy_total=0? 
+    //                     We already handled: total = adx+ady - g, and if dx_total=0, then adx=0, g=ady, so total=0+ady-ady=0, so we return "no solution" for n>=1.
+    //                     Similarly for dy_total=0.
+    //                 So in the simulation part, we only get here if total>0, which implies both dx_total and dy_total are nonzero.
+    //
+    //                 Therefore, we can assume dx_total!=0 and dy_total!=0.
+    //
+    //     However, there is a caveat: the gcd function for (0, a) is |a|, but we avoid that by the total=0 check.
+    //
+    //     Let's code accordingly.
+    //
+    //     But note: the problem says "All coordinates are not greater than 10^6 by its absolute values", and n<=10^5.
+    //
+    //     One more test: (0,0) to (2,1), n=1 -> (0,0); n=2 -> (1,0)
+    //         x1=0,y1=0,x2=2,y2=1.
+    //         dx_total=2, dy_total=1, adx=2, ady=1, g=gcd(2,1)=1, total=2+1-1=2.
+    //         First cell: 
+    //             dx>0 -> cur_x=0, dy>0 -> cur_y=0.
+    //         n=1: (0,0) -> correct.
+    //         n=2: 
+    //             i=2:
+    //                 next_v = 0+1=1, next_h=0+1=1.
+    //                 dv = |1-0| * 1 = 1
+    //                 dh = |1-0| * 2 = 2
+    //                 dv < dh -> so x: new_x = 1; y: dh>dv -> not triggered, so new_y=0.
+    //                 So (1,0) -> correct.
+    //
+    //     Another test: (0,0) to (1,1), n=1: (0,0), n=2: 
+    //         dx=1, dy=1, total=1+1-1=1 -> so n=2 is "no solution", but wait: 
+    //             total=1, so n=2 is invalid.
+    //         So only n=1 is valid.
+    //         The segment from (0,0) to (1,1) passes through only one cell: (0,0) (the cell [0,1)x[0,1)).
+    //         So for n=1: (0,0), for n=2: no solution.
+    //
+    //     Therefore, the algorithm is correct.
+    //
+    //     Code:
+    //         We assume that if total==0, then no solution for any n>=1.
+    //         We compute g = gcd(adx, ady) (with adx, ady nonnegative).
+    //
+    //     Note: gcd for nonnegative numbers.
+    //
+    //     Let's write the gcd function (iterative to avoid stack overflow, but n is small for gcd, so recursive is fine, but iterative is safer).
+    //
+    //     However, the problem constraints are small for gcd (numbers up to 2e6), so recursion depth is about 20, but we do iterative to be safe.
+    //
+    //     Implementation:
+    //         long long gcd(long long a, long long b) {
+    //             a = abs(a); b = abs(b);
+    //             while (b) {
+    //                 long long t = b;
+    //                 b = a % b;
+    //                 a = t;
+    //             }
+    //             return a;
+    //         }
+    //
+    //     But note: if a and b are 0, but in our case, if the move is zero vector, but the problem says x1,y1,x2,y2, and n>=1, and the beetle travels, so probably not zero vector. 
+    //     However, if x1==x2 and y1==y2, then dx=0, dy=0, then total=0, so we output "no solution".
+    //
+    //     So we are safe.
+    //
+    //     Let's code accordingly.
+    //
+    //     Edge: n=1.
+    //
+    //     Note: The problem says "If such cell doesn't exist then write 'no solution'", and we check n>total.
+    //
+    //     We'll do:
+    //         if (n > total) -> "no solution"
+    //
+    //     But note: total might be 0, and n>=1, so n>0 -> then "no solution".
+    //
+    //     Let's code.
+    
+    long long x1_in, y1_in, x2_in, y2_in, n_in;
+    cin >> x1_in >> y1_in >> x2_in >> y2_in >> n_in;
+    
+    long long dx = x2_in - x1_in;
+    long long dy = y2_in - y1_in;
+    
+    long long adx = abs(dx);
+    long long ady = abs(dy);
+    
+    // Compute gcd of adx and ady
+    long long a = adx, b = ady;
+    while (b != 0) {
+        long long t = b;
+        b = a % b;
+        a = t;
+    }
+    long long g = a;
+    
+    long long total = adx + ady - g;
+    
+    if (n_in > total) {
+        cout << "no solution" << endl;
+        return 0;
+    }
+    
+    // Determine the first cell
+    long long cur_x, cur_y;
+    if (dx > 0) {
+        cur_x = x1_in;
+    } else if (dx < 0) {
+        cur_x = x1_in - 1;
+    } else {
+        cur_x = x1_in; // dx==0, but then total=0, so we shouldn't be here, but for safety
+    }
+    
+    if (dy > 0) {
+        cur_y = y1_in;
+    } else if (dy < 0) {
+        cur_y = y1_in - 1;
+    } else {
+        cur_y = y1_in;
+    }
+    
+    if (n_in == 1) {
+        cout << cur_x << " " << cur_y << endl;
+        return 0;
+    }
+    
+    // We'll iterate for n_in-1 steps (to get the n_in-th cell, starting from the first cell which is n=1)
+    for (long long i = 2; i <= n_in; i++) {
+        long long next_v, next_h;
+        if (dx > 0) {
+            next_v = cur_x + 1;
+        } else {
+            next_v = cur_x;
+        }
+        if (dy > 0) {
+            next_h = cur_y + 1;
+        } else {
+            next_h = cur_y;
+        }
+        
+        // Compute dv and dh for comparison: 
+        //   dv = |next_v - x1_in| * ady
+        //   dh = |next_h - y1_in| * adx
+        long long dv = abs(next_v - x1_in) * ady;
+        long long dh = abs(next_h - y1_in) * adx;
+        
+        long long new_x = cur_x;
+        long long new_y = cur_y;
+        
+        if (dv <= dh) {
+            if (dx > 0) {
+                new_x = next_v;
+            } else {
+                new_x = next_v - 1;
+            }
+        }
+        if (dh <= dv) {
+            if (dy > 0) {
+                new_y = next_h;
+            } else {
+                new_y = next_h - 1;
+            }
+        }
+        
+        cur_x = new_x;
+        cur_y = new_y;
+    }
+    
+    cout << cur_x << " " << cur_y << endl;
+    
+    return 0;
+}
