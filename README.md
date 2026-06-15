@@ -18,11 +18,14 @@ The problem statements and reference solutions come from the
 
 ```bash
 pip install sgu-bench          # add [openai] or [anthropic] for the examples
-python -m sgu_bench fetch      # one-time: download the test data (~300 MB)
 ```
 
-You also need a C++ compiler (`g++` or `clang++`) on PATH. The sandbox is
-POSIX-only (Linux/macOS).
+That's it. The benchmark data (~310 MB) downloads automatically the first time
+you use it, into `~/.cache/sgu-bench` (override with `$SGU_BENCH_HOME`). You can
+also pre-fetch explicitly with `python -m sgu_bench fetch`.
+
+You need a C++ compiler (`g++` or `clang++`) on PATH. The sandbox is POSIX-only
+(Linux/macOS).
 
 ## Connect your inference
 

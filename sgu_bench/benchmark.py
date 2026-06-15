@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Callable, List, Sequence, Union
 
 from . import paths
+from .fetch import ensure_data
 from .judge import Evaluation, evaluate as _evaluate_source
 
 Solver = Callable[[str], str]
@@ -60,14 +61,19 @@ _SUFFIX = {"cpp": ".cpp", "py": ".py"}
 
 
 class Benchmark:
-    def __init__(self, data_root: Union[str, Path, None] = None):
+    def __init__(self, data_root: Union[str, Path, None] = None, auto_fetch: bool = True):
         if data_root is not None:
             import os
 
             os.environ["SGU_BENCH_DATA"] = str(data_root)
-        self.problems_dir = paths.problems_dir()
+        self.auto_fetch = auto_fetch
+
+    @property
+    def problems_dir(self) -> Path:
+        return paths.problems_dir()
 
     def problem_ids(self) -> List[str]:
+        self._ensure_tests()
         ids = [
             d.name
             for d in self.problems_dir.iterdir()
@@ -76,6 +82,7 @@ class Benchmark:
         return sorted(ids, key=lambda s: int(s[1:]))
 
     def statement(self, pid: str) -> str:
+        self._ensure_tests()
         return (self.problems_dir / pid / "statement.txt").read_text(
             errors="replace"
         )
@@ -88,7 +95,11 @@ class Benchmark:
         return list(problems)
 
     def _ensure_tests(self):
-        if not paths.tests_present():
+        if paths.tests_present():
+            return
+        if self.auto_fetch:
+            ensure_data()  # downloads + unpacks on first use
+        else:
             raise RuntimeError(
                 "test data not found — run `python -m sgu_bench fetch` "
                 "(or call sgu_bench.fetch_tests()) to download it."

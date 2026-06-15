@@ -1,8 +1,9 @@
-"""Download and unpack the test data.
+"""Download and unpack the benchmark data (auto, on first use).
 
-The ~1.1 GB of generated tests (~300 MB gzipped) are not stored in git; they
-ship as a GitHub Release asset and are unpacked into ``problems/*/tests/`` on
-demand. Override the source with ``SGU_BENCH_TESTS_URL``.
+The full problems/ tree (metadata + ~1.1 GB of tests, ~310 MB gzipped) is not
+in git; it ships as a single GitHub Release tarball and is unpacked into the
+data root the first time the benchmark is used. Override the source with
+``$SGU_BENCH_TESTS_URL``.
 """
 
 import os
@@ -24,32 +25,38 @@ def tests_url() -> str:
     return os.environ.get("SGU_BENCH_TESTS_URL", DEFAULT_TESTS_URL)
 
 
-def _report(done, total):
-    if total > 0:
-        pct = done * 100 // total
-        mb = done / 1048576
-        sys.stderr.write(f"\r  downloading tests: {pct}% ({mb:.0f} MB)")
-        sys.stderr.flush()
+def _progress(done, total):
+    mb = done / 1048576
+    if total and total > 0:
+        sys.stderr.write(f"\r  downloading data: {done * 100 // total}% ({mb:.0f} MB)")
+    else:
+        sys.stderr.write(f"\r  downloading data: {mb:.0f} MB")
+    sys.stderr.flush()
 
 
 def fetch_tests(force: bool = False, url: str | None = None) -> Path:
-    """Download the test tarball and extract it into the data root."""
+    """Download the data tarball and extract it into the data root.
+
+    No-op (returns immediately) if the data is already present and not forced.
+    """
     root = data_root()
     if tests_present() and not force:
         return root / "problems"
 
     url = url or tests_url()
-    print(f"Fetching test data from {url}", file=sys.stderr)
-    with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
-
-    def hook(block, block_size, total):
-        _report(block * block_size, total)
-
+    root.mkdir(parents=True, exist_ok=True)
+    print(
+        f"sgu-bench: downloading benchmark data (~310 MB, one-time) into {root}",
+        file=sys.stderr,
+    )
+    print(f"  source: {url}", file=sys.stderr)
+    tmp_path = Path(tempfile.mkstemp(suffix=".tar.gz")[1])
     try:
-        urllib.request.urlretrieve(url, tmp_path, reporthook=hook)
+        urllib.request.urlretrieve(
+            url, tmp_path, reporthook=lambda b, bs, t: _progress(b * bs, t)
+        )
         sys.stderr.write("\n")
-        print("Extracting...", file=sys.stderr)
+        print("  extracting...", file=sys.stderr)
         with tarfile.open(tmp_path, "r:gz") as tar:
             tar.extractall(root)
     finally:
@@ -57,8 +64,14 @@ def fetch_tests(force: bool = False, url: str | None = None) -> Path:
 
     if not tests_present():
         raise RuntimeError(
-            "test data did not unpack as expected; check the tarball layout "
-            "(it must contain problems/pNNN/tests/*.in)"
+            "data did not unpack as expected; the tarball must contain "
+            "problems/pNNN/tests/*.in (and the problem metadata)."
         )
-    print(f"Test data ready under {root / 'problems'}", file=sys.stderr)
+    print(f"  ready: {root / 'problems'}", file=sys.stderr)
     return root / "problems"
+
+
+def ensure_data():
+    """Make sure the benchmark data is available, downloading if needed."""
+    if not tests_present():
+        fetch_tests()
