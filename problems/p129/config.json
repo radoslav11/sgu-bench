@@ -1,0 +1,22 @@
+{
+    "id": "p129",
+    "title": "Inheritance",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 4096,
+    "checker": "float:0.01",
+    "reference": "problems/p129/p129.cpp",
+    "second_oracle": "problems/p129/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

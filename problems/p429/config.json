@@ -1,0 +1,20 @@
+{
+    "id": "p429",
+    "title": "Problem Stacks",
+    "source_time_limit": 0.5,
+    "time_limit": 2.0,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p429/p429.cpp",
+    "second_oracle": "problems/p429/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

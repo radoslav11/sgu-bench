@@ -1,0 +1,22 @@
+{
+    "id": "p301",
+    "title": "Boring. Hot. Summer...",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p301/p301.cpp",
+    "second_oracle": "problems/p301/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

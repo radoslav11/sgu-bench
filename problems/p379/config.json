@@ -1,0 +1,22 @@
+{
+    "id": "p379",
+    "title": "Elevator",
+    "source_time_limit": 0.75,
+    "time_limit": 3.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p379/p379.cpp",
+    "second_oracle": "problems/p379/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

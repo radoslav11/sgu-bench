@@ -1,0 +1,22 @@
+{
+    "id": "p533",
+    "title": "Dice Tower",
+    "source_time_limit": 1.0,
+    "time_limit": 1.0,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p533/p533.cpp",
+    "second_oracle": "problems/p533/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

@@ -1,0 +1,22 @@
+{
+    "id": "p452",
+    "title": "Colony Maintenance",
+    "source_time_limit": 0.75,
+    "time_limit": 3.0,
+    "memory_kb": 262144,
+    "checker": "float:1e-8",
+    "reference": "problems/p452/p452.cpp",
+    "second_oracle": "problems/p452/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

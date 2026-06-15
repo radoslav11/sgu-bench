@@ -1,0 +1,22 @@
+{
+    "id": "p412",
+    "title": "Expedition",
+    "source_time_limit": 0.75,
+    "time_limit": 3.0,
+    "memory_kb": 65536,
+    "checker": "float:1e-6",
+    "reference": "problems/p412/p412.cpp",
+    "second_oracle": "problems/p412/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

@@ -1,0 +1,21 @@
+{
+    "id": "p275",
+    "title": "To xor or not to xor",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p275/p275.cpp",
+    "second_oracle": "problems/p275/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+    ]
+}

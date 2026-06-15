@@ -1,0 +1,22 @@
+{
+    "id": "p417",
+    "title": "Heavy Disc",
+    "source_time_limit": 0.5,
+    "time_limit": 2.0,
+    "memory_kb": 262144,
+    "checker": "float:1e-12",
+    "reference": "problems/p417/p417.cpp",
+    "second_oracle": "problems/p417/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

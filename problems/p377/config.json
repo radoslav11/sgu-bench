@@ -1,0 +1,20 @@
+{
+    "id": "p377",
+    "title": "The Lesson of Physical Culture",
+    "source_time_limit": 0.75,
+    "time_limit": 3.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p377/p377.cpp",
+    "second_oracle": "problems/p377/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

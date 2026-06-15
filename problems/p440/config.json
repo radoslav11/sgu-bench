@@ -1,0 +1,22 @@
+{
+    "id": "p440",
+    "title": "Moles and Holes",
+    "source_time_limit": 2.25,
+    "time_limit": 9.0,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p440/p440.cpp",
+    "second_oracle": null,
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

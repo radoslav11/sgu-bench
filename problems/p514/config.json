@@ -1,0 +1,22 @@
+{
+    "id": "p514",
+    "title": "Polygon",
+    "source_time_limit": 1.25,
+    "time_limit": 5.0,
+    "memory_kb": 262144,
+    "checker": "float:1e-6",
+    "reference": "problems/p514/p514.cpp",
+    "second_oracle": "problems/p514/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

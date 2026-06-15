@@ -1,0 +1,24 @@
+{
+    "id": "p170",
+    "title": "Particles",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 4096,
+    "checker": "diff",
+    "reference": "problems/p170/p170.cpp",
+    "second_oracle": "problems/p170/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+    ]
+}

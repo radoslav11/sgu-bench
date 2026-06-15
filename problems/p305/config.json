@@ -1,0 +1,20 @@
+{
+    "id": "p305",
+    "title": "Exhibition",
+    "source_time_limit": 0.75,
+    "time_limit": 3.0,
+    "memory_kb": 65536,
+    "checker": "custom",
+    "reference": "problems/p305/p305.cpp",
+    "second_oracle": "problems/p305/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

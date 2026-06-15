@@ -1,0 +1,22 @@
+{
+    "id": "p192",
+    "title": "RGB",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 4096,
+    "checker": "float:1e-2",
+    "reference": "problems/p192/p192.cpp",
+    "second_oracle": "problems/p192/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

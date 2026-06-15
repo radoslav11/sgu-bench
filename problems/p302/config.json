@@ -1,0 +1,21 @@
+{
+    "id": "p302",
+    "title": "BHTML 1.0",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p302/p302.cpp",
+    "second_oracle": "problems/p302/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+    ]
+}

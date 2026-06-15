@@ -1,0 +1,21 @@
+{
+    "id": "p407",
+    "title": "Number of Paths in the Empire",
+    "source_time_limit": 0.75,
+    "time_limit": 3.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p407/p407.cpp",
+    "second_oracle": "problems/p407/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+    ]
+}

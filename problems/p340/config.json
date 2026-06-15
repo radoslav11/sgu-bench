@@ -1,0 +1,22 @@
+{
+    "id": "p340",
+    "title": "TeX2HTML",
+    "source_time_limit": 0.5,
+    "time_limit": 2.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p340/p340.cpp",
+    "second_oracle": "problems/p340/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

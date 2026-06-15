@@ -1,0 +1,24 @@
+{
+    "id": "p348",
+    "title": "Twisting the Number",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p348/p348.cpp",
+    "second_oracle": "problems/p348/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+    ]
+}

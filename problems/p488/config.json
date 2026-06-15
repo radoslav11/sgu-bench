@@ -1,0 +1,22 @@
+{
+    "id": "p488",
+    "title": "Dales and Hills",
+    "source_time_limit": 0.5,
+    "time_limit": 4.5,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p488/p488.cpp",
+    "second_oracle": "problems/p488/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

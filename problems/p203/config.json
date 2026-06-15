@@ -1,0 +1,20 @@
+{
+    "id": "p203",
+    "title": "Hyperhuffman",
+    "source_time_limit": 0.25,
+    "time_limit": 2.25,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p203/p203.cpp",
+    "second_oracle": "problems/p203/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

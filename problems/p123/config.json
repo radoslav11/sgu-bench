@@ -1,0 +1,18 @@
+{
+    "id": "p123",
+    "title": "The sum",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 4096,
+    "checker": "diff",
+    "reference": "problems/p123/p123.cpp",
+    "second_oracle": "problems/p123/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+    ]
+}

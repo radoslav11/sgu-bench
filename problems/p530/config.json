@@ -1,0 +1,20 @@
+{
+    "id": "p530",
+    "title": "Recruiting",
+    "source_time_limit": 1.0,
+    "time_limit": 4.0,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p530/p530.cpp",
+    "second_oracle": "problems/p530/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

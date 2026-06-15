@@ -1,0 +1,20 @@
+{
+    "id": "p524",
+    "title": "Buoys",
+    "source_time_limit": 0.5,
+    "time_limit": 2.0,
+    "memory_kb": 262144,
+    "checker": "custom",
+    "reference": "problems/p524/p524.cpp",
+    "second_oracle": "problems/p524/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

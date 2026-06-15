@@ -1,0 +1,20 @@
+{
+    "id": "p352",
+    "title": "Beerland Attacks",
+    "source_time_limit": 0.5,
+    "time_limit": 2.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p352/p352.cpp",
+    "second_oracle": "problems/p352/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

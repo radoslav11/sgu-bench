@@ -1,0 +1,9 @@
+# Test data is shipped as a GitHub Release artifact, fetched on demand.
+problems/*/tests/
+
+__pycache__/
+*.pyc
+.DS_Store
+build/
+dist/
+*.egg-info/

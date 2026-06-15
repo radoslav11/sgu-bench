@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sgu-bench"
+version = "0.1.0"
+description = "An offline, verifiable benchmark of 452 ACM SGU competitive-programming problems for LLMs and agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Radoslav Dimitrov" }]
+keywords = ["benchmark", "competitive-programming", "llm", "evaluation", "codegen"]
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.40"]
+
+[project.urls]
+Homepage = "https://github.com/radoslav11/sgu-bench"
+Dataset = "https://github.com/radoslav11/acm-sgu"
+
+[project.scripts]
+sgu-bench = "sgu_bench.__main__:main"
+
+[tool.setuptools]
+packages = ["sgu_bench"]
+
+[tool.setuptools.package-data]
+sgu_bench = []

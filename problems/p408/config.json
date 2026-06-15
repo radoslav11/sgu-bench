@@ -1,0 +1,20 @@
+{
+    "id": "p408",
+    "title": "Game with points",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "float:1e-3",
+    "reference": "problems/p408/p408.cpp",
+    "second_oracle": "problems/p408/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

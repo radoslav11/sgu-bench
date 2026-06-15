@@ -1,0 +1,22 @@
+{
+    "id": "p387",
+    "title": "Lazy Judges",
+    "source_time_limit": 1.5,
+    "time_limit": 6.0,
+    "memory_kb": 262144,
+    "checker": "float:1e-9",
+    "reference": "problems/p387/p387.cpp",
+    "second_oracle": "problems/p387/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

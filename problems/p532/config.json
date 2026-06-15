@@ -1,0 +1,20 @@
+{
+    "id": "p532",
+    "title": "Building Foundation",
+    "source_time_limit": 1.5,
+    "time_limit": 6.0,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p532/p532.cpp",
+    "second_oracle": "problems/p532/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

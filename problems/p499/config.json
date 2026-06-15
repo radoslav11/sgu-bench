@@ -1,0 +1,20 @@
+{
+    "id": "p499",
+    "title": "Greatest Greatest Common Divisor",
+    "source_time_limit": 0.5,
+    "time_limit": 3.5,
+    "memory_kb": 262144,
+    "checker": "diff",
+    "reference": "problems/p499/p499.cpp",
+    "second_oracle": "problems/p499/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

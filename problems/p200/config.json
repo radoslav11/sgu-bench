@@ -1,0 +1,20 @@
+{
+    "id": "p200",
+    "title": "Cracking RSA",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "diff",
+    "reference": "problems/p200/p200.cpp",
+    "second_oracle": "problems/p200/oracle.cpp",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]
+}

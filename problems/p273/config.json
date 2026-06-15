@@ -1,0 +1,22 @@
+{
+    "id": "p273",
+    "title": "Game Po",
+    "source_time_limit": 0.5,
+    "time_limit": 2.0,
+    "memory_kb": 65536,
+    "checker": "custom",
+    "reference": "problems/p273/p273.cpp",
+    "second_oracle": "problems/p273/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
+}

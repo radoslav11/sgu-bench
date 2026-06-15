@@ -1,0 +1,21 @@
+{
+    "id": "p315",
+    "title": "The Highway Belt",
+    "source_time_limit": 0.25,
+    "time_limit": 1.0,
+    "memory_kb": 65536,
+    "checker": "float:1e-5",
+    "reference": "problems/p315/p315.cpp",
+    "second_oracle": "problems/p315/oracle.py",
+    "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+    ]
+}
