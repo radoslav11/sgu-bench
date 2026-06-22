@@ -38,7 +38,7 @@ def solver(statement: str) -> str:      # <- your model / agent
     return my_model_generate_cpp(statement)
 
 report = bench.evaluate(solver, problems="all")   # or ["p100", "p172", ...]
-print(report)                                      # solved N/452 + verdict breakdown
+print(report)                                     # solved N/452 + verdict breakdown
 ```
 
 That's the whole integration surface. `solver` is any callable returning C++
